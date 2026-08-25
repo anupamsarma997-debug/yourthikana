@@ -330,8 +330,10 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
           propertyName: title,
           propertyType,
           city,
+          state: stateName,
+          address,
           keyFeatures: nearbyAttractions,
-          amenities: ['Free WiFi', 'Home Cooked Food', 'Mountain View', 'Hot Water'],
+          amenities: ['Free WiFi', 'Local Meals', 'Scenic View', 'Hot Water'],
         }),
       });
 
@@ -410,9 +412,14 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       .filter((s) => s.length > 0);
 
     const user = store.getCurrentUser();
+    const isAuthenticHost = Boolean(
+      user && 
+      user.id !== 'customer_1' && 
+      (user.role === 'owner' || user.role === 'admin' || user.googleEmail || user.googleUid)
+    );
 
-    if (!user) {
-      setFormError('⚠️ Please sign in with Google or Email to list your property.');
+    if (!isAuthenticHost) {
+      setFormError('🔒 Please sign in with Google or your Host account to list your property.');
       setPendingAction(() => () => {
         const fakeEvt = { preventDefault: () => {} } as React.FormEvent;
         handleSaveProperty(fakeEvt);

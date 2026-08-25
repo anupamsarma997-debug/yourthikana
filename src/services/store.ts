@@ -145,6 +145,11 @@ function sanitizeUserForFirestore(user: User) {
   };
 }
 
+function sanitizeForFirestore<T>(obj: T): any {
+  if (obj === null || obj === undefined) return null;
+  return JSON.parse(JSON.stringify(obj));
+}
+
 // Sync safe user details to publicly readable public_profiles collection
 function syncPublicProfile(user: User) {
   if (!db) return;
@@ -877,7 +882,7 @@ class DataStore {
     // Save to Firestore if database is active
     if (db) {
       try {
-        await setDoc(doc(db, 'properties', newProp.id), newProp);
+        await setDoc(doc(db, 'properties', newProp.id), sanitizeForFirestore(newProp));
       } catch (err: any) {
         console.warn('Firestore addProperty sync notice:', err);
       }
@@ -940,7 +945,7 @@ class DataStore {
 
     if (db) {
       try {
-        await setDoc(doc(db, 'properties', id), updatedProp, { merge: true });
+        await setDoc(doc(db, 'properties', id), sanitizeForFirestore(updatedProp), { merge: true });
       } catch (err: any) {
         console.warn('Firestore updateProperty sync notice:', err);
       }
@@ -1126,7 +1131,7 @@ class DataStore {
     };
     this.rooms.push(newRoom);
     if (db) {
-      setDoc(doc(db, 'rooms', newRoom.id), newRoom).catch((err) => console.warn('Firestore addRoom error:', err));
+      setDoc(doc(db, 'rooms', newRoom.id), sanitizeForFirestore(newRoom)).catch((err) => console.warn('Firestore addRoom error:', err));
     }
     this.notify();
     return newRoom;

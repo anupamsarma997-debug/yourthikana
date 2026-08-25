@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserRole, Property, RoomType } from './types';
 import { store } from './services/store';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Sparkles } from 'lucide-react';
 
 // Components
 import { Navbar } from './components/Navbar';
@@ -99,7 +99,13 @@ export function App() {
 
   const handleOpenAddProperty = () => {
     const user = store.getCurrentUser();
-    if (!user) {
+    const isAuthenticHost = Boolean(
+      user && 
+      user.id !== 'customer_1' && 
+      (user.role === 'owner' || user.role === 'admin' || user.googleEmail || user.googleUid)
+    );
+
+    if (!isAuthenticHost) {
       setPendingAddProperty(true);
       setIsAuthOpen(true);
     } else {
@@ -213,6 +219,21 @@ export function App() {
 
       </div>
 
+      {/* Floating AI Mitra Trigger Button (Mobile-First Accessible) */}
+      <button
+        onClick={() => setIsAIOpen(true)}
+        className="fixed bottom-5 right-5 z-40 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-extrabold text-xs sm:text-sm py-2.5 px-4 rounded-full shadow-xl shadow-emerald-600/30 flex items-center gap-2 border border-emerald-400/40 hover:scale-105 active:scale-95 transition-all cursor-pointer group"
+        title="Ask THIKANA AI Mitra"
+      >
+        <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
+          <Sparkles className="w-3.5 h-3.5" />
+        </div>
+        <span>AI Mitra</span>
+        <span className="hidden sm:inline bg-emerald-700/60 text-[10px] px-1.5 py-0.5 rounded-full uppercase tracking-wider font-bold">
+          0% fee
+        </span>
+      </button>
+
       {/* WhatsApp Booking Enquiry Form Modal */}
       <WhatsAppEnquiryModal
         property={selectedProperty}
@@ -228,10 +249,12 @@ export function App() {
         onClose={() => setIsGalleryOpen(false)}
       />
 
-      {/* AI Assistant Modal */}
+      {/* AI Assistant Modal (THIKANA AI Mitra) */}
       <AIAssistantModal
         isOpen={isAIOpen}
         onClose={() => setIsAIOpen(false)}
+        onSelectProperty={handleSelectProperty}
+        onOpenWhatsApp={handleOpenWhatsApp}
       />
 
       {/* Authentication & Registration Modal */}

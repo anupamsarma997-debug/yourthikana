@@ -64,17 +64,19 @@ export const Footer: React.FC<FooterProps> = ({ onRoleChange, onOpenAddProperty 
             </div>
           </div>
 
-          {/* Popular Destinations */}
+          {/* Popular Northeast Destinations */}
           <div>
             <h5 className="font-extrabold text-white uppercase tracking-wider mb-3 text-[11px]">
-              Top Destinations
+              Top Northeast Destinations
             </h5>
             <ul className="space-y-2 text-slate-400">
-              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Manali Homestays (Himachal)</li>
-              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Gangtok & Sikkim Eco Stays</li>
-              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Goa Heritage Villas</li>
-              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Shillong Pine Tree Cottages</li>
-              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Rishikesh Ganga View Stays</li>
+              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Kaziranga National Park (Assam)</li>
+              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Sohra & Cherrapunji (Meghalaya)</li>
+              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Tawang Monastery Stays (Arunachal)</li>
+              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Majuli Island Mishing Homestays (Assam)</li>
+              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Gangtok & Sikkim Eco Stays (Sikkim)</li>
+              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Dzukou Valley & Kohima (Nagaland)</li>
+              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Shillong Pine Hills (Meghalaya)</li>
             </ul>
           </div>
 

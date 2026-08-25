@@ -44,31 +44,37 @@ async function startServer() {
 
 
 
-  // AI Helper 1: Generate Listing Description
+  // AI Helper 1: Generate Listing Description (Preserves owner data, zero hallucinations)
   app.post('/api/ai/generate-description', async (req, res) => {
     try {
       const propertyName = sanitizeInput(req.body.propertyName, 100) || 'Homestay';
       const propertyType = sanitizeInput(req.body.propertyType, 50) || 'Homestay';
       const city = sanitizeInput(req.body.city, 100) || 'Northeast India';
-      const keyFeatures = sanitizeInput(req.body.keyFeatures, 300) || 'Cozy bamboo architecture, local ethnic cuisine, mountain/tea garden view, warm tribal hospitality';
+      const state = sanitizeInput(req.body.state, 100) || 'Assam';
+      const address = sanitizeInput(req.body.address, 150) || '';
+      const keyFeatures = sanitizeInput(req.body.keyFeatures, 300) || '';
       const amenities = Array.isArray(req.body.amenities)
         ? req.body.amenities.map((a: any) => sanitizeInput(a, 50)).filter(Boolean).slice(0, 15)
-        : ['WiFi', 'Hot water', 'Home cooked local meals'];
+        : [];
 
       const ai = getGenAI();
 
-      const prompt = `You are a professional travel copywriter for "THIKANA Northeast" - a Zero Commission Homestay & Eco Lodge Marketplace in Northeast India (Seven Sisters & Sikkim).
-Write an engaging, inviting, and detailed property description (150-250 words) for:
+      const prompt = `You are a professional travel copywriter for "THIKANA Northeast" - a Zero Commission direct homestay & eco stay discovery platform in Northeast India.
+Write a clear, welcoming, and natural property description (120-180 words) based ONLY on the following owner-provided details:
 Property Name: ${propertyName}
-Type: ${propertyType}
-City/Location: ${city}
-Key Features: ${keyFeatures}
-Amenities: ${amenities.join(', ')}
+Property Type: ${propertyType}
+Location: ${city}, ${state} ${address ? `(${address})` : ''}
+Key Highlights provided by owner: ${keyFeatures || 'Peaceful local setting, authentic Northeast hospitality'}
+Amenities: ${amenities.length > 0 ? amenities.join(', ') : 'Standard comfortable amenities'}
 
-Highlight traditional Northeast hospitality (such as Chang Ghar stilt structures, local organic tea, wood heaters/fireplaces, or ethnic thalis) and emphasize that travelers connect directly with the local host via WhatsApp with ZERO middleman commission!`;
+CRITICAL INSTRUCTIONS:
+1. Ground the text STRICTLY on the information provided above.
+2. NEVER fabricate or invent non-existent ratings (e.g. do not say "5 star rated" or "award winning"), fake facilities, fake certificates, fake prices, or fake reviews.
+3. Highlight authentic Northeast India hospitality (e.g., local scenic surroundings, traditional architecture, warm host connection).
+4. Mention that guests connect directly with the host on WhatsApp with zero middleman commission.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: 'gemini-3.7-flash',
         contents: prompt,
       });
 
@@ -86,11 +92,11 @@ Highlight traditional Northeast hospitality (such as Chang Ghar stilt structures
       const address = sanitizeInput(req.body.address, 150);
       const ai = getGenAI();
 
-      const prompt = `List 4 popular nearby tourist attractions, waterfalls, national parks, tea gardens, or monasteries near "${address}, ${city}" in Northeast India.
-Return ONLY a raw JSON array of 4 strings, for example: ["Kaziranga Safari Gate (2 km)", "Orchid & Biodiversity Park (1.5 km)", "Kakochang Waterfall (14 km)", "Brahmaputra Sunset Viewpoint (8 km)"]`;
+      const prompt = `List 4 real tourist attractions, waterfalls, national parks, tea gardens, or monasteries near "${address}, ${city}" in Northeast India.
+Return ONLY a raw JSON array of 4 strings with approximate distances, for example: ["Kaziranga Safari Gate (2 km)", "Orchid & Biodiversity Park (1.5 km)", "Kakochang Waterfall (14 km)", "Brahmaputra Sunset Viewpoint (8 km)"]`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: 'gemini-3.7-flash',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
@@ -111,33 +117,87 @@ Return ONLY a raw JSON array of 4 strings, for example: ["Kaziranga Safari Gate 
     }
   });
 
-  // AI Helper 3: Travel Assistant Chat
+  // AI Helper 3: THIKANA AI Mitra Discovery & Travel Assistant Agent
   app.post('/api/ai/travel-assistant', async (req, res) => {
     try {
-      const query = sanitizeInput(req.body.query, 500);
-      const availableProperties = Array.isArray(req.body.availableProperties)
-        ? req.body.availableProperties.slice(0, 5).map((p: any) => ({
-            title: sanitizeInput(p.title, 80),
-            city: sanitizeInput(p.city, 50),
-            propertyType: sanitizeInput(p.propertyType, 50)
+      const query = sanitizeInput(req.body.query, 600);
+      const criteria = req.body.criteria || {};
+      const conversationHistory = Array.isArray(req.body.conversationHistory)
+        ? req.body.conversationHistory.slice(-6).map((m: any) => ({
+            role: m.sender === 'user' ? 'user' : 'model',
+            text: sanitizeInput(m.text, 400),
           }))
         : [];
+
+      const candidateProperties = Array.isArray(req.body.availableProperties)
+        ? req.body.availableProperties.slice(0, 6).map((p: any) => ({
+            id: sanitizeInput(p.id, 50),
+            title: sanitizeInput(p.title, 100),
+            propertyType: sanitizeInput(p.propertyType || p.type, 50),
+            city: sanitizeInput(p.city, 50),
+            state: sanitizeInput(p.state, 50),
+            startingPrice: Number(p.startingPrice || p.price || 1500),
+            maxGuests: Number(p.maxGuests || p.maxCapacity || 2),
+            amenities: Array.isArray(p.amenities) ? p.amenities.slice(0, 5) : [],
+            distanceNote: sanitizeInput(p.distanceNote || '', 100),
+            matchReason: sanitizeInput(p.matchReason || '', 150),
+            isVerified: Boolean(p.isVerified || p.verified),
+            ownerName: sanitizeInput(p.ownerName || '', 50),
+            ownerWhatsApp: sanitizeInput(p.ownerWhatsApp || '', 20),
+          }))
+        : [];
+
       const ai = getGenAI();
 
-      const contextPrompt = `You are "THIKANA Northeast AI Mitra", an expert travel guide assistant specialized in Northeast India (Assam, Meghalaya, Sikkim, Nagaland, Arunachal Pradesh, Mizoram, Manipur & Tripura).
-The user asks: "${query}"
+      const systemPrompt = `You are "THIKANA AI Mitra", the official Northeast Stay Discovery Assistant on THIKANA (a zero-commission direct-booking marketplace connecting travelers directly with homestays, Chang Ghar bamboo stays, eco cottages, and boutique resorts in Northeast India: Assam, Meghalaya, Arunachal Pradesh, Sikkim, Nagaland, Mizoram, Manipur, Tripura).
 
-Here are available authentic Northeast properties on THIKANA for context:
-${JSON.stringify(availableProperties)}
+PERSONALITY & TONE:
+- Friendly, simple, concise, helpful, trustworthy.
+- Suitable for everyday mobile users.
+- Multilingual: Support English, Hindi, and Hinglish naturally.
+  * If user queries in Hindi or Hinglish, respond in warm, natural Hindi/Hinglish.
+  * If user queries in English, respond in clear English.
 
-Provide a helpful, polite, and personalized 2-3 paragraph answer recommending suitable places, homestays, or local travel tips (such as best seasons, local tribal thalis, permits for Tawang/Nathula, or safari tips). Mention that travelers can click "Chat on WhatsApp" to talk directly with local hosts with zero commission!`;
+CRITICAL TRUST & SAFETY RULES (ZERO HALLUCINATIONS):
+1. You MUST ONLY recommend and discuss properties that actually exist in the provided THIKANA candidate listings list below.
+2. NEVER invent fake hotels, prices, phone numbers, reviews, star ratings, or amenities.
+3. If no properties in the list match the user's requested destination/criteria, clearly state:
+   "I could not find an exact match in THIKANA right now. Here are the closest available options."
+4. If the user's request is incomplete (e.g. missing guests or budget), ask ONLY the necessary question concisely without spamming.
+5. In your response:
+   - Provide a brief 1-2 paragraph helpful overview explaining why the recommended stay(s) match the user's destination, budget, guest count, or preferences (e.g. proximity to Kaziranga Safari Gate, Living Root bridges in Sohra, or Tawang Monastery views).
+   - Remind the user that they can tap "Book / Contact Host on WhatsApp" to connect directly with the local host with zero commission.`;
+
+      const userPrompt = `USER QUERY: "${query}"
+
+CURRENT EXTRACTED REQUIREMENTS:
+${JSON.stringify(criteria, null, 2)}
+
+REAL THIKANA CANDIDATE LISTINGS IN DATABASE:
+${JSON.stringify(candidateProperties, null, 2)}
+
+RECENT CHAT CONTEXT:
+${JSON.stringify(conversationHistory, null, 2)}
+
+Generate a helpful, friendly, and concise response addressing the user's query and explaining the matching THIKANA listings.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: contextPrompt,
+        model: 'gemini-3.7-flash',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: systemPrompt },
+              { text: userPrompt }
+            ]
+          }
+        ],
       });
 
-      res.json({ reply: response.text || 'I am here to help you find the best homestay!' });
+      res.json({
+        reply: response.text || 'Here are authentic Northeast stays on THIKANA matching your request!',
+        modelUsed: 'gemini-3.7-flash'
+      });
     } catch (error: any) {
       console.error('Error in travel assistant:', error);
       res.status(500).json({ error: error.message || 'Travel assistant error' });

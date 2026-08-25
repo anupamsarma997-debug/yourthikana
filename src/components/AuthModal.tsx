@@ -72,9 +72,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const targetPropertyOwner = requiredOwnerId ? store.getUsers().find(u => u.id === requiredOwnerId) : null;
 
   // Direct Google Email Login State
-  const [showDirectGoogleInput, setShowDirectGoogleInput] = useState(false);
-  const [directGoogleEmailInput, setDirectGoogleEmailInput] = useState('');
-  const [directGoogleNameInput, setDirectGoogleNameInput] = useState('');
+  const [showDirectGoogleInput, setShowDirectGoogleInput] = useState(true);
+  const [directGoogleEmailInput, setDirectGoogleEmailInput] = useState('rupaamsarma1234@gmail.com');
+  const [directGoogleNameInput, setDirectGoogleNameInput] = useState('Rupaam Sarma');
 
   // Check for redirect result on mount if redirect auth was used
   React.useEffect(() => {

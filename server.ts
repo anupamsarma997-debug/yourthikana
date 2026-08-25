@@ -44,34 +44,49 @@ async function startServer() {
 
 
 
-  // AI Helper 1: Generate Listing Description (Preserves owner data, zero hallucinations)
+  // AI Helper 1: Generate Listing Description (Zero Hallucinations, strictly grounded in owner factual data)
   app.post('/api/ai/generate-description', async (req, res) => {
     try {
-      const propertyName = sanitizeInput(req.body.propertyName, 100) || 'Homestay';
+      const propertyName = sanitizeInput(req.body.propertyName, 100);
+      if (!propertyName) {
+        return res.status(400).json({ error: 'Property name is required' });
+      }
       const propertyType = sanitizeInput(req.body.propertyType, 50) || 'Homestay';
-      const city = sanitizeInput(req.body.city, 100) || 'Northeast India';
-      const state = sanitizeInput(req.body.state, 100) || 'Assam';
-      const address = sanitizeInput(req.body.address, 150) || '';
-      const keyFeatures = sanitizeInput(req.body.keyFeatures, 300) || '';
+      const city = sanitizeInput(req.body.city, 100);
+      const state = sanitizeInput(req.body.state, 100);
+      const address = sanitizeInput(req.body.address, 150);
+      const nearbyAttractions = sanitizeInput(req.body.nearbyAttractions || req.body.keyFeatures, 300);
       const amenities = Array.isArray(req.body.amenities)
-        ? req.body.amenities.map((a: any) => sanitizeInput(a, 50)).filter(Boolean).slice(0, 15)
+        ? req.body.amenities.map((a: any) => sanitizeInput(a, 50)).filter(Boolean).slice(0, 20)
         : [];
 
       const ai = getGenAI();
 
-      const prompt = `You are a professional travel copywriter for "THIKANA Northeast" - a Zero Commission direct homestay & eco stay discovery platform in Northeast India.
-Write a clear, welcoming, and natural property description (120-180 words) based ONLY on the following owner-provided details:
-Property Name: ${propertyName}
-Property Type: ${propertyType}
-Location: ${city}, ${state} ${address ? `(${address})` : ''}
-Key Highlights provided by owner: ${keyFeatures || 'Peaceful local setting, authentic Northeast hospitality'}
-Amenities: ${amenities.length > 0 ? amenities.join(', ') : 'Standard comfortable amenities'}
+      // Assemble only factual data provided
+      const facts: string[] = [
+        `Property Name: ${propertyName}`,
+        `Property Type: ${propertyType}`,
+      ];
+      if (city) facts.push(`City: ${city}`);
+      if (state) facts.push(`State: ${state}`);
+      if (address) facts.push(`Address: ${address}`);
+      if (nearbyAttractions) facts.push(`Nearby Attractions / Landmarks: ${nearbyAttractions}`);
+      if (amenities.length > 0) {
+        facts.push(`Amenities / Facilities: ${amenities.join(', ')}`);
+      } else {
+        facts.push(`Amenities / Facilities: None specified by owner`);
+      }
 
-CRITICAL INSTRUCTIONS:
-1. Ground the text STRICTLY on the information provided above.
-2. NEVER fabricate or invent non-existent ratings (e.g. do not say "5 star rated" or "award winning"), fake facilities, fake certificates, fake prices, or fake reviews.
-3. Highlight authentic Northeast India hospitality (e.g., local scenic surroundings, traditional architecture, warm host connection).
-4. Mention that guests connect directly with the host on WhatsApp with zero middleman commission.`;
+      const prompt = `Generate a property description using ONLY the supplied factual data. Do not add assumptions, marketing claims, amenities, attractions, distances, views, services, meals, ratings or facilities that are not present in the supplied data.
+
+SUPPLIED FACTUAL DATA:
+${facts.join('\n')}
+
+STRICT RULES (ZERO HALLUCINATIONS):
+1. You must NEVER invent or assume any amenity, feature, or facility not listed above (including but not limited to: WiFi, meals, breakfast, tea, restaurant, scenic views, mountain views, river views, hot water, geyser, parking, AC, heater, fireplace, balcony, safari booking, distance, ratings, reviews, awards, or verification).
+2. If an amenity, view, service, meal, or attraction is not listed in the supplied data, do NOT mention or imply it.
+3. Write a concise, factual description (under 120 words) strictly using only the supplied facts.
+4. Mention that guests connect directly with the host on WhatsApp with zero commission.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.7-flash',

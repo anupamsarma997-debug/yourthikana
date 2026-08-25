@@ -78,12 +78,12 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
   const [description, setDescription] = useState('');
   const [propertyType, setPropertyType] = useState<'Homestay' | 'Hotel' | 'Resort' | 'Villa' | 'Cottage'>('Homestay');
   const [address, setAddress] = useState('');
-  const [city, setCity] = useState('Manali');
-  const [stateName, setStateName] = useState('Himachal Pradesh');
+  const [city, setCity] = useState('');
+  const [stateName, setStateName] = useState('');
   const [googleMapUrl, setGoogleMapUrl] = useState('');
-  const [latitude, setLatitude] = useState(32.2432);
-  const [longitude, setLongitude] = useState(77.1892);
-  const [nearbyAttractions, setNearbyAttractions] = useState<string>('Mall Road (1 km), Hadimba Temple (2.5 km)');
+  const [latitude, setLatitude] = useState(26.1445);
+  const [longitude, setLongitude] = useState(91.7362);
+  const [nearbyAttractions, setNearbyAttractions] = useState<string>('');
   const [checkInTime, setCheckInTime] = useState('12:00 PM');
   const [checkOutTime, setCheckOutTime] = useState('11:00 AM');
   const [photoUrlsInput, setPhotoUrlsInput] = useState<string>('');
@@ -252,15 +252,15 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     setDescription('');
     setPropertyType('Homestay');
     setAddress('');
-    setCity('Kaziranga');
-    setStateName('Assam');
+    setCity('');
+    setStateName('');
     setGoogleMapUrl('');
-    setLatitude(26.5775);
-    setLongitude(93.1711);
-    setNearbyAttractions('Kohora Safari Gate (1.5 km), Orchid Park (2 km)');
+    setLatitude(26.1445);
+    setLongitude(91.7362);
+    setNearbyAttractions('');
     setCheckInTime('12:00 PM');
     setCheckOutTime('11:00 AM');
-    setPhotoUrlsInput('https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80\nhttps://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=800&q=80');
+    setPhotoUrlsInput('');
     setVideoUrl('');
     setOwnerPhoneInput(user?.phone || '+91 9876543210');
     setOwnerWhatsAppInput(user?.whatsapp || '919876543210');
@@ -272,8 +272,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     setMaxGuests(2);
     setRoomSize('250 sq.ft.');
     setBedType('Double Bed');
-    setRoomDescription('Authentic homestay room with tea garden / mountain views & hot shower.');
-    setRoomAmenities('WiFi, Geyser, Electric Kettle, Balcony View, Breakfast Included');
+    setRoomDescription('');
+    setRoomAmenities('');
 
     setIsFormOpen(true);
   };
@@ -314,26 +314,49 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     setIsFormOpen(true);
   };
 
-  // Generate AI Description
+  // Generate AI Description (Zero Hallucinations - Strictly Owner-Entered Facts)
   const handleGenerateAIDescription = async () => {
-    if (!title || !city) {
+    if (!title.trim() || !city.trim()) {
       alert('Please enter Property Title and City first.');
       return;
     }
 
     setGeneratingAI(true);
     try {
+      // Gather actual owner-entered amenities from existing rooms or room form
+      const ownerAmenitiesSet = new Set<string>();
+      
+      if (editingPropertyId) {
+        const existingRooms = store.getRoomsByProperty(editingPropertyId);
+        existingRooms.forEach((r) => {
+          (r.amenities || []).forEach((a) => {
+            const trimmed = a.trim();
+            if (trimmed) ownerAmenitiesSet.add(trimmed);
+          });
+        });
+      }
+
+      // Also include any room amenities entered in the current form
+      if (roomAmenities && roomAmenities.trim()) {
+        roomAmenities.split(',').forEach((a) => {
+          const trimmed = a.trim();
+          if (trimmed) ownerAmenitiesSet.add(trimmed);
+        });
+      }
+
+      const actualAmenities = Array.from(ownerAmenitiesSet);
+
       const res = await fetch('/api/ai/generate-description', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          propertyName: title,
+          propertyName: title.trim(),
           propertyType,
-          city,
-          state: stateName,
-          address,
-          keyFeatures: nearbyAttractions,
-          amenities: ['Free WiFi', 'Local Meals', 'Scenic View', 'Hot Water'],
+          city: city.trim(),
+          state: stateName.trim(),
+          address: address.trim(),
+          nearbyAttractions: nearbyAttractions.trim(),
+          amenities: actualAmenities,
         }),
       });
 
@@ -343,12 +366,24 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
         if (words.length > 150) {
           setDescription(words.slice(0, 145).join(' ') + '...');
         } else {
-          setDescription(data.description);
+          setDescription(data.description.trim());
         }
+      } else {
+        throw new Error('Empty description response');
       }
     } catch (err) {
       console.error('AI error:', err);
-      setDescription(`${title} is a beautiful ${propertyType} situated in the heart of ${city}. Enjoy peaceful surroundings, scenic views, warm local hospitality, and direct WhatsApp booking with zero commission!`);
+      // Safe fallback containing ONLY factual fields actually entered by the owner
+      const parts: string[] = [];
+      const locationText = [city.trim(), stateName.trim()].filter(Boolean).join(', ');
+      parts.push(`${title.trim()} is a ${propertyType}${locationText ? ` located in ${locationText}` : ''}.`);
+      if (address.trim()) {
+        parts.push(address.trim().endsWith('.') ? address.trim() : `${address.trim()}.`);
+      }
+      if (nearbyAttractions.trim()) {
+        parts.push(`Nearby attractions: ${nearbyAttractions.trim()}.`);
+      }
+      setDescription(parts.join(' '));
     } finally {
       setGeneratingAI(false);
     }

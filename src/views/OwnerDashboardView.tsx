@@ -30,7 +30,11 @@ import {
   Loader2,
   X,
   Lock,
-  QrCode
+  QrCode,
+  Plus,
+  Tv,
+  Wifi,
+  Wind
 } from 'lucide-react';
 
 interface OwnerDashboardViewProps {
@@ -39,6 +43,184 @@ interface OwnerDashboardViewProps {
   autoOpenAddProperty?: boolean;
   onAddPropertyHandled?: () => void;
 }
+
+const PRESET_AMENITIES = [
+  { name: 'AC', icon: '❄️' },
+  { name: 'Geyser (Hot Water)', icon: '🚿' },
+  { name: 'Free WiFi', icon: '📶' },
+  { name: 'TV', icon: '📺' },
+  { name: 'Electric Kettle', icon: '⚡' },
+  { name: 'Room Heater', icon: '🔥' },
+  { name: 'Power Backup', icon: '🔌' },
+  { name: 'Free Parking', icon: '🚗' },
+  { name: 'Attached Bathroom', icon: '🚪' },
+  { name: 'Balcony View', icon: '🌄' },
+  { name: 'Home Cooked Meals', icon: '🍳' },
+  { name: 'Tea / Coffee Maker', icon: '☕' },
+  { name: 'Clean Linen & Towels', icon: '🛏️' },
+];
+
+interface AmenitiesPickerProps {
+  value: string;
+  onChange: (val: string) => void;
+  title?: string;
+  subtitle?: string;
+}
+
+const AmenitiesPicker: React.FC<AmenitiesPickerProps> = ({
+  value,
+  onChange,
+  title = "Property & Room Amenities",
+  subtitle = "Click quick buttons or type custom amenity and click '+ Add'"
+}) => {
+  const [customInput, setCustomInput] = useState('');
+
+  const currentList = value
+    ? value.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  const handleToggleOrAdd = (amenity: string) => {
+    const trimmed = amenity.trim();
+    if (!trimmed) return;
+    const existsIndex = currentList.findIndex(
+      (item) => item.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (existsIndex >= 0) {
+      const nextList = currentList.filter((_, idx) => idx !== existsIndex);
+      onChange(nextList.join(', '));
+    } else {
+      onChange([...currentList, trimmed].join(', '));
+    }
+  };
+
+  const handleRemove = (amenity: string) => {
+    const nextList = currentList.filter(
+      (item) => item.toLowerCase() !== amenity.toLowerCase()
+    );
+    onChange(nextList.join(', '));
+  };
+
+  const handleAddCustom = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!customInput.trim()) return;
+    handleToggleOrAdd(customInput.trim());
+    setCustomInput('');
+  };
+
+  return (
+    <div className="bg-slate-50 dark:bg-slate-800/80 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-1">
+        <div>
+          <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+            <span>{title}</span>
+            <span className="text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full">
+              {currentList.length} Selected
+            </span>
+          </label>
+          {subtitle && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              {subtitle}
+            </p>
+          )}
+        </div>
+        {currentList.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="text-[11px] text-rose-600 dark:text-rose-400 font-bold hover:underline cursor-pointer"
+          >
+            Clear All
+          </button>
+        )}
+      </div>
+
+      {/* Selected Amenities Badges */}
+      {currentList.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5 p-2.5 bg-white dark:bg-slate-900/90 rounded-xl border border-emerald-200 dark:border-emerald-800/60 min-h-[42px] items-center">
+          {currentList.map((item, idx) => (
+            <span
+              key={idx}
+              className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-lg shadow-sm"
+            >
+              <span>{item}</span>
+              <button
+                type="button"
+                onClick={() => handleRemove(item)}
+                className="text-emerald-700 dark:text-emerald-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer p-0.5 rounded-full"
+                title={`Remove ${item}`}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="text-[11px] text-slate-500 dark:text-slate-400 italic bg-white/60 dark:bg-slate-900/40 p-2 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-center">
+          No amenities selected. Click buttons below or type and click "+ Add".
+        </div>
+      )}
+
+      {/* Custom Amenity Input with Add Button */}
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={customInput}
+          onChange={(e) => setCustomInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleAddCustom();
+            }
+          }}
+          placeholder="Type custom amenity (e.g. AC, Geyser, TV, Electric Kettle)..."
+          className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+        />
+        <button
+          type="button"
+          onClick={() => handleAddCustom()}
+          className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1 shadow-sm transition-transform active:scale-95 cursor-pointer whitespace-nowrap"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>Add</span>
+        </button>
+      </div>
+
+      {/* Quick One-Click Add Presets */}
+      <div>
+        <span className="block text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+          Quick One-Click Add / Remove:
+        </span>
+        <div className="flex flex-wrap gap-1.5">
+          {PRESET_AMENITIES.map((preset) => {
+            const isSelected = currentList.some(
+              (item) => item.toLowerCase() === preset.name.toLowerCase()
+            );
+            return (
+              <button
+                key={preset.name}
+                type="button"
+                onClick={() => handleToggleOrAdd(preset.name)}
+                className={`text-xs px-2.5 py-1 rounded-lg font-medium flex items-center gap-1 transition-all cursor-pointer border ${
+                  isSelected
+                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
+                    : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400'
+                }`}
+              >
+                <span>{preset.icon}</span>
+                <span>{preset.name}</span>
+                {isSelected ? (
+                  <CheckCircle2 className="w-3 h-3 text-white ml-0.5" />
+                ) : (
+                  <Plus className="w-3 h-3 text-slate-400 ml-0.5" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
   onSelectProperty,
@@ -311,6 +493,18 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     setVideoUrl(prop.videoUrl || '');
     setOwnerPhoneInput(prop.ownerPhone || currentUser?.phone || '+91 9876543210');
     setOwnerWhatsAppInput(prop.ownerWhatsApp || currentUser?.whatsapp || '919876543210');
+
+    // Load existing amenities from this property's rooms
+    const existingRooms = store.getRoomsByProperty(prop.id);
+    const existingAmSet = new Set<string>();
+    existingRooms.forEach((r) => {
+      (r.amenities || []).forEach((a) => {
+        const trimmed = a.trim();
+        if (trimmed) existingAmSet.add(trimmed);
+      });
+    });
+    setRoomAmenities(Array.from(existingAmSet).join(', '));
+
     setIsFormOpen(true);
   };
 
@@ -521,7 +715,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
           // Automatically add default room type with host's specified room name & pricing
           const amList = roomAmenities
             ? roomAmenities.split(',').map((s) => s.trim()).filter(Boolean)
-            : ['Free WiFi', 'Hot Shower', 'Clean Linen'];
+            : [];
 
           store.addRoomType({
             propertyId: newProp.id,
@@ -529,7 +723,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
             pricePerNight: numPrice,
             discountPrice: numDiscount,
             maxGuests: maxGuests || 2,
-            description: roomDescription || 'Clean room with hot shower and warm hospitality.',
+            description: roomDescription || '',
             amenities: amList,
             roomSize: roomSize || '250 sq.ft.',
             bedType: bedType || 'Double Bed',
@@ -555,10 +749,10 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     setPricePerNight('');
     setDiscountPrice('');
     setMaxGuests(2);
-    setRoomDescription('Comfortable room with mountain/garden view, attached bath and hot shower.');
+    setRoomDescription('');
     setRoomSize('280 sq ft');
     setBedType('Double Bed');
-    setRoomAmenities('Free WiFi, Geyser, Electric Kettle, Balcony View');
+    setRoomAmenities('');
   };
 
   // Open Modal to Edit Existing Room Type & Price
@@ -1700,6 +1894,13 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                       />
                     </div>
                   </div>
+
+                  <AmenitiesPicker
+                    value={roomAmenities}
+                    onChange={setRoomAmenities}
+                    title="Room & Property Amenities"
+                    subtitle="Select provided amenities (AC, Geyser, WiFi, TV, Kettle) or type custom and click '+ Add'"
+                  />
                 </div>
               )}
 
@@ -1828,16 +2029,12 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Amenities (comma separated)</label>
-                <input
-                  type="text"
-                  value={roomAmenities}
-                  onChange={(e) => setRoomAmenities(e.target.value)}
-                  placeholder="WiFi, Geyser, Balcony, Tea Kettle, Bukhari Heater"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
+              <AmenitiesPicker
+                value={roomAmenities}
+                onChange={setRoomAmenities}
+                title="Room Amenities"
+                subtitle="Select amenities provided in this room or type custom and click '+ Add'"
+              />
 
               <div className="pt-3 flex justify-end gap-2">
                 <button

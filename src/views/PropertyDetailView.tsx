@@ -278,7 +278,9 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
                               ₹{room.pricePerNight}
                             </span>
                           )}
-                          <span className="text-[10px] text-slate-400 font-medium">/ night</span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {property.propertyType?.toLowerCase().includes('monthly') ? '/ month' : '/ night'}
+                          </span>
                         </div>
 
                         <button
@@ -320,7 +322,9 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
                 <span className="text-2xl font-black text-slate-900 dark:text-white">
                   ₹{selectedRoom ? (selectedRoom.discountPrice || selectedRoom.pricePerNight) : 1500}
                 </span>
-                <span className="text-xs text-slate-500 font-medium">/ night starting price</span>
+                <span className="text-xs text-slate-500 font-medium">
+                  {property.propertyType?.toLowerCase().includes('monthly') ? '/ month starting rent' : '/ night starting price'}
+                </span>
               </div>
             </div>
 

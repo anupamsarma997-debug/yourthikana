@@ -87,7 +87,16 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
     { id: 'above-5000', label: '₹5,000+' },
   ];
 
-  const PROPERTY_TYPES: string[] = ['All', 'Homestay', 'Hotel', 'Resort', 'Villa', 'Cottage'];
+  const PROPERTY_TYPES: string[] = [
+    'All',
+    'Homestay',
+    'Hotel',
+    'Monthly Room',
+    'PG / Hostel',
+    'Resort',
+    'Villa',
+    'Cottage'
+  ];
 
   // Cache minimum prices for properties
   const propertyPrices = useMemo(() => {
@@ -157,8 +166,15 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
         if (price > maxPrice) return false;
 
         // Property Type Filter
-        if (selectedType && selectedType !== 'All' && pType !== selectedType.toLowerCase()) {
-          return false;
+        if (selectedType && selectedType !== 'All') {
+          const sel = selectedType.toLowerCase();
+          if (sel === 'pg / hostel') {
+            if (!pType.includes('pg') && !pType.includes('hostel')) return false;
+          } else if (sel === 'monthly room') {
+            if (!pType.includes('monthly')) return false;
+          } else if (pType !== sel) {
+            return false;
+          }
         }
 
         // Rating Filter
@@ -481,7 +497,13 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
                 : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
             }`}
           >
-            {type === 'All' ? '🏡 All Stays' : type}
+            {type === 'All'
+              ? '🏡 All Stays'
+              : type === 'Monthly Room'
+              ? '📅 Monthly Rooms'
+              : type === 'PG / Hostel'
+              ? '🏢 PG / Hostel'
+              : type}
           </button>
         ))}
       </div>

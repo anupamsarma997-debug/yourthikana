@@ -463,9 +463,11 @@ Tell me where you want to travel, your budget, or who is travelling with you! *(
                 >
                   <option value="">All Stay Types</option>
                   <option value="Homestay">Homestay / Stilt</option>
+                  <option value="Hotel">Hotel</option>
+                  <option value="Monthly Room">Monthly Room</option>
+                  <option value="PG / Hostel">PG / Hostel</option>
                   <option value="Cottage">Eco Cottage</option>
                   <option value="Resort">Resort</option>
-                  <option value="Hotel">Hotel</option>
                 </select>
               </div>
             </div>

@@ -169,6 +169,10 @@ export function extractCriteriaFromText(text: string, previousCriteria: MitraSea
     criteria.propertyType = 'Hotel';
   } else if (q.includes('villa')) {
     criteria.propertyType = 'Villa';
+  } else if (q.includes('pg') || q.includes('hostel') || q.includes('paying guest')) {
+    criteria.propertyType = 'PG / Hostel';
+  } else if (q.includes('monthly') || q.includes('month') || q.includes('rent')) {
+    criteria.propertyType = 'Monthly Room';
   }
 
   // 5. Trip Type / Vibe / Preferences
@@ -318,7 +322,13 @@ export function searchAndRankProperties(
 
     // 4. Property Type Match (Max 20 points)
     if (criteria.propertyType) {
-      if ((prop.propertyType || '').toLowerCase() === criteria.propertyType.toLowerCase()) {
+      const crit = criteria.propertyType.toLowerCase();
+      const ptype = (prop.propertyType || '').toLowerCase();
+      if (
+        ptype === crit ||
+        (crit === 'pg / hostel' && (ptype.includes('pg') || ptype.includes('hostel'))) ||
+        (crit === 'monthly room' && ptype.includes('monthly'))
+      ) {
         score += 20;
         matchReasons.push(`Authentic ${prop.propertyType}`);
       }

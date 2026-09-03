@@ -19,7 +19,17 @@ export interface User {
   status: 'active' | 'suspended' | 'pending_approval' | 'blocked';
 }
 
-export type PropertyType = 'Homestay' | 'Hotel' | 'Resort' | 'Villa' | 'Cottage';
+export type PropertyType = 
+  | 'Homestay' 
+  | 'Hotel' 
+  | 'Resort' 
+  | 'Villa' 
+  | 'Cottage'
+  | 'Monthly Room'
+  | 'Monthly Rooms'
+  | 'PG / Hostel'
+  | 'PG'
+  | 'Hostel';
 
 export interface RoomType {
   id: string;

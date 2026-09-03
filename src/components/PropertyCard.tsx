@@ -164,7 +164,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
                 </span>
               )}
               <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                / night
+                {property.propertyType?.toLowerCase().includes('monthly') ? '/ month' : '/ night'}
               </span>
             </div>
             <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">

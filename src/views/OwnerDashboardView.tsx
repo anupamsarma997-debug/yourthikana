@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Property, RoomType, User } from '../types';
+import { Property, RoomType, User, PropertyType } from '../types';
 import { store } from '../services/store';
 import { auth } from '../lib/firebase';
 import { uploadPropertyPhoto } from '../services/uploadPropertyImage';
@@ -258,7 +258,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
   // Property Form Fields
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [propertyType, setPropertyType] = useState<'Homestay' | 'Hotel' | 'Resort' | 'Villa' | 'Cottage'>('Homestay');
+  const [propertyType, setPropertyType] = useState<PropertyType>('Homestay');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [stateName, setStateName] = useState('');
@@ -1425,7 +1425,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
               <div>
                 <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                  {editingPropertyId ? 'Edit Property Listing' : 'Add New Hotel or Homestay'}
+                  {editingPropertyId ? 'Edit Property Listing' : 'Add New Property (Hotel, Homestay, PG, Monthly Rooms)'}
                 </h3>
                 <p className="text-[11px] text-slate-500">Fill details & publish directly to THIKANA marketplace.</p>
               </div>
@@ -1469,13 +1469,17 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                   <select
                     value={propertyType}
                     onChange={(e: any) => setPropertyType(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                   >
                     <option value="Homestay">Homestay</option>
                     <option value="Hotel">Hotel</option>
                     <option value="Resort">Resort</option>
                     <option value="Villa">Villa</option>
                     <option value="Cottage">Cottage</option>
+                    <option value="Monthly Room">Monthly Room (Monthly Rental)</option>
+                    <option value="PG / Hostel">PG / Hostel (Boys / Girls / Working)</option>
+                    <option value="PG">PG (Paying Guest)</option>
+                    <option value="Hostel">Hostel</option>
                   </select>
                 </div>
               </div>
@@ -1846,12 +1850,16 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Price / Night (₹) <span className="text-rose-500">*</span>
+                        {propertyType === 'Monthly Room' || propertyType === 'Monthly Rooms'
+                          ? 'Rent / Month (₹)'
+                          : propertyType === 'PG' || propertyType === 'PG / Hostel'
+                          ? 'Rent / Month or Night (₹)'
+                          : 'Price / Night (₹)'} <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="number"
                         required
-                        placeholder="Enter your room price"
+                        placeholder={propertyType.includes('Monthly') ? 'Enter monthly rent (e.g. 6000)' : 'Enter your room price'}
                         value={pricePerNight}
                         onChange={(e) => setPricePerNight(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
                         className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
@@ -1860,7 +1868,9 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
 
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Discount Price / Night (₹)
+                        {propertyType === 'Monthly Room' || propertyType === 'Monthly Rooms'
+                          ? 'Discount Rent / Month (₹)'
+                          : 'Discount Price / Night (₹)'}
                       </label>
                       <input
                         type="number"
@@ -1961,30 +1971,41 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Original Price / Night (₹) <span className="text-rose-500">*</span></label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="Enter your room price"
-                    value={pricePerNight}
-                    onChange={(e) => setPricePerNight(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
-                  />
-                </div>
+              {(() => {
+                const currentProp = editingRoomsPropId ? store.getPropertyById(editingRoomsPropId) : null;
+                const isMonthly = currentProp?.propertyType?.toLowerCase().includes('monthly');
+                const isPG = currentProp?.propertyType?.toLowerCase().includes('pg') || currentProp?.propertyType?.toLowerCase().includes('hostel');
+                const priceLabel = isMonthly ? 'Rent / Month (₹)' : isPG ? 'Rent / Month or Night (₹)' : 'Original Price / Night (₹)';
+                const discLabel = isMonthly ? 'Discount Rent / Month (₹)' : 'Discount Price / Night (₹)';
+                return (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        {priceLabel} <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        placeholder="Enter your room price or rent"
+                        value={pricePerNight}
+                        onChange={(e) => setPricePerNight(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
+                      />
+                    </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Discount Price / Night (₹)</label>
-                  <input
-                    type="number"
-                    placeholder="Enter discount price (optional)"
-                    value={discountPrice}
-                    onChange={(e) => setDiscountPrice(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-emerald-600 dark:text-emerald-400"
-                  />
-                </div>
-              </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{discLabel}</label>
+                      <input
+                        type="number"
+                        placeholder="Enter discount price (optional)"
+                        value={discountPrice}
+                        onChange={(e) => setDiscountPrice(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-emerald-600 dark:text-emerald-400"
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="grid grid-cols-3 gap-2">
                 <div>

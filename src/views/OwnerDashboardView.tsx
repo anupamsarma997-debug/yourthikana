@@ -1476,10 +1476,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                     <option value="Resort">Resort</option>
                     <option value="Villa">Villa</option>
                     <option value="Cottage">Cottage</option>
-                    <option value="Monthly Room">Monthly Room (Monthly Rental)</option>
-                    <option value="PG / Hostel">PG / Hostel (Boys / Girls / Working)</option>
-                    <option value="PG">PG (Paying Guest)</option>
-                    <option value="Hostel">Hostel</option>
+                    <option value="Monthly Room">Monthly Room</option>
+                    <option value="PG / Hostel">PG / Hostel</option>
                   </select>
                 </div>
               </div>

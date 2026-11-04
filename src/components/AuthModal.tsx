@@ -263,6 +263,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         credential = await signInWithCustomToken(auth, result.customToken);
       } else {
         credential = await signInWithEmailAndPassword(auth, identifier, loginPassword);
+        const idToken = await credential.user.getIdToken(true);
+        const statusResponse = await fetch('/api/auth/username-status', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + idToken },
+        });
+        const status = await statusResponse.json().catch(() => ({}));
+        if (!statusResponse.ok) throw new Error(status.error || 'Could not verify account setup.');
+        if (!status.complete) {
+          setUsername(status.username || '');
+          setMode('register');
+          setPendingSetup(true);
+          setPendingAuthMethod('email');
+          setSuccessMessage('Finish setting up your unique username to continue.');
+          return;
+        }
       }
       if (!credential.user.email) throw new Error('This Firebase account has no email address.');
       const loggedInUser = await store.loginWithFirebaseUser(credential.user);

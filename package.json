@@ -9,7 +9,8 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-thikana \"node --test tests/firestore-rules.test.mjs\""
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -34,6 +35,8 @@
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "firebase-tools": "^14.0.0"
   }
 }

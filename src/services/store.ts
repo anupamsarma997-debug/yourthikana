@@ -410,7 +410,9 @@ class DataStore {
 
       // Read user profiles individually by authenticated UID; do not scan the users collection.
 
-      // Private collections are synced only with owner-scoped queries.\n\n    } catch (err: any) {
+      // Private collections are synced only with owner-scoped queries.
+
+    } catch (err: any) {
       console.error('Firebase listeners setup error:', err);
       this.firestoreError = err?.message || String(err);
     }
@@ -425,7 +427,8 @@ class DataStore {
         delete safeUser.passwordHash;
         delete safeUser.passwordSalt;
         return safeUser as User;
-      });\n      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(safeCachedUsers));
+      });
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(safeCachedUsers));
       localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(this.properties));
       localStorage.setItem(STORAGE_KEYS.ROOMS, JSON.stringify(this.rooms));
       localStorage.setItem(STORAGE_KEYS.BANNERS, JSON.stringify(this.banners));

@@ -1161,7 +1161,8 @@ class DataStore {
       id: 'room_' + Date.now(),
     };
     if (db) {
-      await setDoc(doc(db, 'rooms', newRoom.id), sanitizeForFirestore(newRoom));
+      const { ownerEmail: _privateOwnerEmail, ...publicRoomData } = newRoom;
+      await setDoc(doc(db, 'rooms', newRoom.id), sanitizeForFirestore(publicRoomData));
     }
     this.rooms.push(newRoom);
     this.notify();
@@ -1186,7 +1187,10 @@ class DataStore {
       throw new Error('Only the owner of this property can edit its rooms.');
     }
     const updatedRoom = { ...room, ...updates, ownerUid: firebaseUid || room.ownerUid, propertyId: room.propertyId };
-    if (db) await setDoc(doc(db, 'rooms', id), sanitizeForFirestore(updatedRoom), { merge: true });
+    if (db) {
+      const { ownerEmail: _privateOwnerEmail, ...publicRoomData } = updatedRoom;
+      await setDoc(doc(db, 'rooms', id), sanitizeForFirestore(publicRoomData), { merge: true });
+    }
     this.rooms[idx] = updatedRoom;
     this.notify();
     return true;

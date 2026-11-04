@@ -250,50 +250,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   // Login with Email / Username & Password
+  // Username/password login is intentionally disabled. A verified Google
+  // Firebase session is the only supported sign-in method for this app.
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage('');
+    setErrorMessage('Username and password login is disabled. Please use Continue with Google to sign in with your Google account.');
     setSuccessMessage('');
-
-    if (!loginIdentifier.trim() || !loginPassword) {
-      setErrorMessage('Please enter your Email/Username and Password.');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      let emailToTry = loginIdentifier.trim();
-      if (!emailToTry.includes('@')) {
-        const matched = store.getUsers().find(u => u.username?.toLowerCase() === emailToTry.toLowerCase());
-        if (matched && matched.email) {
-          emailToTry = matched.email;
-        }
-      }
-
-      if (!auth || !emailToTry.includes('@')) {
-        throw new Error('Secure sign-in requires an active Firebase account. Please use your registered email address.');
-      }
-      const credential = await signInWithEmailAndPassword(auth, emailToTry, loginPassword);
-      const loggedInUser = await store.loginWithFirebaseUser(credential.user);
-
-      if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.googleUid !== requiredOwnerId && loggedInUser.role !== 'admin') {
-        setErrorMessage(`Permission Denied! You logged in as @${loggedInUser.username}, but this property belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`);
-        setIsLoading(false);
-        return;
-      }
-
-      if (onSuccessRole) {
-        onSuccessRole(loggedInUser.role);
-      }
-
-      alert(`Welcome back, ${loggedInUser.name}! (@${loggedInUser.username}) Logged in successfully.`);
-      onClose();
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Login failed.');
-    } finally {
-      setIsLoading(false);
-    }
+    setLoginPassword('');
   };
 
   // Password recovery must be completed through Firebase's verified email link.

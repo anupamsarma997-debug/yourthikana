@@ -268,9 +268,19 @@ Generate a helpful, friendly, and concise response addressing the user's query a
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`THIKANA Server running on http://localhost:${PORT}`);
-  });
+  if (process.env.VERCEL !== '1') {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`THIKANA Server running on http://localhost:${PORT}`);
+    });
+  }
+  return app;
 }
 
-startServer();
+const appPromise = startServer();
+
+// Vercel invokes this exported handler for /api/* requests. Local development
+// continues to use the Express listener above.
+export default async function handler(req: express.Request, res: express.Response) {
+  const app = await appPromise;
+  return app(req, res);
+}

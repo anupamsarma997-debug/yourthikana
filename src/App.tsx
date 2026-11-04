@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UserRole, Property, RoomType } from './types';
 import { store } from './services/store';
 import { auth } from './lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { AlertTriangle, Sparkles } from 'lucide-react';
 
 // Components
@@ -41,6 +42,30 @@ export function App() {
       setIsMobileFrame(store.getMobileFrame());
       setIsDark(store.getTheme());
     });
+  }, []);
+
+  // Restore the authenticated account's real role after a page reload.
+  // The store restores the profile; this keeps the React view in sync with it.
+  useEffect(() => {
+    if (!auth) return;
+    let active = true;
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        if (active) setCurrentRole('customer');
+        return;
+      }
+      try {
+        const profile = await store.loginWithFirebaseUser(firebaseUser);
+        if (active) setCurrentRole(profile.role);
+      } catch (error) {
+        console.error('Authenticated profile restore failed:', error);
+        if (active) setCurrentRole('customer');
+      }
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   const hasTrackedVisitRef = React.useRef<boolean>(false);

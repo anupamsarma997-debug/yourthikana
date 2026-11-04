@@ -63,6 +63,133 @@ async function startServer() {
     });
   };
 
+  // Secure username authentication. Credentials are verified by Firebase Auth;
+  // Firestore username mappings are written/read only by this Admin SDK endpoint.
+  const usernameRateBuckets = new Map<string, { count: number; resetAt: number }>();
+  const getFirebaseAdmin = async () => {
+    const [{ getApps, initializeApp, cert }, { getAuth }, { getFirestore }] = await Promise.all([
+      import('firebase-admin/app'),
+      import('firebase-admin/auth'),
+      import('firebase-admin/firestore'),
+    ]);
+    let adminApp = getApps().find((item) => item.name === 'yourthikana-server');
+    if (!adminApp) {
+      const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+      if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT is not configured');
+      const serviceAccount = JSON.parse(raw);
+      if (serviceAccount.private_key) serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+      adminApp = initializeApp({ credential: cert(serviceAccount) }, 'yourthikana-server');
+    }
+    return { auth: getAuth(adminApp), db: getFirestore(adminApp) };
+  };
+  const usernameRateLimit = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const now = Date.now();
+    const key = req.ip || 'unknown';
+    const bucket = usernameRateBuckets.get(key);
+    if (!bucket || bucket.resetAt <= now) {
+      usernameRateBuckets.set(key, { count: 1, resetAt: now + 10 * 60 * 1000 });
+      return next();
+    }
+    if (bucket.count >= 8) {
+      res.setHeader('Retry-After', String(Math.ceil((bucket.resetAt - now) / 1000)));
+      return res.status(429).json({ error: 'Too many sign-in attempts. Wait a few minutes and try again.' });
+    }
+    bucket.count += 1;
+    return next();
+  };
+  const normalizeUsername = (value: unknown) =>
+    typeof value === 'string' ? value.trim().replace(/^@/, '').toLowerCase() : '';
+
+  app.post('/api/auth/claim-username', async (req, res) => {
+    try {
+      const authorization = req.headers.authorization || '';
+      const idToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+      if (!idToken) return res.status(401).json({ error: 'Please sign in again to finish account setup.' });
+      const username = normalizeUsername(req.body?.username);
+      if (!/^[a-z0-9_]{3,20}$/.test(username) || ['admin', 'administrator', 'support', 'help', 'yourthikana', 'thikana', 'null', 'undefined'].includes(username)) {
+        return res.status(400).json({ error: 'Username must be 3–20 characters using letters, numbers or underscore.' });
+      }
+      const { auth: adminAuth, db: adminDb } = await getFirebaseAdmin();
+      const decoded = await adminAuth.verifyIdToken(idToken);
+      const authUser = await adminAuth.getUser(decoded.uid);
+      if (!authUser.email) return res.status(400).json({ error: 'A verified Firebase account email is required.' });
+      const usernameRef = adminDb.collection('username_index').doc(username);
+      await adminDb.runTransaction(async (tx) => {
+        const existing = await tx.get(usernameRef);
+        if (existing.exists && existing.data()?.uid !== decoded.uid) {
+          const error: any = new Error('USERNAME_TAKEN');
+          error.code = 'USERNAME_TAKEN';
+          throw error;
+        }
+        tx.set(usernameRef, { uid: decoded.uid, username, createdAt: existing.exists ? existing.data()?.createdAt || new Date().toISOString() : new Date().toISOString() });
+        tx.set(adminDb.collection('users').doc(decoded.uid), {
+          id: decoded.uid, username, email: authUser.email,
+          name: authUser.displayName || authUser.email.split('@')[0],
+        }, { merge: true });
+        tx.set(adminDb.collection('public_profiles').doc(decoded.uid), {
+          id: decoded.uid, username,
+          name: authUser.displayName || authUser.email.split('@')[0],
+          role: 'customer',
+        }, { merge: true });
+      });
+      return res.json({ success: true, username });
+    } catch (error: any) {
+      if (error?.code === 'USERNAME_TAKEN') return res.status(409).json({ error: 'This username is already taken. Please choose another.' });
+      if (error?.code === 'auth/id-token-expired' || error?.code === 'auth/argument-error') return res.status(401).json({ error: 'Your sign-in session expired. Please sign in again.' });
+      console.error('Username claim failed:', error?.message || error);
+      return res.status(500).json({ error: 'Username setup is temporarily unavailable. Please try again.' });
+    }
+  });
+
+  app.post('/api/auth/username-login', usernameRateLimit, async (req, res) => {
+    try {
+      const username = normalizeUsername(req.body?.username);
+      const password = typeof req.body?.password === 'string' ? req.body.password : '';
+      if (!/^[a-z0-9_]{3,20}$/.test(username) || !password || password.length > 128) {
+        return res.status(400).json({ error: 'Enter a valid username and password.' });
+      }
+      const { auth: adminAuth, db: adminDb } = await getFirebaseAdmin();
+      const usernameRef = adminDb.collection('username_index').doc(username);
+      let mapping = await usernameRef.get();
+      // One-time compatibility migration for an older profile with a unique exact username.
+      if (!mapping.exists) {
+        const legacy = await adminDb.collection('users').where('username', '==', username).limit(2).get();
+        if (legacy.size === 1) {
+          const uid = legacy.docs[0].id;
+          await adminDb.runTransaction(async (tx) => {
+            const current = await tx.get(usernameRef);
+            if (!current.exists) tx.create(usernameRef, { uid, username, createdAt: new Date().toISOString() });
+          });
+          mapping = await usernameRef.get();
+        }
+      }
+      const uid = mapping.data()?.uid;
+      if (!mapping.exists || typeof uid !== 'string') {
+        return res.status(401).json({ error: 'Incorrect username or password.' });
+      }
+      const account = await adminAuth.getUser(uid);
+      if (!account.email || account.disabled) {
+        return res.status(401).json({ error: 'Incorrect username or password.' });
+      }
+      const apiKey = process.env.FIREBASE_WEB_API_KEY || process.env.VITE_FIREBASE_API_KEY;
+      if (!apiKey) throw new Error('Firebase web API key is not configured on the server');
+      const identityResponse = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + encodeURIComponent(apiKey), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: account.email, password, returnSecureToken: true }),
+      });
+      const identityResult: any = await identityResponse.json().catch(() => ({}));
+      if (!identityResponse.ok || identityResult.localId !== uid) {
+        return res.status(401).json({ error: 'Incorrect username or password.' });
+      }
+      const customToken = await adminAuth.createCustomToken(uid);
+      return res.json({ customToken });
+    } catch (error: any) {
+      console.error('Username sign-in failed:', error?.message || error);
+      return res.status(500).json({ error: 'Username sign-in is temporarily unavailable. Please try again.' });
+    }
+  });
+
   // Health API
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', app: 'THIKANA Marketplace', time: new Date().toISOString() });

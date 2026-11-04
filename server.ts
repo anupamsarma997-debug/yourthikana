@@ -20,6 +20,7 @@ async function startServer() {
   // For multi-instance deployments, also configure a shared edge/API rate limit.
   const aiRateLimitWindowMs = 10 * 60 * 1000;
   const aiRateLimitMaxRequests = 12;
+  const aiRateLimitMaxBuckets = 5000;
   const aiRequestBuckets = new Map<string, { count: number; resetAt: number }>();
   const aiRateLimit = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const now = Date.now();
@@ -27,10 +28,15 @@ async function startServer() {
       if (bucket.resetAt <= now) aiRequestBuckets.delete(key);
     }
     const key = req.ip || 'unknown';
-    const bucket = aiRequestBuckets.get(key);
+    let bucket = aiRequestBuckets.get(key);
     if (!bucket || bucket.resetAt <= now) {
-      aiRequestBuckets.set(key, { count: 1, resetAt: now + aiRateLimitWindowMs });
-      return next();
+      // Bound memory use if many distinct client IPs hit a warm server instance.
+      if (aiRequestBuckets.size >= aiRateLimitMaxBuckets) {
+        const oldestKey = aiRequestBuckets.keys().next().value;
+        if (oldestKey) aiRequestBuckets.delete(oldestKey);
+      }
+      bucket = { count: 0, resetAt: now + aiRateLimitWindowMs };
+      aiRequestBuckets.set(key, bucket);
     }
     if (bucket.count >= aiRateLimitMaxRequests) {
       res.setHeader('Retry-After', String(Math.ceil((bucket.resetAt - now) / 1000)));
@@ -123,7 +129,7 @@ STRICT RULES (ZERO HALLUCINATIONS):
       res.json({ description: response.text || '' });
     } catch (error: any) {
       console.error('Error generating AI description:', error);
-      res.status(500).json({ error: error.message || 'Failed to generate AI description' });
+      res.status(500).json({ error: 'Failed to generate AI description. Please try again later.' });
     }
   });
 
@@ -162,7 +168,7 @@ Return ONLY a JSON array of strings. Do not invent distances or claim exact prox
       res.json({ attractions, note: 'AI suggestions may be inaccurate. Please verify locations before publishing.' });
     } catch (error: any) {
       console.error('Error generating attractions:', error);
-      res.status(500).json({ error: error.message || 'Failed to fetch attractions' });
+      res.status(500).json({ error: 'Failed to fetch attraction suggestions. Please try again later.' });
     }
   });
 
@@ -249,7 +255,7 @@ Generate a helpful, friendly, and concise response addressing the user's query a
       });
     } catch (error: any) {
       console.error('Error in travel assistant:', error);
-      res.status(500).json({ error: error.message || 'Travel assistant error' });
+      res.status(500).json({ error: 'Travel assistant is temporarily unavailable. Please try again later.' });
     }
   });
 

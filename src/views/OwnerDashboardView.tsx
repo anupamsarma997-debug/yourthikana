@@ -318,13 +318,13 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       }
 
       const file = files[i];
-      if (!allowedTypes.includes(file.type.toLowerCase()) && !file.type.startsWith('image/')) {
+      if (!allowedTypes.includes(file.type.toLowerCase())) {
         setFormError(`⚠️ Security Alert: "${file.name}" is not a supported image file. Only JPG, PNG, WEBP, and GIF images are permitted.`);
         return;
       }
 
-      if (file.size > 10 * 1024 * 1024) {
-        setFormError(`⚠️ File Size Error: "${file.name}" exceeds the maximum limit of 10 MB.`);
+      if (file.size > 5 * 1024 * 1024) {
+        setFormError(`⚠️ File Size Error: "${file.name}" exceeds the maximum limit of 5 MB.`);
         return;
       }
 

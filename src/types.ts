@@ -54,7 +54,7 @@ export interface Property {
   ownerUid?: string;
   ownerEmail?: string;
   ownerName: string;
-  ownerPhone: string;
+  ownerPhone?: string;
   ownerWhatsApp: string;
   title: string;
   description: string; // Unlimited character limit
@@ -91,8 +91,8 @@ export interface BookingEnquiry {
   ownerName: string;
   ownerWhatsApp: string;
   customerName: string;
-  customerPhone: string;
-  customerWhatsApp: string;
+  customerPhone?: string;
+  customerWhatsApp?: string;
   checkInDate: string;
   checkOutDate: string;
   numberOfDays: number;

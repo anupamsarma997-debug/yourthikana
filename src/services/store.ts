@@ -1,7 +1,7 @@
 import { Property, RoomType, BannerAd, User, UserRole, BookingEnquiry, SubscriptionTransaction, PropertyType, PropertyVisit, PropertyLead } from '../types';
 import { INITIAL_USERS, INITIAL_PROPERTIES, INITIAL_ROOMS, INITIAL_BANNERS, INITIAL_TRANSACTIONS } from '../data/initialData';
 import { db, auth, isFirebaseConfigured, firebaseConfigError } from '../lib/firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { deletePropertyPhoto } from './uploadPropertyImage';
 
@@ -155,7 +155,7 @@ function syncPublicProfile(user: User) {
   if (!db) return;
   try {
     setDoc(
-      doc(db, 'public_profiles', user.id),
+      doc(db, 'public_profiles', user.googleUid || user.id),
       {
         id: user.id,
         name: user.name || '',
@@ -353,28 +353,7 @@ class DataStore {
         console.error('Firestore rooms sync error:', err);
       });
 
-      // Sync users collection from Firestore (for admins/authorized roles)
-      onSnapshot(collection(db, 'users'), (snapshot) => {
-        if (!snapshot.empty) {
-          const remoteUsers: User[] = [];
-          snapshot.forEach((docSnap) => {
-            remoteUsers.push({ id: docSnap.id, ...docSnap.data() } as User);
-          });
-          if (remoteUsers.length > 0) {
-            const userMap = new Map<string, User>();
-            this.users.forEach((u) => userMap.set(u.id, u));
-            remoteUsers.forEach((ru) => userMap.set(ru.id, ru));
-            this.users = Array.from(userMap.values());
-            this.persist();
-            this.notify(false);
-          }
-        }
-      }, (err) => {
-        // Handle security rule restriction on collection scan gracefully
-        if (!err?.message?.includes('permission') && !err?.message?.includes('Missing or insufficient permissions')) {
-          console.warn('Firestore users sync note:', err?.message || err);
-        }
-      });
+      // Read user profiles individually by authenticated UID; do not scan the users collection.
 
       // Sync enquiries collection from Firestore
       onSnapshot(collection(db, 'enquiries'), (snapshot) => {
@@ -508,7 +487,7 @@ class DataStore {
       if (googleData.displayName && (!found.name || found.name === 'Host User')) found.name = googleData.displayName;
       this.currentUserId = found.id;
       if (db) {
-        setDoc(doc(db, 'users', found.id), sanitizeUserForFirestore(found), { merge: true }).catch((err) =>
+        setDoc(doc(db, 'users', googleData.uid || found.googleUid || found.id), sanitizeUserForFirestore(found), { merge: true }).catch((err) =>
           console.warn('Firestore sync user error:', err)
         );
       }
@@ -531,7 +510,7 @@ class DataStore {
     }
 
     const newUser: User = {
-      id: googleData.uid ? `google_${googleData.uid}` : 'user_' + Date.now(),
+      id: googleData.uid || 'user_' + Date.now(),
       name: baseName,
       username: baseUsername || 'user_' + Math.floor(1000 + Math.random() * 9000),
       email: googleData.email,
@@ -549,13 +528,53 @@ class DataStore {
     this.users.push(newUser);
     this.currentUserId = newUser.id;
     if (db) {
-      setDoc(doc(db, 'users', newUser.id), sanitizeUserForFirestore(newUser)).catch((err) =>
+      setDoc(doc(db, 'users', newUser.googleUid || newUser.id), sanitizeUserForFirestore(newUser)).catch((err) =>
         console.warn('Firestore register Google User error:', err)
       );
     }
     syncPublicProfile(newUser);
     this.notify();
     return newUser;
+  }
+
+  public async loginWithFirebaseUser(firebaseUser: { uid: string; email: string | null; displayName?: string | null; photoURL?: string | null }): Promise<User> {
+    if (!firebaseUser?.uid || !firebaseUser.email || !db) {
+      throw new Error('Firebase account profile is unavailable. Please try again.');
+    }
+
+    const existing = this.users.find((u) =>
+      u.googleUid === firebaseUser.uid ||
+      u.id === firebaseUser.uid ||
+      (u.email && u.email.toLowerCase() === firebaseUser.email!.toLowerCase())
+    );
+    const profileRef = doc(db, 'users', firebaseUser.uid);
+    const profileSnap = await getDoc(profileRef);
+    const remote = profileSnap.exists() ? profileSnap.data() : {};
+    const user: User = {
+      ...(existing || {} as User),
+      ...(remote as Partial<User>),
+      id: (remote.id as string) || existing?.id || firebaseUser.uid,
+      name: (remote.name as string) || existing?.name || firebaseUser.displayName || firebaseUser.email.split('@')[0],
+      username: (remote.username as string) || existing?.username || firebaseUser.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, ''),
+      email: firebaseUser.email,
+      googleEmail: firebaseUser.email,
+      googleUid: firebaseUser.uid,
+      avatar: firebaseUser.photoURL || existing?.avatar,
+      phone: (remote.phone as string) || existing?.phone || '',
+      whatsapp: (remote.whatsapp as string) || existing?.whatsapp || '',
+      role: (remote.role as UserRole) || existing?.role || 'owner',
+      status: (remote.status as User['status']) || existing?.status || 'active',
+      createdAt: (remote.createdAt as string) || existing?.createdAt || new Date().toISOString(),
+    };
+
+    const idx = this.users.findIndex((u) => u.id === user.id || u.googleUid === firebaseUser.uid);
+    if (idx >= 0) this.users[idx] = { ...this.users[idx], ...user };
+    else this.users.push(user);
+    this.currentUserId = user.id;
+    await setDoc(profileRef, sanitizeUserForFirestore(user), { merge: true });
+    syncPublicProfile(user);
+    this.notify();
+    return user;
   }
 
   public findUserByGoogleUid(uid: string): User | undefined {
@@ -599,7 +618,7 @@ class DataStore {
       passwordHash: pwd ? hashPasswordWithSalt(pwd, salt) : undefined,
       googleEmail: user.googleEmail || user.email,
       googleUid: user.googleUid,
-      id: 'user_' + Date.now(),
+      id: user.googleUid || 'user_' + Date.now(),
       status: 'active',
       createdAt: new Date().toISOString(),
     };
@@ -608,7 +627,7 @@ class DataStore {
     this.users.push(newUser);
     this.currentUserId = newUser.id;
     if (db) {
-      setDoc(doc(db, 'users', newUser.id), sanitizeUserForFirestore(newUser)).catch((err) => console.warn('Firestore registerUser error:', err));
+      setDoc(doc(db, 'users', newUser.googleUid || newUser.id), sanitizeUserForFirestore(newUser)).catch((err) => console.warn('Firestore registerUser error:', err));
     }
     syncPublicProfile(newUser);
     this.notify();

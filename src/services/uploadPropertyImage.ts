@@ -1,8 +1,8 @@
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import { storage } from '../lib/firebase';
+import { storage, auth } from '../lib/firebase';
 import { supabase } from '../lib/supabase';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // Keep client limit aligned with Firebase Storage rules (5MB)
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'];
 
 export interface UploadProgressCallback {
@@ -88,14 +88,18 @@ export async function uploadPropertyPhoto(
   }
 
   // Validate File Type
-  if (!ALLOWED_MIME_TYPES.includes(file.type) && !file.type.startsWith('image/')) {
+  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
     throw new Error(`Invalid file format (${file.type || 'unknown'}). Please upload a JPEG, PNG, WEBP, AVIF, or GIF image.`);
   }
 
   // Validate File Size
   if (file.size > MAX_FILE_SIZE) {
     const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
-    throw new Error(`File "${file.name}" (${sizeInMB} MB) exceeds the maximum allowed size of 10 MB.`);
+    throw new Error(`File "${file.name}" (${sizeInMB} MB) exceeds the maximum allowed size of 5 MB.`);
+  }
+
+  if (storage && (!auth?.currentUser || auth.currentUser.uid !== ownerUid)) {
+    throw new Error('Please sign in with the account that owns this property before uploading photos.');
   }
 
   if (onProgress) onProgress(20);

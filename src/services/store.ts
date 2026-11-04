@@ -1,7 +1,7 @@
 import { Property, RoomType, BannerAd, User, UserRole, BookingEnquiry, SubscriptionTransaction, PropertyType, PropertyVisit, PropertyLead } from '../types';
 import { INITIAL_USERS, INITIAL_PROPERTIES, INITIAL_ROOMS, INITIAL_BANNERS, INITIAL_TRANSACTIONS } from '../data/initialData';
 import { db, auth, isFirebaseConfigured, firebaseConfigError } from '../lib/firebase';
-import { collection, doc, setDoc, deleteDoc, getDoc, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, getDoc, onSnapshot, query, where, writeBatch } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { deletePropertyPhoto } from './uploadPropertyImage';
 
@@ -1089,10 +1089,13 @@ class DataStore {
     if (db) {
       try {
         const relatedRooms = this.rooms.filter((room) => room.propertyId === id);
-        for (const room of relatedRooms) {
-          await deleteDoc(doc(db, 'rooms', room.id));
+        if (relatedRooms.length > 499) {
+          return { success: false, status: 400, message: 'This property has too many room records for a safe single-step deletion. Please contact support.' };
         }
-        await deleteDoc(doc(db, 'properties', id));
+        const batch = writeBatch(db);
+        relatedRooms.forEach((room) => batch.delete(doc(db, 'rooms', room.id)));
+        batch.delete(doc(db, 'properties', id));
+        await batch.commit();
       } catch (error: any) {
         console.error('Firestore deleteProperty failed:', error);
         return {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Property, RoomType } from '../types';
 import { store } from '../services/store';
+import { getEffectiveRoomPrice, hasValidRoomDiscount } from '../utils/roomPricing';
 import { MapLocationView } from '../components/MapLocationView';
 import { BannerSlider } from '../components/BannerSlider';
 import { 
@@ -15,8 +16,7 @@ import {
   Clock, 
   BedDouble, 
   MessageCircle, 
-  Phone, 
-  Mail, 
+    Mail, 
   Share2, 
   Calendar,
   Layers,
@@ -222,7 +222,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
             <div className="space-y-3">
               {rooms.map((room) => {
-                const effectivePrice = room.discountPrice || room.pricePerNight;
+                const effectivePrice = getEffectiveRoomPrice(room);
                 const isSelected = selectedRoom?.id === room.id;
 
                 return (
@@ -273,7 +273,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
                           <span className="text-xl font-black text-slate-900 dark:text-white">
                             ₹{effectivePrice}
                           </span>
-                          {room.discountPrice && (
+                          {hasValidRoomDiscount(room) && (
                             <span className="text-xs text-slate-400 line-through">
                               ₹{room.pricePerNight}
                             </span>
@@ -320,7 +320,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
               <div className="mt-3 flex items-baseline gap-2">
                 <span className="text-2xl font-black text-slate-900 dark:text-white">
-                  ₹{selectedRoom ? (selectedRoom.discountPrice || selectedRoom.pricePerNight) : 1500}
+                  {selectedRoom ? `₹${getEffectiveRoomPrice(selectedRoom)}` : 'Ask host for price'}
                 </span>
                 <span className="text-xs text-slate-500 font-medium">
                   {property.propertyType?.toLowerCase().includes('monthly') ? '/ month starting rent' : '/ night starting price'}
@@ -349,14 +349,10 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
                 </div>
               </div>
 
-              <div className="text-xs text-slate-600 dark:text-slate-300 space-y-1">
-                <p className="flex items-center gap-2">
-                  <Phone className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{property.ownerPhone}</span>
-                </p>
+              <div className="text-xs text-slate-600 dark:text-slate-300">
                 <p className="flex items-center gap-2">
                   <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>WhatsApp: {property.ownerWhatsApp || property.ownerPhone}</span>
+                  <span>Contact the host through WhatsApp booking. The phone number is not displayed publicly.</span>
                 </p>
               </div>
             </div>

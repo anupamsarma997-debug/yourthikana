@@ -1157,14 +1157,18 @@ class DataStore {
   public async addRoom(room: Omit<RoomType, 'id'>): Promise<RoomType> {
     const prop = this.getPropertyById(room.propertyId);
     const firebaseUid = auth?.currentUser?.uid;
-    if (!firebaseUid || !prop || prop.ownerUid !== firebaseUid) {
-      throw new Error('Only the signed-in owner of this property can add rooms.');
+    const currentUser = this.getCurrentUser();
+    const canManage = firebaseUid
+      ? Boolean(prop && prop.ownerUid === firebaseUid)
+      : Boolean(!db && currentUser && prop && this.isOwnerOfProperty(currentUser.id, room.propertyId));
+    if (!canManage || !prop) {
+      throw new Error('Only the owner of this property can add rooms.');
     }
 
     const newRoom: RoomType = {
       ...room,
       ownerId: prop.ownerId,
-      ownerUid: firebaseUid,
+      ownerUid: firebaseUid || prop.ownerUid || currentUser?.googleUid || currentUser?.id,
       id: 'room_' + Date.now(),
     };
     if (db) {
@@ -1184,11 +1188,15 @@ class DataStore {
     if (idx === -1) return false;
     const room = this.rooms[idx];
     const firebaseUid = auth?.currentUser?.uid;
+    const currentUser = this.getCurrentUser();
     const property = this.getPropertyById(room.propertyId);
-    if (!firebaseUid || !property || property.ownerUid !== firebaseUid || room.ownerUid !== firebaseUid) {
-      throw new Error('Only the signed-in owner of this property can edit its rooms.');
+    const canManage = firebaseUid
+      ? Boolean(property && property.ownerUid === firebaseUid && room.ownerUid === firebaseUid)
+      : Boolean(!db && currentUser && property && this.isOwnerOfProperty(currentUser.id, room.propertyId));
+    if (!canManage || !property) {
+      throw new Error('Only the owner of this property can edit its rooms.');
     }
-    const updatedRoom = { ...room, ...updates, ownerUid: firebaseUid, propertyId: room.propertyId };
+    const updatedRoom = { ...room, ...updates, ownerUid: firebaseUid || room.ownerUid, propertyId: room.propertyId };
     if (db) await setDoc(doc(db, 'rooms', id), sanitizeForFirestore(updatedRoom), { merge: true });
     this.rooms[idx] = updatedRoom;
     this.notify();
@@ -1199,9 +1207,13 @@ class DataStore {
     const room = this.rooms.find((r) => r.id === id);
     if (!room) return false;
     const firebaseUid = auth?.currentUser?.uid;
+    const currentUser = this.getCurrentUser();
     const property = this.getPropertyById(room.propertyId);
-    if (!firebaseUid || !property || property.ownerUid !== firebaseUid || room.ownerUid !== firebaseUid) {
-      throw new Error('Only the signed-in owner of this property can delete its rooms.');
+    const canManage = firebaseUid
+      ? Boolean(property && property.ownerUid === firebaseUid && room.ownerUid === firebaseUid)
+      : Boolean(!db && currentUser && property && this.isOwnerOfProperty(currentUser.id, room.propertyId));
+    if (!canManage || !property) {
+      throw new Error('Only the owner of this property can delete its rooms.');
     }
     if (db) await deleteDoc(doc(db, 'rooms', id));
     this.rooms = this.rooms.filter((r) => r.id !== id);

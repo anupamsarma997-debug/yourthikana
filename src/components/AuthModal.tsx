@@ -39,8 +39,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   targetPropertyTitle,
   requiredOwnerId
 }) => {
-  if (!isOpen) return null;
-
   const [mode, setMode] = useState<'login' | 'register' | 'forgot_password'>(initialMode);
   const [role, setRole] = useState<UserRole>('owner');
 
@@ -298,6 +296,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setIsLoading(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md">

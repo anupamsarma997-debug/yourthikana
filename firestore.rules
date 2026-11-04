@@ -74,7 +74,7 @@ service cloud.firestore {
         (
           request.resource.data.ownerUid == request.auth.uid &&
           request.resource.data.keys().hasOnly([
-            'id', 'ownerId', 'ownerUid', 'ownerEmail', 'ownerName', 'ownerPhone', 'ownerWhatsApp',
+            'id', 'ownerId', 'ownerUid', 'ownerName', 'ownerPhone', 'ownerWhatsApp',
             'title', 'description', 'propertyType', 'address', 'city', 'state',
             'latitude', 'longitude', 'googleMapUrl', 'nearbyAttractions',
             'checkInTime', 'checkOutTime', 'photos', 'videoUrl', 'coverImage',

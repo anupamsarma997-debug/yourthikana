@@ -1,6 +1,8 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
     function isSignedIn() {
       return request.auth != null;
     }
@@ -12,8 +14,10 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.get('admin', false) == true ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin')
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin'
+        )
       );
     }
 
@@ -25,168 +29,405 @@ service cloud.firestore {
 
     function isValidProperty() {
       let data = request.resource.data;
+
       return data.keys().hasAll(['title', 'city', 'ownerUid']) &&
-        data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
-        data.city is string && data.city.size() > 0 && data.city.size() <= 100;
+        data.title is string &&
+        data.title.size() > 0 &&
+        data.title.size() <= 200 &&
+        data.city is string &&
+        data.city.size() > 0 &&
+        data.city.size() <= 100 &&
+        data.ownerUid is string &&
+        data.ownerUid.size() > 0;
     }
 
     function isValidRoom() {
       let data = request.resource.data;
-      return data.keys().hasAll(['propertyId', 'roomName']) && data.keys().hasOnly([
-        'id', 'propertyId', 'ownerId', 'ownerUid', 'roomName', 'pricePerNight',
-        'discountPrice', 'maxGuests', 'description', 'amenities', 'roomSize', 'bedType', 'photos'
-      ]) &&
-        data.propertyId is string && data.roomName is string &&
-        data.roomName.size() > 0 && data.roomName.size() <= 120;
+
+      return data.keys().hasAll(['propertyId', 'roomName']) &&
+        data.keys().hasOnly([
+          'id', 'propertyId', 'ownerId', 'ownerUid', 'roomName',
+          'pricePerNight', 'discountPrice', 'maxGuests',
+          'description', 'amenities', 'roomSize', 'bedType', 'photos'
+        ]) &&
+        data.propertyId is string &&
+        data.propertyId.size() > 0 &&
+        data.roomName is string &&
+        data.roomName.size() > 0 &&
+        data.roomName.size() <= 120;
     }
 
     function isValidEnquiry() {
       let data = request.resource.data;
-      return data.keys().hasAll(['propertyId']) && data.keys().hasOnly([
-        'id', 'propertyId', 'propertyName', 'ownerId', 'ownerName', 'ownerWhatsApp',
-        'customerName', 'customerPhone', 'customerWhatsApp', 'guestName', 'guestPhone',
-        'checkInDate', 'checkOutDate', 'numberOfDays', 'adults', 'children', 'totalGuests',
-        'selectedRoomId', 'selectedRoomName', 'pricePerNight', 'calculatedTotal',
-        'specialRequests', 'message', 'formattedMessage', 'sentAt', 'createdAt'
-      ]) &&
-        data.propertyId is string && data.propertyId.size() > 0 && data.propertyId.size() <= 100 &&
+
+      return data.keys().hasAll(['propertyId']) &&
+        data.keys().hasOnly([
+          'id', 'propertyId', 'propertyName', 'ownerId',
+          'ownerName', 'ownerWhatsApp',
+          'customerName', 'customerPhone', 'customerWhatsApp',
+          'guestName', 'guestPhone',
+          'checkInDate', 'checkOutDate', 'numberOfDays',
+          'adults', 'children', 'totalGuests',
+          'selectedRoomId', 'selectedRoomName',
+          'pricePerNight', 'calculatedTotal',
+          'specialRequests', 'message', 'formattedMessage',
+          'sentAt', 'createdAt'
+        ]) &&
+        data.propertyId is string &&
+        data.propertyId.size() > 0 &&
+        data.propertyId.size() <= 100 &&
         exists(/databases/$(database)/documents/properties/$(data.propertyId)) &&
-        (('guestName' in data && data.guestName is string && data.guestName.size() > 0 && data.guestName.size() <= 100) ||
-         ('customerName' in data && data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 100)) &&
-        (('guestPhone' in data && data.guestPhone is string && data.guestPhone.size() > 0 && data.guestPhone.size() <= 30) ||
-         ('customerPhone' in data && data.customerPhone is string && data.customerPhone.size() > 0 && data.customerPhone.size() <= 30)) &&
-        (!('message' in data) || (data.message is string && data.message.size() <= 2000)) &&
-        (!('specialRequests' in data) || (data.specialRequests is string && data.specialRequests.size() <= 2000));
+
+        (
+          ('guestName' in data &&
+            data.guestName is string &&
+            data.guestName.size() > 0 &&
+            data.guestName.size() <= 100) ||
+          ('customerName' in data &&
+            data.customerName is string &&
+            data.customerName.size() > 0 &&
+            data.customerName.size() <= 100)
+        ) &&
+
+        (
+          ('guestPhone' in data &&
+            data.guestPhone is string &&
+            data.guestPhone.size() > 0 &&
+            data.guestPhone.size() <= 30) ||
+          ('customerPhone' in data &&
+            data.customerPhone is string &&
+            data.customerPhone.size() > 0 &&
+            data.customerPhone.size() <= 30)
+        ) &&
+
+        (!('message' in data) ||
+          (data.message is string && data.message.size() <= 2000)) &&
+
+        (!('specialRequests' in data) ||
+          (data.specialRequests is string && data.specialRequests.size() <= 2000));
     }
 
     function isValidBanner() {
       let data = request.resource.data;
+
       return data.keys().hasAll(['title', 'imageUrl', 'position']) &&
-        data.title is string && data.title.size() <= 200 &&
+        data.keys().hasOnly([
+          'id', 'title', 'subtitle', 'imageUrl', 'targetUrl',
+          'ctaText', 'position', 'isActive',
+          'advertiserUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.title is string &&
+        data.title.size() > 0 &&
+        data.title.size() <= 200 &&
+        data.imageUrl is string &&
+        data.imageUrl.size() > 0 &&
+        data.imageUrl.size() <= 2048 &&
         data.position in ['home', 'search', 'property'];
+    }
+
+    function isValidUserProfile() {
+      let data = request.resource.data;
+
+      return data.keys().hasOnly([
+        'id', 'name', 'username', 'email',
+        'googleEmail', 'googleUid',
+        'phone', 'whatsapp', 'role',
+        'status', 'createdAt'
+      ]) &&
+        (!('name' in data) ||
+          (data.name is string && data.name.size() <= 150)) &&
+        (!('username' in data) ||
+          (data.username is string && data.username.size() <= 50)) &&
+        (!('email' in data) ||
+          (data.email is string && data.email.size() <= 254)) &&
+        (!('phone' in data) ||
+          (data.phone is string && data.phone.size() <= 30)) &&
+        (!('whatsapp' in data) ||
+          (data.whatsapp is string && data.whatsapp.size() <= 30));
+    }
+
+    function isValidPublicProfile() {
+      let data = request.resource.data;
+
+      return data.keys().hasOnly(['id', 'name', 'username', 'role']) &&
+        (!('id' in data) ||
+          (data.id is string && data.id.size() <= 128)) &&
+        (!('name' in data) ||
+          (data.name is string && data.name.size() <= 150)) &&
+        (!('username' in data) ||
+          (data.username is string && data.username.size() <= 50)) &&
+        (!('role' in data) ||
+          (data.role in ['customer', 'owner'] || isAdmin()));
+    }
+
+    function validAnalyticsSource(allowedSources) {
+      return !('source' in request.resource.data) ||
+        request.resource.data.source in allowedSources;
     }
 
     match /{document=**} {
       allow read, write: if false;
     }
 
+    // PROPERTY LISTINGS
     match /properties/{propertyId} {
       allow read: if true;
-      allow create: if isValidProperty() && isSignedIn() && (
-        isAdmin() ||
+
+      allow create: if isValidProperty() &&
+        isSignedIn() &&
         (
-          request.resource.data.ownerUid == request.auth.uid &&
-          request.resource.data.keys().hasOnly([
-            'id', 'ownerId', 'ownerUid', 'ownerName', 'ownerPhone', 'ownerWhatsApp',
-            'title', 'description', 'propertyType', 'address', 'city', 'state',
-            'latitude', 'longitude', 'googleMapUrl', 'nearbyAttractions',
-            'checkInTime', 'checkOutTime', 'photos', 'videoUrl', 'coverImage',
-            'rating', 'reviewsCount', 'isVerified', 'isFeatured', 'status',
-            'subscriptionPlan', 'subscriptionPrice', 'subscriptionExpiresAt',
-            'subscriptionExpiryDate', 'createdAt'
-          ]) &&
-          (!('isVerified' in request.resource.data) || request.resource.data.isVerified == false) &&
-          (!('isFeatured' in request.resource.data) || request.resource.data.isFeatured == false) &&
-          (!('rating' in request.resource.data) || request.resource.data.rating == 0) &&
-          (!('reviewsCount' in request.resource.data) || request.resource.data.reviewsCount == 0) &&
-          (!('subscriptionPlan' in request.resource.data) || request.resource.data.subscriptionPlan == 'none') &&
-          (!('subscriptionPrice' in request.resource.data) || request.resource.data.subscriptionPrice == 0) &&
-          (!('subscriptionExpiresAt' in request.resource.data) || request.resource.data.subscriptionExpiresAt == '') &&
-          (!('subscriptionExpiryDate' in request.resource.data) || request.resource.data.subscriptionExpiryDate == '') &&
-          (!('status' in request.resource.data) || request.resource.data.status in ['pending', 'active'])
-        )
-      );
-      allow update: if isValidProperty() && isSignedIn() && (
-        isAdmin() ||
+          isAdmin() ||
+          (
+            request.resource.data.ownerUid == request.auth.uid &&
+            request.resource.data.keys().hasOnly([
+              'id', 'ownerId', 'ownerUid', 'ownerName',
+              'ownerPhone', 'ownerWhatsApp',
+              'title', 'description', 'propertyType',
+              'address', 'city', 'state',
+              'latitude', 'longitude', 'googleMapUrl',
+              'nearbyAttractions', 'checkInTime', 'checkOutTime',
+              'photos', 'videoUrl', 'coverImage',
+              'rating', 'reviewsCount',
+              'isVerified', 'isFeatured', 'status',
+              'subscriptionPlan', 'subscriptionPrice',
+              'subscriptionExpiresAt', 'subscriptionExpiryDate',
+              'createdAt'
+            ]) &&
+
+            (!('isVerified' in request.resource.data) ||
+              request.resource.data.isVerified == false) &&
+
+            (!('isFeatured' in request.resource.data) ||
+              request.resource.data.isFeatured == false) &&
+
+            (!('rating' in request.resource.data) ||
+              request.resource.data.rating == 0) &&
+
+            (!('reviewsCount' in request.resource.data) ||
+              request.resource.data.reviewsCount == 0) &&
+
+            (!('subscriptionPlan' in request.resource.data) ||
+              request.resource.data.subscriptionPlan == 'none') &&
+
+            (!('subscriptionPrice' in request.resource.data) ||
+              request.resource.data.subscriptionPrice == 0) &&
+
+            (!('subscriptionExpiresAt' in request.resource.data) ||
+              request.resource.data.subscriptionExpiresAt == '') &&
+
+            (!('subscriptionExpiryDate' in request.resource.data) ||
+              request.resource.data.subscriptionExpiryDate == '') &&
+
+            (!('status' in request.resource.data) ||
+              request.resource.data.status in ['pending', 'active'])
+          )
+        );
+
+      allow update: if isValidProperty() &&
+        isSignedIn() &&
         (
-          resource.data.get('ownerUid', '') == request.auth.uid &&
-          request.resource.data.get('ownerUid', '') == resource.data.get('ownerUid', '') &&
-          request.resource.data.get('ownerId', '') == resource.data.get('ownerId', '') &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'title', 'description', 'propertyType', 'address', 'city', 'state',
-            'latitude', 'longitude', 'googleMapUrl', 'photos', 'videoUrl',
-            'nearbyAttractions', 'checkInTime', 'checkOutTime',
-            'ownerPhone', 'ownerWhatsApp'
-          ])
-        )
-      );
+          isAdmin() ||
+          (
+            resource.data.get('ownerUid', '') == request.auth.uid &&
+            request.resource.data.get('ownerUid', '') == resource.data.get('ownerUid', '') &&
+            request.resource.data.get('ownerId', '') == resource.data.get('ownerId', '') &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'title', 'description', 'propertyType',
+              'address', 'city', 'state',
+              'latitude', 'longitude', 'googleMapUrl',
+              'photos', 'videoUrl', 'nearbyAttractions',
+              'checkInTime', 'checkOutTime',
+              'ownerPhone', 'ownerWhatsApp'
+            ])
+          )
+        );
+
       allow delete: if isSignedIn() &&
-        (resource.data.get('ownerUid', '') == request.auth.uid || isAdmin());
+        (
+          resource.data.get('ownerUid', '') == request.auth.uid ||
+          isAdmin()
+        );
     }
 
+    // ROOMS
     match /rooms/{roomId} {
       allow read: if true;
-      allow create: if isValidRoom() && isSignedIn() &&
-        ((request.resource.data.get('ownerUid', '') == request.auth.uid &&
-          ownsProperty(request.resource.data.propertyId)) || isAdmin());
-      allow update: if isValidRoom() && isSignedIn() &&
+
+      allow create: if isValidRoom() &&
+        isSignedIn() &&
+        (
+          (
+            request.resource.data.get('ownerUid', '') == request.auth.uid &&
+            ownsProperty(request.resource.data.propertyId)
+          ) ||
+          isAdmin()
+        );
+
+      allow update: if isValidRoom() &&
+        isSignedIn() &&
         (ownsProperty(resource.data.propertyId) || isAdmin()) &&
         request.resource.data.propertyId == resource.data.propertyId &&
         request.resource.data.get('ownerUid', '') == resource.data.get('ownerUid', '') &&
         request.resource.data.get('ownerId', '') == resource.data.get('ownerId', '') &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'roomName', 'pricePerNight', 'discountPrice', 'maxGuests',
-          'description', 'amenities', 'roomSize', 'bedType', 'photos'
+          'roomName', 'pricePerNight', 'discountPrice',
+          'maxGuests', 'description', 'amenities',
+          'roomSize', 'bedType', 'photos'
         ]);
+
       allow delete: if isSignedIn() &&
         (ownsProperty(resource.data.propertyId) || isAdmin());
     }
 
+    // BOOKING ENQUIRIES
     match /enquiries/{enquiryId} {
       allow create: if isValidEnquiry();
-      allow read, delete: if isAdmin() || ownsProperty(resource.data.propertyId);
+
+      allow read, delete: if isAdmin() ||
+        ownsProperty(resource.data.propertyId);
+
+      // Owners can only update valid enquiry data for the same property.
       allow update: if isAdmin() ||
-        (ownsProperty(resource.data.propertyId) &&
-         request.resource.data.propertyId == resource.data.propertyId);
+        (
+          isValidEnquiry() &&
+          ownsProperty(resource.data.propertyId) &&
+          request.resource.data.propertyId == resource.data.propertyId
+        );
     }
 
+    // BANNERS
     match /banners/{bannerId} {
       allow read: if true;
-      allow create: if isSignedIn() && isValidBanner() &&
-        (request.resource.data.get('advertiserUid', '') == request.auth.uid || isAdmin());
-      allow update, delete: if isSignedIn() &&
-        (resource.data.get('advertiserUid', '') == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn() &&
+        isValidBanner() &&
+        (
+          isAdmin() ||
+          request.resource.data.get('advertiserUid', '') == request.auth.uid
+        );
+
+      allow update: if isSignedIn() &&
+        (
+          isAdmin() ||
+          (
+            isValidBanner() &&
+            resource.data.get('advertiserUid', '') == request.auth.uid &&
+            request.resource.data.get('advertiserUid', '') ==
+              resource.data.get('advertiserUid', '') &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'title', 'subtitle', 'imageUrl',
+              'targetUrl', 'ctaText', 'position', 'isActive'
+            ])
+          )
+        );
+
+      allow delete: if isSignedIn() &&
+        (
+          isAdmin() ||
+          resource.data.get('advertiserUid', '') == request.auth.uid
+        );
     }
 
+    // PRIVATE USER DOCUMENTS
     match /users/{userId} {
       allow read: if isUser(userId) || isAdmin();
+
       allow create: if isUser(userId) &&
-        (!('role' in request.resource.data) || request.resource.data.role != 'admin' || isAdmin());
-      allow update: if isUser(userId) &&
-        (!('role' in request.resource.data) ||
-         request.resource.data.role == resource.data.role || isAdmin());
+        isValidUserProfile() &&
+        (
+          !('role' in request.resource.data) ||
+          request.resource.data.role in ['customer', 'owner'] ||
+          isAdmin()
+        );
+
+      allow update: if isAdmin() ||
+        (
+          isUser(userId) &&
+          isValidUserProfile() &&
+          request.resource.data.get('role', '') ==
+            resource.data.get('role', '') &&
+          request.resource.data.get('status', '') ==
+            resource.data.get('status', '')
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    // PUBLIC PROFILES
+    match /public_profiles/{userId} {
+      allow read: if true;
+
+      allow create, update: if isUser(userId) &&
+        isValidPublicProfile();
+
       allow delete: if isUser(userId) || isAdmin();
     }
 
-    match /public_profiles/{userId} {
-      allow read: if true;
-      allow write: if isUser(userId) || isAdmin();
-    }
-
-    // Public visitors may record anonymous analytics, but only admins can read/manage it.
+    // VISITS ANALYTICS
     match /visits/{visitId} {
-      allow create: if request.resource.data.keys().hasAll(['propertyId', 'refId', 'timestamp']) &&
-        request.resource.data.keys().hasOnly(['id', 'propertyId', 'refId', 'timestamp', 'source', 'customerName']) &&
-        request.resource.data.propertyId is string && request.resource.data.propertyId.size() > 0 &&
-        request.resource.data.refId is string && request.resource.data.refId.size() <= 120 &&
+      allow create: if
+        request.resource.data.keys().hasAll([
+          'propertyId', 'refId', 'timestamp'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'id', 'propertyId', 'refId',
+          'timestamp', 'source', 'customerName'
+        ]) &&
+        request.resource.data.propertyId is string &&
+        request.resource.data.propertyId.size() > 0 &&
+        request.resource.data.propertyId.size() <= 100 &&
+        request.resource.data.refId is string &&
+        request.resource.data.refId.size() > 0 &&
+        request.resource.data.refId.size() <= 120 &&
         request.resource.data.timestamp is string &&
+        request.resource.data.timestamp.size() <= 50 &&
+        validAnalyticsSource(['qr_referral', 'direct', 'search']) &&
         (!('customerName' in request.resource.data) ||
-         (request.resource.data.customerName is string && request.resource.data.customerName.size() <= 100)) &&
-        exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId));
-      allow read: if isAdmin() || ownsProperty(resource.data.propertyId);
+          (
+            request.resource.data.customerName is string &&
+            request.resource.data.customerName.size() <= 100
+          )) &&
+        exists(
+          /databases/$(database)/documents/properties/$(request.resource.data.propertyId)
+        );
+
+      allow read: if isAdmin() ||
+        ownsProperty(resource.data.propertyId);
+
       allow update, delete: if isAdmin();
     }
 
+    // LEADS ANALYTICS
     match /leads/{leadId} {
-      allow create: if request.resource.data.keys().hasAll(['propertyId', 'refId', 'timestamp']) &&
-        request.resource.data.keys().hasOnly(['id', 'propertyId', 'refId', 'timestamp', 'customerName', 'source']) &&
-        request.resource.data.propertyId is string && request.resource.data.propertyId.size() > 0 &&
-        request.resource.data.refId is string && request.resource.data.refId.size() <= 120 &&
+      allow create: if
+        request.resource.data.keys().hasAll([
+          'propertyId', 'refId', 'timestamp'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'id', 'propertyId', 'refId',
+          'timestamp', 'customerName', 'source'
+        ]) &&
+        request.resource.data.propertyId is string &&
+        request.resource.data.propertyId.size() > 0 &&
+        request.resource.data.propertyId.size() <= 100 &&
+        request.resource.data.refId is string &&
+        request.resource.data.refId.size() > 0 &&
+        request.resource.data.refId.size() <= 120 &&
         request.resource.data.timestamp is string &&
-        exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
+        request.resource.data.timestamp.size() <= 50 &&
+        validAnalyticsSource(['qr_referral', 'direct', 'whatsapp']) &&
         (!('customerName' in request.resource.data) ||
-         (request.resource.data.customerName is string && request.resource.data.customerName.size() <= 100));
-      allow read: if isAdmin() || ownsProperty(resource.data.propertyId);
+          (
+            request.resource.data.customerName is string &&
+            request.resource.data.customerName.size() <= 100
+          )) &&
+        exists(
+          /databases/$(database)/documents/properties/$(request.resource.data.propertyId)
+        );
+
+      allow read: if isAdmin() ||
+        ownsProperty(resource.data.propertyId);
+
       allow update, delete: if isAdmin();
     }
   }

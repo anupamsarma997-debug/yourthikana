@@ -134,7 +134,10 @@ service cloud.firestore {
 
     match /enquiries/{enquiryId} {
       allow create: if isValidEnquiry();
-      allow read, update, delete: if isAdmin() || ownsProperty(resource.data.propertyId);
+      allow read, delete: if isAdmin() || ownsProperty(resource.data.propertyId);
+      allow update: if isAdmin() ||
+        (ownsProperty(resource.data.propertyId) &&
+         request.resource.data.propertyId == resource.data.propertyId);
     }
 
     match /banners/{bannerId} {
@@ -167,6 +170,8 @@ service cloud.firestore {
         request.resource.data.propertyId is string && request.resource.data.propertyId.size() > 0 &&
         request.resource.data.refId is string && request.resource.data.refId.size() <= 120 &&
         request.resource.data.timestamp is string &&
+        (!('customerName' in request.resource.data) ||
+         (request.resource.data.customerName is string && request.resource.data.customerName.size() <= 100)) &&
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId));
       allow read: if isAdmin() || ownsProperty(resource.data.propertyId);
       allow update, delete: if isAdmin();
@@ -174,6 +179,7 @@ service cloud.firestore {
 
     match /leads/{leadId} {
       allow create: if request.resource.data.keys().hasAll(['propertyId', 'refId', 'timestamp']) &&
+        request.resource.data.keys().hasOnly(['id', 'propertyId', 'refId', 'timestamp', 'customerName', 'source']) &&
         request.resource.data.propertyId is string && request.resource.data.propertyId.size() > 0 &&
         request.resource.data.refId is string && request.resource.data.refId.size() <= 120 &&
         request.resource.data.timestamp is string &&

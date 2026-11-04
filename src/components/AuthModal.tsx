@@ -13,7 +13,8 @@ import {
   linkWithCredential,
   updateProfile,
   sendEmailVerification, 
-  sendPasswordResetEmail 
+  sendPasswordResetEmail,
+  User as FirebaseUser,
 } from 'firebase/auth';
 import { auth, googleProvider, checkFirebaseDiagnostics } from '../lib/firebase';
 
@@ -75,6 +76,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Helper notice if editing specific property
   const targetPropertyOwner = requiredOwnerId ? store.getUsers().find(u => u.id === requiredOwnerId) : null;
 
+  const finishGoogleSignIn = async (firebaseUser: FirebaseUser) => {
+    if (!firebaseUser.email || !auth) throw new Error('Google account email is unavailable.');
+    const idToken = await firebaseUser.getIdToken(true);
+    const response = await fetch('/api/auth/username-status', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + idToken },
+    });
+    const status = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(status.error || 'Could not verify account setup.');
+    if (status.complete) {
+      const loggedInUser = await store.loginWithFirebaseUser(firebaseUser);
+      if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.googleUid !== requiredOwnerId && loggedInUser.role !== 'admin') {
+        throw new Error(`Permission denied. This property belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`);
+      }
+      if (onSuccessRole) onSuccessRole(loggedInUser.role);
+      setPendingSetup(false);
+      setPendingAuthMethod(null);
+      onClose();
+      return;
+    }
+    setUsername(status.username || firebaseUser.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20));
+    setPassword('');
+    setMode('register');
+    setPendingSetup(true);
+    setPendingAuthMethod(firebaseUser.providerData.some((provider) => provider.providerId === 'password') ? 'email' : 'google');
+    setSuccessMessage('Finish setting up your unique username to continue.');
+  };
+
   // Complete Google sign-in after Firebase redirects back to this page.
   React.useEffect(() => {
     if (!auth) return;
@@ -83,12 +112,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (!active || !res?.user?.email) return;
       setIsLoading(true);
       try {
-        setUsername(res.user.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20));
-        setPassword('');
-        setMode('register');
-        setPendingSetup(true);
-        setPendingAuthMethod(res.user.providerData.some((provider) => provider.providerId === 'password') ? 'email' : 'google');
-        return;
+        await finishGoogleSignIn(res.user);
       } catch (error: any) {
         const code = error?.code || 'auth/profile-restore-failed';
         console.error('Google redirect profile restore failed:', code, error?.message || error);
@@ -122,11 +146,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const res = await signInWithPopup(auth, googleProvider);
         const gUser = res.user;
         if (gUser.email) {
-          setUsername(gUser.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20));
-          setPassword('');
-          setMode('register');
-          setPendingSetup(true);
-          setPendingAuthMethod(gUser.providerData.some((provider) => provider.providerId === 'password') ? 'email' : 'google');
+          await finishGoogleSignIn(gUser);
           return;
         }
       } catch (err: any) {

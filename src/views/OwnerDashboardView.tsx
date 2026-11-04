@@ -784,7 +784,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
 
     const amList = roomAmenities.split(',').map((s) => s.trim()).filter(Boolean);
 
-    if (editingRoomId) {
+    try {
+      if (editingRoomId) {
       // Update existing room
       await store.updateRoom(editingRoomId, {
         roomName,
@@ -813,8 +814,12 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       alert('New room type and pricing added successfully!');
     }
 
-    setEditingRoomsPropId(null);
-    setEditingRoomId(null);
+      setEditingRoomsPropId(null);
+      setEditingRoomId(null);
+    } catch (error: any) {
+      console.error('Room save failed:', error);
+      alert(error?.message || 'Room could not be saved. Please check your connection and try again.');
+    }
   };
 
   // Upgrade Plan / Buy Badges

@@ -89,18 +89,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setPendingSetup(true);
         setPendingAuthMethod(res.user.providerData.some((provider) => provider.providerId === 'password') ? 'email' : 'google');
         return;
-        if (
-          requiredOwnerId &&
-          loggedInUser.id !== requiredOwnerId &&
-          loggedInUser.googleUid !== requiredOwnerId &&
-          loggedInUser.role !== 'admin'
-        ) {
-          setErrorMessage(`Permission denied. This property belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`);
-          return;
-        }
-        if (onSuccessRole) onSuccessRole(loggedInUser.role);
-        alert(`🎉 Signed in successfully with Google!\\n\\nName: ${loggedInUser.name}\\nEmail: ${loggedInUser.email}`);
-        onClose();
       } catch (error: any) {
         const code = error?.code || 'auth/profile-restore-failed';
         console.error('Google redirect profile restore failed:', code, error?.message || error);
@@ -139,17 +127,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setPassword('');
           setPendingSetup(true);
           setPendingAuthMethod(gUser.providerData.some((provider) => provider.providerId === 'password') ? 'email' : 'google');
-          return;
-
-          if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.googleUid !== requiredOwnerId && loggedInUser.role !== 'admin') {
-            setErrorMessage(`Permission Denied! Signed in as @${loggedInUser.username}, but this property belongs to @${targetPropertyOwner?.username || 'another host'}.`);
-            setIsLoading(false);
-            return;
-          }
-
-          if (onSuccessRole) onSuccessRole(loggedInUser.role);
-          alert(`🎉 Signed in successfully with Google!\n\nName: ${loggedInUser.name}\nEmail: ${loggedInUser.email}`);
-          onClose();
           return;
         }
       } catch (err: any) {

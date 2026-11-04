@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Property, RoomType } from '../types';
 import { store } from '../services/store';
+import { getEffectiveRoomPrice, hasValidRoomDiscount } from '../utils/roomPricing';
 import { 
   BadgeCheck, 
   Star, 
@@ -31,11 +32,14 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 
   // Find lowest price room
   const lowestPriceRoom = rooms.length > 0
-    ? rooms.reduce((min, r) => (r.pricePerNight < min.pricePerNight ? r : min), rooms[0])
+    ? rooms.reduce((min, room) =>
+        getEffectiveRoomPrice(room) < getEffectiveRoomPrice(min) ? room : min, rooms[0])
     : null;
 
-  const currentPrice = lowestPriceRoom ? (lowestPriceRoom.discountPrice || lowestPriceRoom.pricePerNight) : 1500;
-  const originalPrice = lowestPriceRoom?.discountPrice ? lowestPriceRoom.pricePerNight : null;
+  const currentPrice = lowestPriceRoom ? getEffectiveRoomPrice(lowestPriceRoom) : 0;
+  const originalPrice = lowestPriceRoom && hasValidRoomDiscount(lowestPriceRoom)
+    ? Number(lowestPriceRoom.pricePerNight)
+    : null;
 
   const coverImage = property.photos && property.photos.length > 0
     ? property.photos[activePhotoIdx] || property.photos[0]
@@ -137,7 +141,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1">
                 <Users className="w-3.5 h-3.5 text-slate-400" />
-                <span>Max {lowestPriceRoom?.maxGuests || 2} Guests</span>
+                {lowestPriceRoom?.maxGuests > 0 && <span>Max {lowestPriceRoom.maxGuests} Guests</span>}
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5 text-slate-400" />
@@ -156,7 +160,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           <div>
             <div className="flex items-baseline gap-1.5">
               <span className="text-lg font-black text-slate-900 dark:text-white">
-                ₹{currentPrice}
+                {currentPrice > 0 ? `₹${currentPrice}` : 'Ask for price'}
               </span>
               {originalPrice && (
                 <span className="text-xs text-slate-400 line-through font-medium">

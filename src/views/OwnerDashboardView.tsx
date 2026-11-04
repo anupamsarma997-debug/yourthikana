@@ -1118,7 +1118,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                             <div className="text-right shrink-0">
                               <div className="flex items-baseline gap-1 justify-end">
                                 <span className="font-black text-xs text-emerald-600 dark:text-emerald-400">
-                                  ₹{getEffectiveRoomPrice(r)}
+                                  {getEffectiveRoomPrice(r) > 0 ? `₹${getEffectiveRoomPrice(r)}` : 'Price not set'}
                                 </span>
                                 {hasValidRoomDiscount(r) && (
                                   <span className="text-[10px] text-slate-400 line-through">

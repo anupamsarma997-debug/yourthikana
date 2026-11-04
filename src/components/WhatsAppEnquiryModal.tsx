@@ -288,7 +288,7 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
                 >
                   {rooms.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.roomName} (₹{getEffectiveRoomPrice(r)})
+                      {r.roomName} ({getEffectiveRoomPrice(r) > 0 ? `₹${getEffectiveRoomPrice(r)}` : 'Price not set'})
                     </option>
                   ))}
                 </select>

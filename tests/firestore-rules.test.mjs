@@ -94,6 +94,9 @@ test('owners cannot self-assign verification, featured status, ratings, or paid 
   await assertFails(setDoc(doc(ownerDb, 'properties', 'extra-admin-field'), {
     ...base, adminApproved: true,
   }));
+  await assertFails(setDoc(doc(ownerDb, 'properties', 'public-email'), {
+    ...base, ownerEmail: 'private@example.com',
+  }));
 });
 
 test('owners can edit listing content but cannot grant themselves verification or boosts', async () => {

@@ -1140,61 +1140,59 @@ class DataStore {
     return this.rooms.filter((r) => r.propertyId === propertyId);
   }
 
-  public addRoom(room: Omit<RoomType, 'id'>): RoomType {
+  public async addRoom(room: Omit<RoomType, 'id'>): Promise<RoomType> {
     const prop = this.getPropertyById(room.propertyId);
     const firebaseUid = auth?.currentUser?.uid;
-    const ownerId = room.ownerId || prop?.ownerId || (firebaseUid ? `google_${firebaseUid}` : 'owner-demo');
-    const ownerUid = room.ownerUid || prop?.ownerUid || firebaseUid || undefined;
+    if (!firebaseUid || !prop || prop.ownerUid !== firebaseUid) {
+      throw new Error('Only the signed-in owner of this property can add rooms.');
+    }
 
     const newRoom: RoomType = {
       ...room,
-      ownerId,
-      ownerUid,
+      ownerId: prop.ownerId,
+      ownerUid: firebaseUid,
       id: 'room_' + Date.now(),
     };
-    this.rooms.push(newRoom);
     if (db) {
-      setDoc(doc(db, 'rooms', newRoom.id), sanitizeForFirestore(newRoom)).catch((err) => console.warn('Firestore addRoom error:', err));
+      await setDoc(doc(db, 'rooms', newRoom.id), sanitizeForFirestore(newRoom));
     }
+    this.rooms.push(newRoom);
     this.notify();
     return newRoom;
   }
 
-  public addRoomType(room: Omit<RoomType, 'id'>): RoomType {
+  public async addRoomType(room: Omit<RoomType, 'id'>): Promise<RoomType> {
     return this.addRoom(room);
   }
 
-  public updateRoom(id: string, updates: Partial<RoomType>) {
+  public async updateRoom(id: string, updates: Partial<RoomType>): Promise<boolean> {
     const idx = this.rooms.findIndex((r) => r.id === id);
-    if (idx !== -1) {
-      const room = this.rooms[idx];
-      const currentUser = this.getCurrentUser();
-      if (currentUser && !this.isOwnerOfProperty(currentUser.id, room.propertyId)) {
-        console.warn('Unauthorized room update blocked:', id);
-        return;
-      }
-      this.rooms[idx] = { ...this.rooms[idx], ...updates };
-      if (db) {
-        setDoc(doc(db, 'rooms', id), this.rooms[idx], { merge: true }).catch((err) => console.warn('Firestore updateRoom error:', err));
-      }
-      this.notify();
+    if (idx === -1) return false;
+    const room = this.rooms[idx];
+    const firebaseUid = auth?.currentUser?.uid;
+    const property = this.getPropertyById(room.propertyId);
+    if (!firebaseUid || !property || property.ownerUid !== firebaseUid || room.ownerUid !== firebaseUid) {
+      throw new Error('Only the signed-in owner of this property can edit its rooms.');
     }
+    const updatedRoom = { ...room, ...updates, ownerUid: firebaseUid, propertyId: room.propertyId };
+    if (db) await setDoc(doc(db, 'rooms', id), sanitizeForFirestore(updatedRoom), { merge: true });
+    this.rooms[idx] = updatedRoom;
+    this.notify();
+    return true;
   }
 
-  public deleteRoom(id: string) {
+  public async deleteRoom(id: string): Promise<boolean> {
     const room = this.rooms.find((r) => r.id === id);
-    if (room) {
-      const currentUser = this.getCurrentUser();
-      if (currentUser && !this.isOwnerOfProperty(currentUser.id, room.propertyId)) {
-        console.warn('Unauthorized room deletion blocked:', id);
-        return;
-      }
-      this.rooms = this.rooms.filter((r) => r.id !== id);
-      if (db) {
-        deleteDoc(doc(db, 'rooms', id)).catch((err) => console.warn('Firestore deleteRoom error:', err));
-      }
-      this.notify();
+    if (!room) return false;
+    const firebaseUid = auth?.currentUser?.uid;
+    const property = this.getPropertyById(room.propertyId);
+    if (!firebaseUid || !property || property.ownerUid !== firebaseUid || room.ownerUid !== firebaseUid) {
+      throw new Error('Only the signed-in owner of this property can delete its rooms.');
     }
+    if (db) await deleteDoc(doc(db, 'rooms', id));
+    this.rooms = this.rooms.filter((r) => r.id !== id);
+    this.notify();
+    return true;
   }
 
   public deleteRoomType(id: string) {

@@ -717,7 +717,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
             ? roomAmenities.split(',').map((s) => s.trim()).filter(Boolean)
             : [];
 
-          store.addRoomType({
+          await store.addRoomType({
             propertyId: newProp.id,
             roomName: roomName || 'Standard Room',
             pricePerNight: numPrice,
@@ -770,7 +770,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
   };
 
   // Save or Update Room Type & Prices
-  const handleSaveRoomType = (e: React.FormEvent) => {
+  const handleSaveRoomType = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingRoomsPropId) return;
 
@@ -786,7 +786,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
 
     if (editingRoomId) {
       // Update existing room
-      store.updateRoom(editingRoomId, {
+      await store.updateRoom(editingRoomId, {
         roomName,
         pricePerNight: numPrice,
         discountPrice: numDiscount,
@@ -799,7 +799,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       alert('Room type and prices updated successfully!');
     } else {
       // Add new room
-      store.addRoomType({
+      await store.addRoomType({
         propertyId: editingRoomsPropId,
         roomName,
         pricePerNight: numPrice,

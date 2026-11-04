@@ -880,7 +880,9 @@ class DataStore {
       currentUser.googleUid === firebaseUid &&
       (currentUser.role === 'owner' || currentUser.role === 'admin')
     );
-    if (db ? !hasVerifiedOwnerSession : (!currentUser || !['owner', 'admin'].includes(currentUser.role))) {
+    // Never allow local/demo mode to create listings. A cached owner role is
+    // not authentication, even when Firestore is unavailable or misconfigured.
+    if (!hasVerifiedOwnerSession) {
       throw new Error('Authentication required: Please sign in with your verified owner account to list a new property.');
     }
 

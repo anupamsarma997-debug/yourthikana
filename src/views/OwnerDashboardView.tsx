@@ -781,6 +781,21 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     e.preventDefault();
     if (!editingRoomsPropId) return;
 
+    // Re-check the real Firebase session at submit time. Cached/local owner
+    // profiles must never authorize room or pricing changes.
+    const fbUser = auth?.currentUser;
+    const user = store.getCurrentUser();
+    const targetProperty = store.getPropertyById(editingRoomsPropId);
+    if (!fbUser || !user || user.googleUid !== fbUser.uid ||
+        user.role !== 'owner' || !targetProperty ||
+        targetProperty.ownerUid !== fbUser.uid) {
+      alert('🔒 Please sign in with the verified owner account for this property.');
+      setRoomModalOpen(false);
+      setAuthTargetTitle('Manage Room Types');
+      setAuthModalOpen(true);
+      return;
+    }
+
     const numPrice = typeof pricePerNight === 'number' ? pricePerNight : (parseInt(String(pricePerNight)) || 0);
     const numDiscount = discountPrice !== '' ? (typeof discountPrice === 'number' ? discountPrice : (parseInt(String(discountPrice)) || numPrice)) : numPrice;
 

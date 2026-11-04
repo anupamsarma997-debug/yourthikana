@@ -191,8 +191,12 @@ Return ONLY a JSON array of strings. Do not invent distances or claim exact prox
             propertyType: sanitizeInput(p.propertyType || p.type, 50),
             city: sanitizeInput(p.city, 50),
             state: sanitizeInput(p.state, 50),
-            startingPrice: Number(p.startingPrice || p.price || 1500),
-            maxGuests: Number(p.maxGuests || p.maxCapacity || 2),
+            startingPrice: Number.isFinite(Number(p.startingPrice ?? p.price)) && Number(p.startingPrice ?? p.price) > 0
+              ? Number(p.startingPrice ?? p.price)
+              : null,
+            maxGuests: Number.isFinite(Number(p.maxGuests ?? p.maxCapacity)) && Number(p.maxGuests ?? p.maxCapacity) > 0
+              ? Number(p.maxGuests ?? p.maxCapacity)
+              : null,
             amenities: Array.isArray(p.amenities) ? p.amenities.slice(0, 5) : [],
             distanceNote: sanitizeInput(p.distanceNote || '', 100),
             matchReason: sanitizeInput(p.matchReason || '', 150),

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserRole, Property, RoomType } from './types';
 import { store } from './services/store';
+import { auth } from './lib/firebase';
 import { AlertTriangle, Sparkles } from 'lucide-react';
 
 // Components
@@ -99,10 +100,14 @@ export function App() {
 
   const handleOpenAddProperty = () => {
     const user = store.getCurrentUser();
+    const firebaseUser = auth?.currentUser;
+    // A cached/local role is never proof of authentication. Require a live
+    // Firebase session linked to the current application profile.
     const isAuthenticHost = Boolean(
-      user && 
-      user.id !== 'customer_1' && 
-      (user.role === 'owner' || user.role === 'admin' || user.googleEmail || user.googleUid)
+      firebaseUser &&
+      user &&
+      user.googleUid === firebaseUser.uid &&
+      (user.role === 'owner' || user.role === 'admin')
     );
 
     if (!isAuthenticHost) {

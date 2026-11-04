@@ -96,6 +96,7 @@ export interface BookingEnquiry {
   checkInDate: string;
   checkOutDate: string;
   numberOfDays: number;
+  numberOfNights?: number;
   adults: number;
   children: number;
   totalGuests: number;

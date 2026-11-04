@@ -645,75 +645,13 @@ class DataStore {
     return newUser;
   }
 
-  public loginWithUsernamePassword(identifier: string, passwordInput: string): { success: boolean; user?: User; message?: string } {
-    const q = identifier.trim().toLowerCase();
-
-    // Check rate limiting / lockout
-    const attemptInfo = this.failedLoginAttempts.get(q);
-    if (attemptInfo && attemptInfo.lockUntil > Date.now()) {
-      const remainingMins = Math.ceil((attemptInfo.lockUntil - Date.now()) / 60000);
-      return {
-        success: false,
-        message: `Too many failed login attempts! Account locked for security. Please try again in ${remainingMins} minute(s) or use Google Email password reset.`,
-      };
-    }
-
-    const found = this.users.find((u) => 
-      (u.username && u.username.toLowerCase() === q) ||
-      (u.email && u.email.toLowerCase() === q) ||
-      (u.googleEmail && u.googleEmail.toLowerCase() === q) ||
-      u.phone === identifier.trim()
-    );
-
-    if (!found) {
-      return { success: false, message: 'No account found with this username, email, or mobile number.' };
-    }
-
-    if (!passwordInput || !passwordInput.trim()) {
-      return { success: false, message: 'Please enter your password.' };
-    }
-
-    // Verify password via user-specific salt hash or legacy hash fallback
-    let isValidPassword = false;
-    if (found.passwordSalt && found.passwordHash) {
-      const computedHash = hashPasswordWithSalt(passwordInput, found.passwordSalt);
-      isValidPassword = found.passwordHash === computedHash;
-    } else if (found.passwordHash) {
-      // Legacy single-round static salt hash fallback
-      const legacyHash = hashPassword(passwordInput);
-      isValidPassword = found.passwordHash === legacyHash;
-    }
-
-    if (!isValidPassword) {
-      // Record failed attempt
-      const currentCount = (attemptInfo?.count || 0) + 1;
-      let lockUntil = 0;
-      if (currentCount >= 5) {
-        lockUntil = Date.now() + 15 * 60 * 1000; // 15 minute lockout
-      }
-      this.failedLoginAttempts.set(q, { count: currentCount, lockUntil });
-
-      const attemptsLeft = 5 - currentCount;
-      const warningMessage = currentCount >= 5
-        ? 'Too many failed login attempts! Account locked for 15 minutes.'
-        : `Incorrect password! (${attemptsLeft} attempt(s) remaining before temporary lockout).`;
-
-      return { success: false, message: warningMessage };
-    }
-
-    // Login success - clear attempt counter
-    this.failedLoginAttempts.delete(q);
-
-    // Auto-migrate legacy user to unique per-user salt + 10,000-round hash
-    if (!found.passwordSalt) {
-      found.passwordSalt = generateSalt();
-      found.passwordHash = hashPasswordWithSalt(passwordInput, found.passwordSalt);
-    }
-    delete found.password;
-
-    this.currentUserId = found.id;
-    this.notify();
-    return { success: true, user: found };
+  // Legacy local username/password authentication is disabled. It must never
+  // create an app session; only Firebase Authentication can establish identity.
+  public loginWithUsernamePassword(_identifier: string, _passwordInput: string): { success: boolean; user?: User; message?: string } {
+    return {
+      success: false,
+      message: 'Username and password login is disabled. Sign in with your verified Google account.',
+    };
   }
 
   public resetPasswordWithGoogleEmail(googleEmailInput: string, newPassword: string, newUsername?: string): { success: boolean; user?: User; message?: string } {

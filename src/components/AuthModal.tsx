@@ -187,28 +187,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setErrorMessage('Firebase Authentication is not initialized. Check the VITE_FIREBASE_API_KEY, VITE_FIREBASE_PROJECT_ID and VITE_FIREBASE_AUTH_DOMAIN variables, then create a new Vercel deployment.');
   };
 
-  // Quick 1-Click Demo Login Helper
-  const handleQuickDemoLogin = (username: string) => {
-    setErrorMessage('');
-    setSuccessMessage('');
-    setIsLoading(true);
-    setTimeout(() => {
-      const res = store.loginWithUsernamePassword(username, '123456');
-      setIsLoading(false);
-      if (res.success && res.user) {
-        if (requiredOwnerId && res.user.id !== requiredOwnerId && res.user.role !== 'admin') {
-          setErrorMessage(`Permission Denied! Signed in as @${res.user.username}, but this listing belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`);
-          return;
-        }
-        if (onSuccessRole) onSuccessRole(res.user.role);
-        alert(`⚡ Quick Logged In as ${res.user.name} (@${res.user.username})!`);
-        onClose();
-      } else {
-        setErrorMessage(res.message || 'Quick login failed.');
-      }
-    }, 250);
-  };
-
   // Register with Email & Password + Instant Verification & Login
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

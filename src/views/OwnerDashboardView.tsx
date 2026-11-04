@@ -298,7 +298,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     const fbUser = auth?.currentUser;
     const user = store.getCurrentUser();
 
-    if (!fbUser && !user) {
+    if (!fbUser || !user || user.googleUid !== fbUser.uid) {
       setFormError('⚠️ Authentication required: Please sign in to upload property photos.');
       setAuthTargetTitle('Upload Property Photos');
       setAuthModalOpen(true);
@@ -420,7 +420,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     const user = store.getCurrentUser();
     const fbUser = auth?.currentUser;
 
-    if (!user && !fbUser) {
+    // Never treat a cached/local user object as a signed-in Firebase account.
+    if (!fbUser || !user || user.googleUid !== fbUser.uid || !['owner', 'admin'].includes(user.role)) {
       setAuthRequiredOwnerId(undefined);
       setAuthTargetTitle("Listing New Property");
       setPendingAction(() => () => handleOpenAdd());
@@ -466,10 +467,12 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     const user = store.getCurrentUser();
     const fbUser = auth?.currentUser;
 
+    const hasVerifiedSession = Boolean(fbUser && user && user.googleUid === fbUser.uid);
     const isOwner =
-      user?.role === 'admin' ||
-      (!!fbUser && prop.ownerUid === fbUser.uid) ||
-      store.isOwnerOfProperty(user?.id, prop.id);
+      hasVerifiedSession &&
+      (user?.role === 'admin' ||
+        prop.ownerUid === fbUser!.uid ||
+        store.isOwnerOfProperty(user?.id, prop.id));
 
     if (!isOwner) {
       alert('Permission Denied: Only the verified owner of this property can edit this listing.');
@@ -641,10 +644,14 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       .filter((s) => s.length > 0);
 
     const user = store.getCurrentUser();
+    const fbUser = auth?.currentUser;
+    // Enforce the Firebase session again at submit time; UI state and
+    // localStorage can be stale or manually modified.
     const isAuthenticHost = Boolean(
-      user && 
-      user.id !== 'customer_1' && 
-      (user.role === 'owner' || user.role === 'admin' || user.googleEmail || user.googleUid)
+      fbUser &&
+      user &&
+      user.googleUid === fbUser.uid &&
+      (user.role === 'owner' || user.role === 'admin')
     );
 
     if (!isAuthenticHost) {

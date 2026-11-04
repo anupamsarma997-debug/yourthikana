@@ -108,60 +108,54 @@ export async function uploadPropertyPhoto(
 
   if (onProgress) onProgress(20);
 
-  // 1. Primary: Try Firebase Storage (with a 3-second timeout race guard)
-  if (storage) {
-    try {
-      if (onProgress) onProgress(35);
-      const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${cleanFileName}`;
-      const storagePath = `properties/${ownerUid}/${propertyId}/${uniqueName}`;
-      const storageRef = ref(storage, storagePath);
+  const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${cleanFileName}`;
+  const storagePath = `properties/${ownerUid}/${propertyId}/${uniqueName}`;
+  const storageRef = ref(storage, storagePath);
+  const uploadTask = uploadBytesResumable(storageRef, file, {
+    contentType: file.type,
+    customMetadata: { ownerUid, propertyId, originalName: file.name }
+  });
 
-      const firebaseUploadPromise = new Promise<string>((resolve) => {
-        const uploadTask = uploadBytesResumable(storageRef, file, {
-          contentType: file.type || 'image/jpeg',
-          customMetadata: { ownerUid, propertyId, originalName: file.name }
-        });
+  return new Promise<string>((resolve, reject) => {
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      uploadTask.cancel();
+      reject(new Error('Image upload timed out. Please check your internet connection and try again.'));
+    }, 30000);
 
-        uploadTask.on(
-          'state_changed',
-          (snapshot) => {
-            if (onProgress && snapshot.totalBytes > 0) {
-              const progress = Math.min(80, Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100));
-              onProgress(progress);
-            }
-          },
-          (error) => {
-            console.warn('Firebase Storage upload error:', error);
-            resolve('');
-          },
-          async () => {
-            try {
-              const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve(downloadUrl);
-            } catch {
-              resolve('');
-            }
-          }
-        );
-      });
-
-      const timeoutPromise = new Promise<string>((resolve) => {
-        setTimeout(() => resolve(''), 3000);
-      });
-
-      const fbResult = await Promise.race([firebaseUploadPromise, timeoutPromise]);
-      if (fbResult) {
-        if (onProgress) onProgress(100);
-        return fbResult;
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        if (onProgress && snapshot.totalBytes > 0) {
+          const progress = Math.min(95, Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100));
+          onProgress(progress);
+        }
+      },
+      (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        reject(error);
+      },
+      async () => {
+        if (settled) return;
+        try {
+          const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+          settled = true;
+          clearTimeout(timeout);
+          if (onProgress) onProgress(100);
+          resolve(downloadUrl);
+        } catch (error) {
+          settled = true;
+          clearTimeout(timeout);
+          reject(error);
+        }
       }
-      console.warn('Firebase Storage attempt timed out or failed; falling back to Supabase Storage...');
-    } catch (fbErr) {
-      console.warn('Firebase Storage upload note:', fbErr);
-    }
-  }
-
-  throw new Error('Secure image upload is unavailable. Please check Firebase Storage setup and try again.');
+    );
+  });
 }
 
 /**

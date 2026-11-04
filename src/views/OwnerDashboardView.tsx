@@ -229,8 +229,12 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
   onAddPropertyHandled,
 }) => {
   const currentUser = store.getCurrentUser();
+  const initialFirebaseUser = auth?.currentUser;
+  const hasInitialVerifiedSession = Boolean(
+    currentUser && initialFirebaseUser && currentUser.googleUid === initialFirebaseUser.uid
+  );
   const [properties, setProperties] = useState<Property[]>(
-    currentUser ? store.getPropertiesByOwner(currentUser.id) : []
+    hasInitialVerifiedSession && currentUser ? store.getPropertiesByOwner(currentUser.id) : []
   );
   const [enquiries, setEnquiries] = useState<BookingEnquiry[]>([]);
 

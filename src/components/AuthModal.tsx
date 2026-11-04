@@ -69,21 +69,47 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Helper notice if editing specific property
   const targetPropertyOwner = requiredOwnerId ? store.getUsers().find(u => u.id === requiredOwnerId) : null;
 
-  // Check for redirect result on mount if redirect auth was used
+  // Complete Google sign-in after Firebase redirects back to this page.
   React.useEffect(() => {
-    if (auth) {
-      getRedirectResult(auth).then(async (res) => {
-        if (res && res.user && res.user.email) {
-          const gUser = res.user;
-          const loggedInUser = await store.loginWithFirebaseUser(gUser);
-          if (onSuccessRole) onSuccessRole(loggedInUser.role);
-          alert(`🎉 Signed in successfully with Google!\n\nName: ${loggedInUser.name}\nEmail: ${loggedInUser.email}`);
-          onClose();
+    if (!auth) return;
+    let active = true;
+    getRedirectResult(auth).then(async (res) => {
+      if (!active || !res?.user?.email) return;
+      setIsLoading(true);
+      try {
+        const loggedInUser = await store.loginWithFirebaseUser(res.user);
+        if (
+          requiredOwnerId &&
+          loggedInUser.id !== requiredOwnerId &&
+          loggedInUser.googleUid !== requiredOwnerId &&
+          loggedInUser.role !== 'admin'
+        ) {
+          setErrorMessage(`Permission denied. This property belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`);
+          return;
         }
-      }).catch((err) => {
-        console.warn('Redirect result check error:', err);
-      });
-    }
+        if (onSuccessRole) onSuccessRole(loggedInUser.role);
+        alert(`🎉 Signed in successfully with Google!\\n\\nName: ${loggedInUser.name}\\nEmail: ${loggedInUser.email}`);
+        onClose();
+      } catch (error: any) {
+        const code = error?.code || 'auth/profile-restore-failed';
+        console.error('Google redirect profile restore failed:', code, error?.message || error);
+        setErrorMessage(`Google sign-in returned, but account setup failed (${code}). Check Firebase Firestore access and try again.`);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    }).catch((err: any) => {
+      if (!active) return;
+      const code = err?.code || 'auth/redirect-failed';
+      console.error('Google redirect result error:', code, err?.message || err);
+      setErrorMessage(
+        code === 'auth/unauthorized-domain'
+          ? 'This website domain is not authorized in Firebase Authentication → Settings → Authorized domains.'
+          : code === 'auth/operation-not-allowed'
+            ? 'Google sign-in is disabled in Firebase Authentication → Sign-in method.'
+            : `Google redirect sign-in failed (${code}). Check Firebase Authentication settings and try again.`
+      );
+    });
+    return () => { active = false; };
   }, []);
 
   // 1-Click Google Sign-In

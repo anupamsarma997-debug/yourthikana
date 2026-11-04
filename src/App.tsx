@@ -271,11 +271,15 @@ export function App() {
         }}
         onSuccessRole={(role) => {
           setIsAuthOpen(false);
-          setCurrentRole('owner');
+          setCurrentRole(role);
           setCurrentView('home');
           if (pendingAddProperty) {
             setPendingAddProperty(false);
-            setAutoOpenAddProperty(true);
+            if (role === 'owner' || role === 'admin') {
+              setAutoOpenAddProperty(true);
+            } else {
+              alert('An owner account is required to add a property. Please sign in or register as a host.');
+            }
           }
         }}
       />

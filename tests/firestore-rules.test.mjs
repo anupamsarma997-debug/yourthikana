@@ -143,7 +143,7 @@ test('only the owner of a property can create and edit its rooms', async () => {
 });
 
 test('public enquiries must reference a real property and valid guest details', async () => {
-  await createOwnedProperty();
+  const ownerDb = await createOwnedProperty();
   const publicDb = testEnv.unauthenticatedContext().firestore();
   await assertSucceeds(setDoc(doc(publicDb, 'enquiries', 'enquiry-1'), {
     propertyId: 'property-1',

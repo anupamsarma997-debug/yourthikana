@@ -265,9 +265,9 @@ class DataStore {
     if (!db || !uid || this.privateDataUid === uid) return;
     this.privateDataUnsubscribers.forEach((unsubscribe) => unsubscribe());
     this.privateDataUnsubscribers = [];
-    this.privateDataUid = uid;
     const propertyIds = this.properties.filter((property) => property.ownerUid === uid).map((property) => property.id).filter(Boolean);
-    if (propertyIds.length === 0) return;
+    if (propertyIds.length === 0) { this.privateDataUid = ''; return; }
+    this.privateDataUid = uid;
 
     for (let offset = 0; offset < propertyIds.length; offset += 30) {
       const ids = propertyIds.slice(offset, offset + 30);

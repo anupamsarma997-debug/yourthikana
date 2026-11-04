@@ -874,8 +874,14 @@ class DataStore {
     const firebaseEmail = auth?.currentUser?.email;
     const currentUser = this.getCurrentUser();
 
-    if (!currentUser && !firebaseUid) {
-      throw new Error('Authentication required: Please sign in with Google or Email to list a new property.');
+    const hasVerifiedOwnerSession = Boolean(
+      firebaseUid &&
+      currentUser &&
+      currentUser.googleUid === firebaseUid &&
+      (currentUser.role === 'owner' || currentUser.role === 'admin')
+    );
+    if (db ? !hasVerifiedOwnerSession : (!currentUser || !['owner', 'admin'].includes(currentUser.role))) {
+      throw new Error('Authentication required: Please sign in with your verified owner account to list a new property.');
     }
 
     const now = new Date();
@@ -941,10 +947,19 @@ class DataStore {
     const currentUser = this.getCurrentUser();
     const firebaseUid = auth?.currentUser?.uid;
 
-    const isOwner =
-      currentUser?.role === 'admin' ||
-      (!!firebaseUid && prop.ownerUid === firebaseUid) ||
-      this.isOwnerOfProperty(currentUser?.id, id);
+    const isOwner = db
+      ? Boolean(
+          firebaseUid &&
+          currentUser &&
+          currentUser.googleUid === firebaseUid &&
+          (currentUser.role === 'admin' ||
+            (currentUser.role === 'owner' && prop.ownerUid === firebaseUid))
+        )
+      : Boolean(
+          currentUser &&
+          (currentUser.role === 'admin' ||
+            this.isOwnerOfProperty(currentUser.id, id))
+        );
 
     if (!isOwner) {
       console.error('403 Forbidden: Unauthorized property update blocked for id:', id);
@@ -1056,10 +1071,19 @@ class DataStore {
 
     const currentUser = this.getCurrentUser();
     const firebaseUid = auth?.currentUser?.uid;
-    const isOwner =
-      currentUser?.role === 'admin' ||
-      (!!firebaseUid && prop.ownerUid === firebaseUid) ||
-      this.isOwnerOfProperty(currentUser?.id, id);
+    const isOwner = db
+      ? Boolean(
+          firebaseUid &&
+          currentUser &&
+          currentUser.googleUid === firebaseUid &&
+          (currentUser.role === 'admin' ||
+            (currentUser.role === 'owner' && prop.ownerUid === firebaseUid))
+        )
+      : Boolean(
+          currentUser &&
+          (currentUser.role === 'admin' ||
+            this.isOwnerOfProperty(currentUser.id, id))
+        );
 
     if (!isOwner) {
       return {

@@ -60,6 +60,39 @@ test('a signed-in user cannot create a property for another owner', async () => 
   }));
 });
 
+test('owners cannot self-assign verification, featured status, ratings, or paid plans during property creation', async () => {
+  const ownerDb = testEnv.authenticatedContext('owner-create').firestore();
+  const base = {
+    title: 'New Homestay',
+    city: 'Guwahati',
+    ownerUid: 'owner-create',
+    ownerId: 'owner-create',
+    status: 'active',
+    isVerified: false,
+    isFeatured: false,
+    rating: 0,
+    reviewsCount: 0,
+    subscriptionPlan: 'none',
+    subscriptionPrice: 0,
+    subscriptionExpiresAt: '',
+    subscriptionExpiryDate: '',
+  };
+  await assertSucceeds(setDoc(doc(ownerDb, 'properties', 'safe-create'), base));
+  await assertFails(setDoc(doc(ownerDb, 'properties', 'fake-verified'), {
+    ...base, isVerified: true,
+  }));
+  await assertFails(setDoc(doc(ownerDb, 'properties', 'fake-featured'), {
+    ...base, isFeatured: true,
+  }));
+  await assertFails(setDoc(doc(ownerDb, 'properties', 'fake-rating'), {
+    ...base, rating: 5, reviewsCount: 100,
+  }));
+  await assertFails(setDoc(doc(ownerDb, 'properties', 'fake-paid'), {
+    ...base, subscriptionPlan: 'standard_1500', subscriptionPrice: 1500,
+    subscriptionExpiresAt: '2099-01-01T00:00:00.000Z',
+  }));
+});
+
 test('owners can edit listing content but cannot grant themselves verification or boosts', async () => {
   const ownerDb = await createOwnedProperty();
   await assertSucceeds(updateDoc(doc(ownerDb, 'properties', 'property-1'), {

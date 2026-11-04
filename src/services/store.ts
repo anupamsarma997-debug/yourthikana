@@ -795,11 +795,14 @@ class DataStore {
     const firebaseUid = auth?.currentUser?.uid;
     const firebaseEmail = auth?.currentUser?.email;
 
+    // If a Firebase UID is stored, it is the sole ownership authority.
+    // Do not let stale owner IDs or matching email fields override it.
+    if (prop.ownerUid) return Boolean(firebaseUid && prop.ownerUid === firebaseUid);
+
     const matchesUid =
       prop.ownerId === userId ||
-      prop.ownerUid === userId ||
-      (!!firebaseUid && (prop.ownerUid === firebaseUid || prop.ownerId === firebaseUid || prop.ownerId === `google_${firebaseUid}`)) ||
-      (!!user?.googleUid && (prop.ownerUid === user.googleUid || prop.ownerId === user.googleUid || prop.ownerId === `google_${user.googleUid}`));
+      (!!firebaseUid && (prop.ownerId === firebaseUid || prop.ownerId === `google_${firebaseUid}`)) ||
+      (!!user?.googleUid && (prop.ownerId === user.googleUid || prop.ownerId === `google_${user.googleUid}`));
 
     const matchesEmail =
       (!!firebaseEmail && prop.ownerEmail?.toLowerCase() === firebaseEmail.toLowerCase()) ||

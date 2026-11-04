@@ -107,7 +107,7 @@ async function startServer() {
   const normalizeUsername = (value: unknown) =>
     typeof value === 'string' ? value.trim().replace(/^@/, '').toLowerCase() : '';
 
-  app.post('/api/auth/claim-username', async (req, res) => {
+  app.post('/api/auth/claim-username', usernameRateLimit, async (req, res) => {
     try {
       const authorization = req.headers.authorization || '';
       const idToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
@@ -152,7 +152,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/auth/username-status', async (req, res) => {
+  app.post('/api/auth/username-status', usernameRateLimit, async (req, res) => {
     try {
       const authorization = req.headers.authorization || '';
       const idToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';

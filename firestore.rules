@@ -63,8 +63,21 @@ service cloud.firestore {
 
     match /properties/{propertyId} {
       allow read: if true;
-      allow create: if isValidProperty() && isSignedIn() &&
-        (request.resource.data.ownerUid == request.auth.uid || isAdmin());
+      allow create: if isValidProperty() && isSignedIn() && (
+        isAdmin() ||
+        (
+          request.resource.data.ownerUid == request.auth.uid &&
+          (!('isVerified' in request.resource.data) || request.resource.data.isVerified == false) &&
+          (!('isFeatured' in request.resource.data) || request.resource.data.isFeatured == false) &&
+          (!('rating' in request.resource.data) || request.resource.data.rating == 0) &&
+          (!('reviewsCount' in request.resource.data) || request.resource.data.reviewsCount == 0) &&
+          (!('subscriptionPlan' in request.resource.data) || request.resource.data.subscriptionPlan == 'none') &&
+          (!('subscriptionPrice' in request.resource.data) || request.resource.data.subscriptionPrice == 0) &&
+          (!('subscriptionExpiresAt' in request.resource.data) || request.resource.data.subscriptionExpiresAt == '') &&
+          (!('subscriptionExpiryDate' in request.resource.data) || request.resource.data.subscriptionExpiryDate == '') &&
+          (!('status' in request.resource.data) || request.resource.data.status in ['pending', 'active'])
+        )
+      );
       allow update: if isValidProperty() && isSignedIn() && (
         isAdmin() ||
         (

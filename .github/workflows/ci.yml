@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, security-fixes-2026-11]
+    branches: [main]
 
 permissions:
   contents: read

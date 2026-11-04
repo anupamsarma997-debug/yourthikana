@@ -121,12 +121,24 @@ test('only the owner of a property can create and edit its rooms', async () => {
   await assertSucceeds(setDoc(doc(ownerDb, 'rooms', 'room-1'), {
     propertyId: 'property-1',
     roomName: 'Deluxe Room',
+    ownerId: 'owner-1',
     ownerUid: 'owner-1',
   }));
   await assertFails(setDoc(doc(attackerDb, 'rooms', 'room-2'), {
     propertyId: 'property-1',
     roomName: 'Fake Room',
+    ownerId: 'owner-1',
     ownerUid: 'attacker',
+  }));
+  await assertFails(setDoc(doc(ownerDb, 'rooms', 'room-private'), {
+    propertyId: 'property-1',
+    roomName: 'Leaky Room',
+    ownerId: 'owner-1',
+    ownerUid: 'owner-1',
+    ownerEmail: 'private@example.com',
+  }));
+  await assertFails(updateDoc(doc(ownerDb, 'rooms', 'room-1'), {
+    ownerId: 'attacker',
   }));
 });
 

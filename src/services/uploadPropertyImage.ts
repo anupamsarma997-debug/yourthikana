@@ -1,6 +1,5 @@
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage, auth } from '../lib/firebase';
-import { supabase } from '../lib/supabase';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // Keep client limit aligned with Firebase Storage rules (5MB)
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'];
@@ -173,16 +172,6 @@ export async function deletePropertyPhoto(downloadUrl: string): Promise<void> {
     }
   }
 
-  if (supabase && downloadUrl.includes('supabase.co')) {
-    try {
-      const parts = downloadUrl.split('/properties/');
-      if (parts[1]) {
-        await supabase.storage.from('properties').remove([`properties/${parts[1]}`]);
-      }
-    } catch (err: any) {
-      console.warn(`Could not delete Supabase storage object:`, err?.message || err);
-    }
-  }
 }
 
 

@@ -314,6 +314,9 @@ class DataStore {
             this.privateDataUnsubscribers.forEach((unsubscribe) => unsubscribe());
             this.privateDataUnsubscribers = [];
             this.privateDataUid = '';
+            this.currentUserId = '';
+            this.persist();
+            this.notify(false);
             return;
           }
           this.syncOwnerPrivateCollections(fbUser.uid);

@@ -1071,42 +1071,47 @@ class DataStore {
 
     const currentUser = this.getCurrentUser();
     const firebaseUid = auth?.currentUser?.uid;
-
     const isOwner =
       currentUser?.role === 'admin' ||
       (!!firebaseUid && prop.ownerUid === firebaseUid) ||
       this.isOwnerOfProperty(currentUser?.id, id);
 
     if (!isOwner) {
-      console.error('403 Forbidden: Unauthorized property deletion blocked for id:', id);
-      return { 
-        success: false, 
-        status: 403, 
-        message: '403 Forbidden: Only the property owner can delete this listing.' 
+      return {
+        success: false,
+        status: 403,
+        message: '403 Forbidden: Only the property owner can delete this listing.',
       };
     }
 
-    // Delete associated property photos from Firebase Storage (best-effort)
-    if (prop.photos && Array.isArray(prop.photos)) {
-      for (const photoUrl of prop.photos) {
-        deletePropertyPhoto(photoUrl).catch(() => {});
-      }
-    }
-
+    // Remove rooms first: Firestore room-delete rules verify ownership through
+    // the parent property document, so deleting the property first would block cleanup.
     if (db) {
       try {
-        await deleteDoc(doc(db, 'properties', id));
-        const deletedRooms = this.rooms.filter((r) => r.propertyId === id);
-        for (const r of deletedRooms) {
-          await deleteDoc(doc(db, 'rooms', r.id)).catch(() => {});
+        const relatedRooms = this.rooms.filter((room) => room.propertyId === id);
+        for (const room of relatedRooms) {
+          await deleteDoc(doc(db, 'rooms', room.id));
         }
-      } catch (err: any) {
-        console.warn('Firestore deleteProperty sync notice:', err);
+        await deleteDoc(doc(db, 'properties', id));
+      } catch (error: any) {
+        console.error('Firestore deleteProperty failed:', error);
+        return {
+          success: false,
+          status: 500,
+          message: 'The property could not be deleted completely on the server. Please retry; your local listing has been kept.',
+        };
       }
     }
 
-    this.properties = this.properties.filter((p) => p.id !== id);
-    this.rooms = this.rooms.filter((r) => r.propertyId !== id);
+    // Firebase photo cleanup is best-effort after the database delete succeeds.
+    if (Array.isArray(prop.photos)) {
+      await Promise.all(prop.photos.map((photoUrl) => deletePropertyPhoto(photoUrl).catch((error) => {
+        console.warn('Property photo cleanup notice:', error?.message || error);
+      })));
+    }
+
+    this.properties = this.properties.filter((property) => property.id !== id);
+    this.rooms = this.rooms.filter((room) => room.propertyId !== id);
     this.persist();
     this.notify();
     return { success: true, message: 'Property deleted successfully.' };

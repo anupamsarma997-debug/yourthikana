@@ -86,6 +86,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const loggedInUser = await store.loginWithFirebaseUser(res.user);
         setUsername(loggedInUser.username || '');
         setPassword('');
+        setMode('register');
         setPendingSetup(true);
         setPendingAuthMethod(res.user.providerData.some((provider) => provider.providerId === 'password') ? 'email' : 'google');
         return;
@@ -125,6 +126,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           const loggedInUser = await store.loginWithFirebaseUser(gUser);
           setUsername(loggedInUser.username || '');
           setPassword('');
+          setMode('register');
           setPendingSetup(true);
           setPendingAuthMethod(gUser.providerData.some((provider) => provider.providerId === 'password') ? 'email' : 'google');
           return;

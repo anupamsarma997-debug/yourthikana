@@ -187,66 +187,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setErrorMessage('Firebase Authentication is not initialized. Check the VITE_FIREBASE_API_KEY, VITE_FIREBASE_PROJECT_ID and VITE_FIREBASE_AUTH_DOMAIN variables, then create a new Vercel deployment.');
   };
 
-  // Register with Email & Password + Instant Verification & Login
+  // Email/password account creation is disabled; use verified Google sign-in only.
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage('');
+    setErrorMessage('Email/password registration is disabled. Please use Continue with Google.');
     setSuccessMessage('');
-
-    if (!name.trim()) {
-      setErrorMessage('Please enter your Full Name.');
-      return;
-    }
-    if (!email.trim() || !email.includes('@')) {
-      setErrorMessage('Please enter a valid Email Address.');
-      return;
-    }
-    if (!username.trim() || username.trim().length < 3) {
-      setErrorMessage('Username must be at least 3 characters long.');
-      return;
-    }
-    if (!password || password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters long.');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      if (!auth) {
-        throw new Error('Secure account registration is unavailable because Firebase Authentication is not configured. Please try again later.');
-      }
-      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      const firebaseUid = userCredential.user.uid;
-      await sendEmailVerification(userCredential.user);
-
-      // Sync user to Store & log them in immediately
-      const newUser = store.registerUser({
-        name: name.trim(),
-        username: username.trim().toLowerCase().replace(/\s+/g, '_'),
-        password,
-        email: email.trim(),
-        googleUid: firebaseUid,
-        phone: phone.trim(),
-        whatsapp: whatsapp.trim() || phone.trim(),
-        role,
-      });
-
-      // Automatically log in the newly registered user
-      await store.loginWithFirebaseUser(userCredential.user);
-
-      if (onSuccessRole) {
-        onSuccessRole(newUser.role);
-      }
-
-      alert(`🎉 Registration & Sign-In Successful!\n\nWelcome, ${newUser.name}!\nUsername: @${newUser.username}\nEmail: ${newUser.email}\nRole: ${newUser.role.toUpperCase()}`);
-      onClose();
-    } catch (err: any) {
-      console.error('Registration error:', err);
-      setErrorMessage(err?.message || 'Registration failed. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   // Login with Email / Username & Password

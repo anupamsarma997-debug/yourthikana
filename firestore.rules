@@ -39,11 +39,14 @@ service cloud.firestore {
 
     function isValidEnquiry() {
       let data = request.resource.data;
-      return data.keys().hasAll(['propertyId', 'guestName', 'guestPhone']) &&
-        data.propertyId is string && data.guestName is string &&
-        data.guestName.size() <= 100 && data.guestPhone is string &&
-        data.guestPhone.size() <= 30 &&
-        (!('message' in data) || (data.message is string && data.message.size() <= 2000));
+      return data.keys().hasAll(['propertyId']) &&
+        data.propertyId is string &&
+        (('guestName' in data && data.guestName is string && data.guestName.size() <= 100) ||
+         ('customerName' in data && data.customerName is string && data.customerName.size() <= 100)) &&
+        (('guestPhone' in data && data.guestPhone is string && data.guestPhone.size() <= 30) ||
+         ('customerPhone' in data && data.customerPhone is string && data.customerPhone.size() <= 30)) &&
+        (!('message' in data) || (data.message is string && data.message.size() <= 2000)) &&
+        (!('specialRequests' in data) || (data.specialRequests is string && data.specialRequests.size() <= 2000));
     }
 
     function isValidBanner() {

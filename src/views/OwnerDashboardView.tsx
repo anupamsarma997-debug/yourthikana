@@ -1422,7 +1422,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       )}
 
       {/* Modal: Add or Edit Property */}
-      {isFormOpen && (
+      {isFormOpen && Boolean(auth?.currentUser && store.getCurrentUser()?.googleUid === auth.currentUser.uid && ['owner', 'admin'].includes(store.getCurrentUser()?.role || '')) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/75 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative my-auto max-h-[92vh] flex flex-col">
             

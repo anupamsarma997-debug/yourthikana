@@ -155,7 +155,7 @@ service cloud.firestore {
     // Public visitors may record anonymous analytics, but only admins can read/manage it.
     match /visits/{visitId} {
       allow create: if request.resource.data.keys().hasAll(['propertyId', 'refId', 'timestamp']) &&
-        request.resource.data.keys().hasOnly(['id', 'propertyId', 'refId', 'timestamp', 'source']) &&
+        request.resource.data.keys().hasOnly(['id', 'propertyId', 'refId', 'timestamp', 'source', 'customerName']) &&
         request.resource.data.propertyId is string && request.resource.data.propertyId.size() > 0 &&
         request.resource.data.refId is string && request.resource.data.refId.size() <= 120 &&
         request.resource.data.timestamp is string &&

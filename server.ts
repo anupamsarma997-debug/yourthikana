@@ -129,7 +129,6 @@ async function startServer() {
         tx.set(adminDb.collection('public_profiles').doc(decoded.uid), {
           id: decoded.uid, username,
           name: authUser.displayName || authUser.email.split('@')[0],
-          role: 'customer',
         }, { merge: true });
       });
       return res.json({ success: true, username });

@@ -790,7 +790,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
         user.role !== 'owner' || !targetProperty ||
         targetProperty.ownerUid !== fbUser.uid) {
       alert('🔒 Please sign in with the verified owner account for this property.');
-      setRoomModalOpen(false);
+      setEditingRoomsPropId(null);
       setAuthTargetTitle('Manage Room Types');
       setAuthModalOpen(true);
       return;

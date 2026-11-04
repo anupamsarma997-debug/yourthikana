@@ -249,7 +249,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const credential = await signInWithEmailAndPassword(auth, emailToTry, loginPassword);
       const loggedInUser = await store.loginWithFirebaseUser(credential.user);
 
-      if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.role !== 'admin') {
+      if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.googleUid !== requiredOwnerId && loggedInUser.role !== 'admin') {
         setErrorMessage(`Permission Denied! You logged in as @${loggedInUser.username}, but this property belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`);
         setIsLoading(false);
         return;

@@ -1109,7 +1109,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                           >
                             <div>
                               <p className="font-extrabold text-slate-900 dark:text-white text-xs">{r.roomName}</p>
-                              <p className="text-[10px] text-slate-500">Max {r.maxGuests} Guests • {r.bedType} • {r.roomSize || '250 sq ft'}</p>
+                              <p className="text-[10px] text-slate-500">{r.maxGuests > 0 ? `Max ${r.maxGuests} Guests • ` : ''}{r.bedType} • {r.roomSize || '250 sq ft'}</p>
                             </div>
                             <div className="text-right shrink-0">
                               <div className="flex items-baseline gap-1 justify-end">
@@ -1420,7 +1420,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                     </div>
 
                     <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                      🗓️ {enq.checkInDate} to {enq.checkOutDate} ({enq.numberOfDays} Days) • 👥 {enq.totalGuests} Guests • 🛏️ {enq.selectedRoomName}
+                      🗓️ {enq.checkInDate} to {enq.checkOutDate} ({enq.numberOfNights ?? enq.numberOfDays} Nights) • 👥 {enq.totalGuests} Guests • 🛏️ {enq.selectedRoomName}
                     </p>
 
                     <p className="text-xs text-slate-500">
@@ -1434,15 +1434,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                     )}
                   </div>
 
-                  <a
-                    href={`https://wa.me/${enq.customerWhatsApp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hello ${enq.customerName}, regarding your enquiry for ${enq.propertyName} on THIKANA:`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md flex items-center gap-1.5"
-                  >
-                    <MessageCircle className="w-4 h-4 fill-white text-emerald-600" />
-                    <span>Chat with Customer</span>
-                  </a>
+
                 </div>
               ))}
             </div>
@@ -1823,14 +1815,14 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      WhatsApp Number (with country code e.g. 919876543210) <span className="text-rose-500">*</span>
+                      WhatsApp Number (include country code) <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
                       value={ownerWhatsAppInput}
                       onChange={(e) => setOwnerWhatsAppInput(e.target.value)}
-                      placeholder="e.g. 919876543210"
+                      placeholder="Enter host WhatsApp number"
                       className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">

@@ -194,14 +194,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setSuccessMessage('');
   };
 
-  // Login with Email / Username & Password
-  // Username/password login is intentionally disabled. A verified Google
-  // Firebase session is the only supported sign-in method for this app.
+  // Existing Firebase email/password accounts only; local/demo password auth is never used.
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage('Username and password login is disabled. Please use Continue with Google to sign in with your Google account.');
+    setErrorMessage('');
     setSuccessMessage('');
-    setLoginPassword('');
+    if (!auth) {
+      setErrorMessage('Secure sign-in is unavailable. Please try again later.');
+      return;
+    }
+    const identifier = loginIdentifier.trim().replace(/^@/, '').toLowerCase();
+    if (!identifier || !loginPassword) {
+      setErrorMessage('Enter your existing username/email and password.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      let emailForAuth = identifier;
+      if (!identifier.includes('@')) {
+        const existingProfile = store.getUsers().find(
+          (u: any) => (u.username || '').toLowerCase() === identifier
+        );
+        if (!existingProfile?.email) {
+          throw new Error('No existing account was found for this username. Try your registered email address.');
+        }
+        emailForAuth = existingProfile.email;
+      }
+      const credential = await signInWithEmailAndPassword(auth, emailForAuth, loginPassword);
+      if (!credential.user.email) throw new Error('This Firebase account has no email address.');
+      const loggedInUser = await store.loginWithFirebaseUser(credential.user);
+      if (onSuccessRole) onSuccessRole(loggedInUser.role);
+      onClose();
+    } catch (err: any) {
+      const code = err?.code || '';
+      setErrorMessage(
+        code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found'
+          ? 'Incorrect username/email or password. Only previously registered accounts can sign in.'
+          : code === 'auth/too-many-requests'
+            ? 'Too many attempts. Please wait and try again.'
+            : err?.message || 'Sign-in failed. Please try again.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Password recovery must be completed through Firebase's verified email link.

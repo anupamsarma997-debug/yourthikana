@@ -562,7 +562,8 @@ class DataStore {
       avatar: firebaseUser.photoURL || existing?.avatar,
       phone: (remote.phone as string) || existing?.phone || '',
       whatsapp: (remote.whatsapp as string) || existing?.whatsapp || '',
-      // Never trust a role cached in localStorage; only a server-authorized profile can grant admin.\n      role: (remote.role as UserRole) || 'owner',
+      // Never trust a role cached in localStorage; only a server-authorized profile can grant admin.
+      role: (remote.role as UserRole) || 'owner',
       status: (remote.status as User['status']) || existing?.status || 'active',
       createdAt: (remote.createdAt as string) || existing?.createdAt || new Date().toISOString(),
     };

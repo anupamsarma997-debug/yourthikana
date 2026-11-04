@@ -906,7 +906,8 @@ class DataStore {
     // Save to Firestore if database is active
     if (db) {
       try {
-        await setDoc(doc(db, 'properties', newProp.id), sanitizeForFirestore(newProp));
+        const { ownerEmail: _privateOwnerEmail, ...publicPropertyData } = newProp;
+        await setDoc(doc(db, 'properties', newProp.id), sanitizeForFirestore(publicPropertyData));
       } catch (err: any) {
         console.error('Firestore addProperty failed:', err);
         throw new Error('Property could not be saved to the server. Please check your sign-in and Firebase setup, then try again.');
@@ -964,7 +965,8 @@ class DataStore {
 
     if (db) {
       try {
-        await setDoc(doc(db, 'properties', id), sanitizeForFirestore(updatedProp), { merge: true });
+        const { ownerEmail: _privateOwnerEmail, ...publicPropertyData } = updatedProp;
+        await setDoc(doc(db, 'properties', id), sanitizeForFirestore(publicPropertyData), { merge: true });
       } catch (err: any) {
         console.error('Firestore updateProperty failed:', err);
         return {

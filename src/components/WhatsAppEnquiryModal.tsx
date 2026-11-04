@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Property, RoomType } from '../types';
 import { store } from '../services/store';
+import { getEffectiveRoomPrice } from '../utils/roomPricing';
 import { 
   X, 
   MessageCircle, 
@@ -12,7 +13,7 @@ import {
   ShieldCheck, 
   Clock, 
   DollarSign, 
-  Phone
+  
 } from 'lucide-react';
 
 interface WhatsAppEnquiryModalProps {
@@ -35,8 +36,6 @@ export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
 
   // Form States
   const [customerName, setCustomerName] = useState(currentUser?.name || '');
-  const [customerPhone, setCustomerPhone] = useState(currentUser?.phone || '');
-  const [customerWhatsApp, setCustomerWhatsApp] = useState(currentUser?.whatsapp || '');
 
   // Default dates: Today & 2 days later
   const todayStr = new Date().toISOString().split('T')[0];
@@ -46,7 +45,7 @@ export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
 
   const [checkInDate, setCheckInDate] = useState(todayStr);
   const [checkOutDate, setCheckOutDate] = useState(checkOutStr);
-  const [adults, setAdults] = useState(2);
+  const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
   const [selectedRoomId, setSelectedRoomId] = useState<string>(
     initialRoom ? initialRoom.id : (rooms[0]?.id || '')
@@ -64,22 +63,20 @@ export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0];
 
-  // Calculate Duration in Days
-  const calculateDays = () => {
-    try {
-      const d1 = new Date(checkInDate);
-      const d2 = new Date(checkOutDate);
-      const diffTime = d2.getTime() - d1.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays > 0 ? diffDays : 1;
-    } catch (e) {
-      return 1;
-    }
+  // A stay is charged by nights (check-out date is not an extra night).
+  const calculateNights = () => {
+    const checkIn = new Date(`${checkInDate}T00:00:00`).getTime();
+    const checkOut = new Date(`${checkOutDate}T00:00:00`).getTime();
+    const nights = (checkOut - checkIn) / (24 * 60 * 60 * 1000);
+    return Number.isInteger(nights) && nights > 0 ? nights : 0;
   };
 
-  const numberOfDays = calculateDays();
-  const roomPrice = selectedRoom ? (selectedRoom.discountPrice || selectedRoom.pricePerNight) : 1500;
-  const calculatedTotal = roomPrice * numberOfDays;
+  const numberOfNights = calculateNights();
+  const isMonthly = property.propertyType?.toLowerCase().includes('monthly');
+  const roomPrice = selectedRoom ? getEffectiveRoomPrice(selectedRoom) : 0;
+  const calculatedTotal = selectedRoom && roomPrice > 0
+    ? (isMonthly ? roomPrice : roomPrice * numberOfNights)
+    : 0;
 
   // Format WhatsApp Message
   const constructMessage = () => {
@@ -90,9 +87,9 @@ export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
 👤 *Name:* ${customerName || 'Guest'}
 📱 *Phone:* ${customerPhone || 'Not provided'}
 🗓️ *Check-in Date:* ${checkInDate}
-🗓️ *Check-out Date:* ${checkOutDate} (${numberOfDays} Days / ${numberOfDays > 1 ? numberOfDays - 1 : 1} Nights)
+🗓️ *Check-out Date:* ${checkOutDate} (${numberOfNights} Nights)
 👥 *Guests:* ${adults} Adults${children > 0 ? `, ${children} Children` : ''} (Total ${totalGuests})
-🛏️ *Room Type:* ${selectedRoom ? selectedRoom.roomName : 'Standard Room'} (₹${roomPrice}/night)
+🛏️ *Room Type:* ${selectedRoom ? selectedRoom.roomName : 'Standard Room'} (₹${roomPrice}/${isMonthly ? 'month' : 'night'})
 💰 *Estimated Total:* ₹${calculatedTotal}
 
 ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want to book this room. Please confirm room availability and payment details. Thank you!`;
@@ -101,8 +98,22 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
   const handleSendWhatsApp = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!customerName.trim() || !customerPhone.trim()) {
-      alert('Please fill in your Name and Mobile Number.');
+    if (!customerName.trim()) {
+      alert('Please enter your name.');
+      return;
+    }
+    if (!selectedRoom || roomPrice <= 0) {
+      alert('This property has no valid room price yet. Please contact the host.');
+      return;
+    }
+    if (numberOfNights <= 0) {
+      alert('Please select a check-out date after the check-in date.');
+      return;
+    }
+    let cleanPhone = (property.ownerWhatsApp || '').replace(/\D/g, '');
+    if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
+    if (cleanPhone.length < 12 || cleanPhone.length > 15) {
+      alert('The host has not added a valid WhatsApp contact yet. Please contact the property through its listed contact options.');
       return;
     }
 
@@ -116,11 +127,10 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
       ownerName: property.ownerName,
       ownerWhatsApp: property.ownerWhatsApp,
       customerName,
-      customerPhone,
-      customerWhatsApp: customerWhatsApp || customerPhone,
       checkInDate,
       checkOutDate,
-      numberOfDays,
+      numberOfDays: numberOfNights,
+      numberOfNights,
       adults,
       children,
       totalGuests: adults + children,
@@ -139,13 +149,6 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
     const activeRefId = urlRef || savedRef || 'direct';
     const source = activeRefId !== 'direct' ? 'qr_referral' : 'whatsapp';
     store.trackLead(property.id, activeRefId, customerName, source);
-
-    // Clean owner phone number (remove +, spaces, leading zeros if 10 digits add 91)
-    let cleanPhone = property.ownerWhatsApp || property.ownerPhone || '919816012345';
-    cleanPhone = cleanPhone.replace(/\D/g, '');
-    if (cleanPhone.length === 10) {
-      cleanPhone = '91' + cleanPhone;
-    }
 
     const encodedText = encodeURIComponent(message);
     const waUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
@@ -201,10 +204,11 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 onClick={() => {
-                  let cleanPhone = property.ownerWhatsApp || property.ownerPhone || '919816012345';
-                  cleanPhone = cleanPhone.replace(/\D/g, '');
+                  let cleanPhone = (property.ownerWhatsApp || '').replace(/\D/g, '');
                   if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
-                  window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(constructMessage())}`, '_blank');
+                  if (cleanPhone.length >= 12 && cleanPhone.length <= 15) {
+                    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(constructMessage())}`, '_blank');
+                  }
                 }}
                 className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-6 py-2.5 rounded-xl shadow-md flex items-center justify-center gap-2"
               >
@@ -223,35 +227,19 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
         ) : (
           <form onSubmit={handleSendWhatsApp} className="space-y-4">
             
-            {/* Customer Contact Details */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Your Full Name <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Rahul Sharma"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Your Mobile / WhatsApp <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  required
-                  placeholder="e.g. +91 9876543210"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                />
-              </div>
+            {/* Guest name only; phone number is not collected. */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Your Full Name <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Your name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
             </div>
 
             {/* Dates Selection (Check-in / Check-out) */}
@@ -301,7 +289,7 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
                 >
                   {rooms.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.roomName} (₹{r.discountPrice || r.pricePerNight})
+                      {r.roomName} (₹{getEffectiveRoomPrice(r)})
                     </option>
                   ))}
                 </select>
@@ -357,14 +345,14 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
               <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
                 <span>Stay Duration:</span>
                 <span className="font-bold text-slate-900 dark:text-white">
-                  {numberOfDays} Day{numberOfDays > 1 ? 's' : ''} / {numberOfDays > 1 ? numberOfDays - 1 : 1} Night
+                  {numberOfNights} Night{numberOfNights === 1 ? '' : 's'}
                 </span>
               </div>
 
               <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
                 <span>Room Rate:</span>
                 <span className="font-bold text-slate-900 dark:text-white">
-                  ₹{roomPrice} / night
+                  ₹{roomPrice} / {isMonthly ? 'month' : 'night'}
                 </span>
               </div>
 
@@ -378,10 +366,10 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
 
             {/* Host Info Box */}
             <div className="flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200 dark:border-emerald-800/60">
-              <Phone className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <MessageCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <div className="text-xs">
                 <p className="font-bold text-slate-900 dark:text-white">
-                  Host: {property.ownerName} ({property.ownerWhatsApp || property.ownerPhone})
+                  Host: {property.ownerName}
                 </p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
                   Your enquiry will be sent directly to their WhatsApp. Pay host directly at check-in with 0% platform fee.
@@ -392,7 +380,8 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
             {/* Send WhatsApp CTA Button */}
             <button
               type="submit"
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm py-3.5 px-6 rounded-2xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer mt-2"
+              disabled={!selectedRoom || roomPrice <= 0 || !property.ownerWhatsApp || numberOfNights <= 0}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold text-sm py-3.5 px-6 rounded-2xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer mt-2"
             >
               <MessageCircle className="w-5 h-5 fill-white text-emerald-600" />
               <span>Send Enquiry on Owner WhatsApp</span>

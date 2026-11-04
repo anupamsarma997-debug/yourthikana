@@ -84,11 +84,18 @@ async function startServer() {
   };
   const usernameRateLimit = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const now = Date.now();
+    for (const [bucketKey, bucketValue] of usernameRateBuckets) {
+      if (bucketValue.resetAt <= now) usernameRateBuckets.delete(bucketKey);
+    }
     const key = req.ip || 'unknown';
-    const bucket = usernameRateBuckets.get(key);
+    let bucket = usernameRateBuckets.get(key);
     if (!bucket || bucket.resetAt <= now) {
-      usernameRateBuckets.set(key, { count: 1, resetAt: now + 10 * 60 * 1000 });
-      return next();
+      if (usernameRateBuckets.size >= 5000) {
+        const oldestKey = usernameRateBuckets.keys().next().value;
+        if (oldestKey) usernameRateBuckets.delete(oldestKey);
+      }
+      bucket = { count: 0, resetAt: now + 10 * 60 * 1000 };
+      usernameRateBuckets.set(key, bucket);
     }
     if (bucket.count >= 8) {
       res.setHeader('Retry-After', String(Math.ceil((bucket.resetAt - now) / 1000)));
@@ -114,6 +121,11 @@ async function startServer() {
       const authUser = await adminAuth.getUser(decoded.uid);
       if (!authUser.email) return res.status(400).json({ error: 'A verified Firebase account email is required.' });
       const usernameRef = adminDb.collection('username_index').doc(username);
+      // Protect usernames already present on older accounts before the index existed.
+      const legacyMatches = await adminDb.collection('users').where('username', '==', username).limit(2).get();
+      if (legacyMatches.docs.some((legacyDoc) => legacyDoc.id !== decoded.uid)) {
+        return res.status(409).json({ error: 'This username is already taken. Please choose another.' });
+      }
       await adminDb.runTransaction(async (tx) => {
         const existing = await tx.get(usernameRef);
         if (existing.exists && existing.data()?.uid !== decoded.uid) {

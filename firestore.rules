@@ -11,14 +11,11 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Privileged access must come only from a trusted Firebase Auth custom
+    // claim set by a privileged Admin SDK process, never from a client-writable
+    // Firestore profile document.
     function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.get('admin', false) == true ||
-        (
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin'
-        )
-      );
+      return isSignedIn() && request.auth.token.get('admin', false) == true;
     }
 
     function ownsProperty(propertyId) {

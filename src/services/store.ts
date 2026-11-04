@@ -340,8 +340,9 @@ class DataStore {
               try {
                 onSnapshot(doc(db, 'users', fbUser.uid), (docSnap) => {
                   if (docSnap.exists()) {
-                    const uData = { id: docSnap.id, ...docSnap.data() } as User;
-                    const idx = this.users.findIndex((u) => u.id === uData.id);
+                    const profileData = docSnap.data();
+                    const uData = { ...profileData, id: (profileData.id as string) || docSnap.id } as User;
+                    const idx = this.users.findIndex((u) => u.id === uData.id || u.googleUid === fbUser.uid);
                     if (idx !== -1) {
                       this.users[idx] = { ...this.users[idx], ...uData };
                     } else {

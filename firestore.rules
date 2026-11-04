@@ -118,8 +118,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isValidRoom() && isSignedIn() &&
         ((request.resource.data.get('ownerUid', '') == request.auth.uid &&
-          ownsProperty(request.resource.data.propertyId) &&
-          request.resource.data.get('ownerId', '') == get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerId', '')) || isAdmin());
+          ownsProperty(request.resource.data.propertyId)) || isAdmin());
       allow update: if isValidRoom() && isSignedIn() &&
         (ownsProperty(resource.data.propertyId) || isAdmin()) &&
         request.resource.data.propertyId == resource.data.propertyId &&

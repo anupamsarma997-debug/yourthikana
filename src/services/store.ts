@@ -203,16 +203,17 @@ class DataStore {
       const rawUsers: User[] = storedUsers ? JSON.parse(storedUsers) : INITIAL_USERS;
       this.users = rawUsers.map((u) => {
         const userObj = { ...u };
-        if ((userObj as any).password) {
-          const salt = userObj.passwordSalt || generateSalt();
-          userObj.passwordSalt = salt;
-          userObj.passwordHash = hashPasswordWithSalt((userObj as any).password, salt);
-          delete (userObj as any).password;
-        } else if (!userObj.passwordHash) {
-          const salt = userObj.passwordSalt || generateSalt();
-          userObj.passwordSalt = salt;
-          userObj.passwordHash = hashPasswordWithSalt('123456', salt);
+        // Browser storage and bundled seed data are untrusted. A cached role must
+        // never grant admin access; the authenticated Firestore profile restores
+        // a legitimate admin role after Firebase Auth has verified the session.
+        if (userObj.role === 'admin') {
+          userObj.role = 'customer';
         }
+        // Firebase Authentication is the only supported credential authority.
+        // Do not create predictable demo passwords or retain legacy local hashes.
+        delete (userObj as any).password;
+        delete (userObj as any).passwordHash;
+        delete (userObj as any).passwordSalt;
         return userObj;
       });
 
@@ -590,8 +591,8 @@ class DataStore {
   }
 
   public getUsers(): User[] {
-    // Strip plaintext & hashed password fields from returned users list for security
-    return this.users.map(({ password, passwordHash, ...u }) => u as User);
+    // Never expose legacy local credential material to UI components.
+    return this.users.map(({ password, passwordHash, passwordSalt, ...u }) => u as User);
   }
 
   public setCurrentUserId(id: string) {

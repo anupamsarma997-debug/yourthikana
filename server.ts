@@ -152,6 +152,46 @@ async function startServer() {
     }
   });
 
+  app.post('/api/auth/username-status', async (req, res) => {
+    try {
+      const authorization = req.headers.authorization || '';
+      const idToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+      if (!idToken) return res.status(401).json({ error: 'Please sign in again.' });
+      const { auth: adminAuth, db: adminDb } = await getFirebaseAdmin();
+      const decoded = await adminAuth.verifyIdToken(idToken);
+      const [account, profileSnap] = await Promise.all([
+        adminAuth.getUser(decoded.uid),
+        adminDb.collection('users').doc(decoded.uid).get(),
+      ]);
+      const profileUsername = normalizeUsername(profileSnap.data()?.username);
+      if (profileUsername && /^[a-z0-9_]{3,20}$/.test(profileUsername)) {
+        const usernameRef = adminDb.collection('username_index').doc(profileUsername);
+        const existing = await usernameRef.get();
+        if (existing.exists && existing.data()?.uid !== decoded.uid) {
+          return res.json({ complete: false, username: '' });
+        }
+        if (!existing.exists) {
+          const legacyMatches = await adminDb.collection('users').where('username', '==', profileUsername).limit(2).get();
+          if (!legacyMatches.docs.some((doc) => doc.id !== decoded.uid)) {
+            await adminDb.runTransaction(async (tx) => {
+              const current = await tx.get(usernameRef);
+              if (!current.exists) tx.create(usernameRef, { uid: decoded.uid, username: profileUsername, createdAt: new Date().toISOString() });
+            });
+          }
+        }
+        const confirmed = await usernameRef.get();
+        if (confirmed.exists && confirmed.data()?.uid === decoded.uid) {
+          return res.json({ complete: true, username: profileUsername });
+        }
+      }
+      const suggested = normalizeUsername(account.email?.split('@')[0] || '').slice(0, 20);
+      return res.json({ complete: false, username: /^[a-z0-9_]{3,20}$/.test(suggested) ? suggested : '' });
+    } catch (error: any) {
+      console.error('Username status check failed:', error?.message || error);
+      return res.status(500).json({ error: 'Could not verify account setup. Please try again.' });
+    }
+  });
+
   app.post('/api/auth/username-login', usernameRateLimit, async (req, res) => {
     try {
       const username = normalizeUsername(req.body?.username);

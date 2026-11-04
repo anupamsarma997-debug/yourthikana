@@ -32,7 +32,10 @@ service cloud.firestore {
 
     function isValidRoom() {
       let data = request.resource.data;
-      return data.keys().hasAll(['propertyId', 'roomName']) &&
+      return data.keys().hasAll(['propertyId', 'roomName']) && data.keys().hasOnly([
+        'id', 'propertyId', 'ownerId', 'ownerUid', 'roomName', 'pricePerNight',
+        'discountPrice', 'maxGuests', 'description', 'amenities', 'roomSize', 'bedType', 'photos'
+      ]) &&
         data.propertyId is string && data.roomName is string &&
         data.roomName.size() > 0 && data.roomName.size() <= 120;
     }
@@ -115,11 +118,17 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isValidRoom() && isSignedIn() &&
         ((request.resource.data.get('ownerUid', '') == request.auth.uid &&
-          ownsProperty(request.resource.data.propertyId)) || isAdmin());
+          ownsProperty(request.resource.data.propertyId) &&
+          request.resource.data.get('ownerId', '') == get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerId', '')) || isAdmin());
       allow update: if isValidRoom() && isSignedIn() &&
         (ownsProperty(resource.data.propertyId) || isAdmin()) &&
         request.resource.data.propertyId == resource.data.propertyId &&
-        request.resource.data.get('ownerUid', '') == resource.data.get('ownerUid', '');
+        request.resource.data.get('ownerUid', '') == resource.data.get('ownerUid', '') &&
+        request.resource.data.get('ownerId', '') == resource.data.get('ownerId', '') &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'roomName', 'pricePerNight', 'discountPrice', 'maxGuests',
+          'description', 'amenities', 'roomSize', 'bedType', 'photos'
+        ]);
       allow delete: if isSignedIn() &&
         (ownsProperty(resource.data.propertyId) || isAdmin());
     }

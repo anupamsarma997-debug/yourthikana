@@ -920,6 +920,10 @@ class DataStore {
       date: now.toISOString().split('T')[0],
     });
 
+    if (firebaseUid) {
+      this.privateDataUid = '';
+      this.syncOwnerPrivateCollections(firebaseUid);
+    }
     this.persist();
     this.notify();
     return newProp;

@@ -563,7 +563,7 @@ class DataStore {
       phone: (remote.phone as string) || existing?.phone || '',
       whatsapp: (remote.whatsapp as string) || existing?.whatsapp || '',
       // Never trust a role cached in localStorage; only a server-authorized profile can grant admin.
-      role: (remote.role as UserRole) || 'owner',
+      role: (remote.role as UserRole) || (existing?.role === 'customer' ? 'customer' : 'owner'),
       status: (remote.status as User['status']) || existing?.status || 'active',
       createdAt: (remote.createdAt as string) || existing?.createdAt || new Date().toISOString(),
     };

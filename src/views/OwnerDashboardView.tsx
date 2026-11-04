@@ -823,7 +823,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
   };
 
   // Upgrade Plan / Buy Badges
-  const handleBuyAddon = async (propId: string, addonType: 'verified' | 'featured' | 'renew') => {
+  const handleBuyAddon = async (_propId: string, _addonType: 'verified' | 'featured' | 'renew') => {
     // Payment collection/manual approval is not integrated yet. Owners must not
     // be shown a false success or be allowed to grant paid status to themselves.
     alert('This paid feature is not activated automatically yet. Please contact THIKANA support for manual verification and activation.');

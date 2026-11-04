@@ -252,7 +252,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
                         <div className="flex items-center gap-3 mt-2 text-xs text-slate-500 dark:text-slate-400">
                           <span>🛏️ {room.bedType}</span>
-                          <span>👥 Max {room.maxGuests} Guests</span>
+                          {room.maxGuests > 0 && <span>👥 Max {room.maxGuests} Guests</span>}
                         </div>
 
                         {/* Room Amenities Badges */}
@@ -271,7 +271,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
                       <div className="shrink-0 text-left sm:text-right pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-700">
                         <div className="flex items-baseline gap-1.5 sm:justify-end">
                           <span className="text-xl font-black text-slate-900 dark:text-white">
-                            ₹{effectivePrice}
+                            {effectivePrice > 0 ? `₹${effectivePrice}` : 'Ask host for price'}
                           </span>
                           {hasValidRoomDiscount(room) && (
                             <span className="text-xs text-slate-400 line-through">
@@ -320,7 +320,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
               <div className="mt-3 flex items-baseline gap-2">
                 <span className="text-2xl font-black text-slate-900 dark:text-white">
-                  {selectedRoom ? `₹${getEffectiveRoomPrice(selectedRoom)}` : 'Ask host for price'}
+                  {selectedRoom && getEffectiveRoomPrice(selectedRoom) > 0 ? `₹${getEffectiveRoomPrice(selectedRoom)}` : 'Ask host for price'}
                 </span>
                 <span className="text-xs text-slate-500 font-medium">
                   {property.propertyType?.toLowerCase().includes('monthly') ? '/ month starting rent' : '/ night starting price'}

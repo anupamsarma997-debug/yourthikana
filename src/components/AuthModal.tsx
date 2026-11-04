@@ -76,6 +76,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Helper notice if editing specific property
   const targetPropertyOwner = requiredOwnerId ? store.getUsers().find(u => u.id === requiredOwnerId) : null;
 
+  const canAccessTargetProperty = (user: User) =>
+    !requiredOwnerId || user.id === requiredOwnerId || user.googleUid === requiredOwnerId || user.role === 'admin';
+
+  const targetPropertyDeniedMessage = () =>
+    `Permission denied. This property belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`;
+
   const finishGoogleSignIn = async (firebaseUser: FirebaseUser) => {
     if (!firebaseUser.email || !auth) throw new Error('Google account email is unavailable.');
     const idToken = await firebaseUser.getIdToken(true);
@@ -87,8 +93,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     if (!response.ok) throw new Error(status.error || 'Could not verify account setup.');
     if (status.complete) {
       const loggedInUser = await store.loginWithFirebaseUser(firebaseUser);
-      if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.googleUid !== requiredOwnerId && loggedInUser.role !== 'admin') {
-        throw new Error(`Permission denied. This property belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`);
+      if (!canAccessTargetProperty(loggedInUser)) {
+        store.logout();
+        throw new Error(targetPropertyDeniedMessage());
       }
       if (onSuccessRole) onSuccessRole(loggedInUser.role);
       setPendingSetup(false);
@@ -246,8 +253,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Could not save username.');
       const loggedInUser = await store.loginWithFirebaseUser(auth!.currentUser!);
-      if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.googleUid !== requiredOwnerId && loggedInUser.role !== 'admin') {
-        setErrorMessage(`Permission denied. This property belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`);
+      if (!canAccessTargetProperty(loggedInUser)) {
+        store.logout();
+        setErrorMessage(targetPropertyDeniedMessage());
         return;
       }
       if (onSuccessRole) onSuccessRole(loggedInUser.role);
@@ -301,6 +309,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
       if (!credential.user.email) throw new Error('This Firebase account has no email address.');
       const loggedInUser = await store.loginWithFirebaseUser(credential.user);
+      if (!canAccessTargetProperty(loggedInUser)) {
+        store.logout();
+        setErrorMessage(targetPropertyDeniedMessage());
+        return;
+      }
       if (onSuccessRole) onSuccessRole(loggedInUser.role);
       onClose();
     } catch (err: any) {

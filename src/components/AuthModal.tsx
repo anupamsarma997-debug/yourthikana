@@ -83,8 +83,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (!active || !res?.user?.email) return;
       setIsLoading(true);
       try {
-        const loggedInUser = await store.loginWithFirebaseUser(res.user);
-        setUsername(loggedInUser.username || '');
+        setUsername(res.user.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20));
         setPassword('');
         setMode('register');
         setPendingSetup(true);
@@ -123,8 +122,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const res = await signInWithPopup(auth, googleProvider);
         const gUser = res.user;
         if (gUser.email) {
-          const loggedInUser = await store.loginWithFirebaseUser(gUser);
-          setUsername(loggedInUser.username || '');
+          setUsername(gUser.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20));
           setPassword('');
           setMode('register');
           setPendingSetup(true);

@@ -371,7 +371,10 @@ class DataStore {
             this.properties.forEach((p) => propMap.set(p.id, p));
             remoteProps.forEach((rp) => propMap.set(rp.id, rp));
             this.properties = Array.from(propMap.values());
-            if (auth?.currentUser) this.syncOwnerPrivateCollections(auth.currentUser.uid);
+            if (auth?.currentUser) {
+              this.privateDataUid = '';
+              this.syncOwnerPrivateCollections(auth.currentUser.uid);
+            }
             this.persist();
             this.notify(false);
           }

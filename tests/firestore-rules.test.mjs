@@ -229,3 +229,30 @@ test('users cannot grant themselves the admin role', async () => {
     role: 'owner',
   }));
 });
+
+test('admin privileges require a trusted Firebase Auth custom claim, not a Firestore profile role', async () => {
+  const ownerDb = await createOwnedProperty('owner-admin-test', 'admin-test-property');
+  const publicDb = testEnv.unauthenticatedContext().firestore();
+  await assertSucceeds(setDoc(doc(publicDb, 'leads', 'admin-test-lead'), {
+    propertyId: 'admin-test-property',
+    refId: 'test',
+    timestamp: new Date().toISOString(),
+    source: 'direct',
+  }));
+
+  // Simulate a legacy or tampered profile containing role=admin.
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'users', 'fake-admin'), {
+      id: 'fake-admin', role: 'admin',
+    });
+  });
+
+  const profileOnlyAdminDb = testEnv.authenticatedContext('fake-admin').firestore();
+  await assertFails(getDocs(collection(profileOnlyAdminDb, 'leads')));
+
+  const claimedAdminDb = testEnv.authenticatedContext('trusted-admin', {
+    admin: true,
+  }).firestore();
+  const adminLeads = await assertSucceeds(getDocs(collection(claimedAdminDb, 'leads')));
+  assert.equal(adminLeads.size, 1);
+});

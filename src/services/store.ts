@@ -894,15 +894,16 @@ class DataStore {
       ownerUid,
       ownerEmail,
       id: 'prop_' + Date.now(),
-      rating: 5.0,
-      reviewsCount: 1,
+      rating: 0,
+      reviewsCount: 0,
       isVerified: false,
       isFeatured: false,
       status: 'active',
-      subscriptionPlan: planType,
-      subscriptionPrice: price,
-      subscriptionExpiresAt: expires.toISOString(),
-      subscriptionExpiryDate: expires.toISOString(),
+      // A listing request is not proof of payment. Admin activates paid plans separately.
+      subscriptionPlan: 'none',
+      subscriptionPrice: 0,
+      subscriptionExpiresAt: '',
+      subscriptionExpiryDate: '',
       createdAt: now.toISOString(),
     };
 
@@ -923,16 +924,9 @@ class DataStore {
       this.properties[existingIdx] = newProp;
     }
 
-    this.addTransaction({
-      ownerId: newProp.ownerId,
-      ownerName: newProp.ownerName,
-      propertyId: newProp.id,
-      propertyName: newProp.title,
-      type: planType,
-      planName: `${planType === 'standard_1500' ? 'Prime Location' : 'Standard'} Listing Subscription (1 Month)`,
-      amount: price,
-      date: now.toISOString().split('T')[0],
-    });
+    // Do not record revenue until payment is independently confirmed.
+
+
 
     if (firebaseUid) {
       this.privateDataUid = '';

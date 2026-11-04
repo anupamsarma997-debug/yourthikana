@@ -10,9 +10,36 @@ const appDir = process.cwd();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(express.json({ limit: '20mb' }));
+  // The app is deployed behind one trusted reverse proxy in hosted environments.
+  app.set('trust proxy', 1);
+  app.use(express.json({ limit: '1mb' }));
+
+  // Lightweight per-process abuse protection for paid Gemini endpoints.
+  // For multi-instance deployments, also configure a shared edge/API rate limit.
+  const aiRateLimitWindowMs = 10 * 60 * 1000;
+  const aiRateLimitMaxRequests = 12;
+  const aiRequestBuckets = new Map<string, { count: number; resetAt: number }>();
+  const aiRateLimit = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const now = Date.now();
+    for (const [key, bucket] of aiRequestBuckets) {
+      if (bucket.resetAt <= now) aiRequestBuckets.delete(key);
+    }
+    const key = req.ip || 'unknown';
+    const bucket = aiRequestBuckets.get(key);
+    if (!bucket || bucket.resetAt <= now) {
+      aiRequestBuckets.set(key, { count: 1, resetAt: now + aiRateLimitWindowMs });
+      return next();
+    }
+    if (bucket.count >= aiRateLimitMaxRequests) {
+      res.setHeader('Retry-After', String(Math.ceil((bucket.resetAt - now) / 1000)));
+      return res.status(429).json({ error: 'Too many AI requests. Please wait a few minutes and try again.' });
+    }
+    bucket.count += 1;
+    return next();
+  };
+  app.use('/api/ai', aiRateLimit);
 
   // Initialize Gemini AI Client lazily/safely
   const getGenAI = () => {
@@ -105,27 +132,34 @@ STRICT RULES (ZERO HALLUCINATIONS):
     try {
       const city = sanitizeInput(req.body.city, 100);
       const address = sanitizeInput(req.body.address, 150);
+      if (!city) return res.status(400).json({ error: 'City is required to suggest nearby attractions.' });
       const ai = getGenAI();
 
-      const prompt = `List 4 real tourist attractions, waterfalls, national parks, tea gardens, or monasteries near "${address}, ${city}" in Northeast India.
-Return ONLY a raw JSON array of 4 strings with approximate distances, for example: ["Kaziranga Safari Gate (2 km)", "Orchid & Biodiversity Park (1.5 km)", "Kakochang Waterfall (14 km)", "Brahmaputra Sunset Viewpoint (8 km)"]`;
+      const prompt = `Suggest up to 4 nearby places around "${address ? address + ', ' : ''}${city}" in Northeast India.
+Return ONLY a JSON array of strings. Do not invent distances or claim exact proximity when it is unknown. If reliable suggestions cannot be made, return an empty array.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.7-flash',
         contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-        }
+        config: { responseMimeType: 'application/json' }
       });
 
-      let json: string[] = [];
+      let parsed: unknown;
       try {
-        json = JSON.parse(response.text || '[]');
-      } catch (e) {
-        json = ['Local Scenic Viewpoint (2 km)', 'City Center Market (1.5 km)', 'Historical Monument (3 km)', 'Nature Trail Walk (1 km)'];
+        parsed = JSON.parse(response.text || '[]');
+      } catch {
+        return res.status(502).json({ error: 'The attraction suggestion service returned invalid data. Please try again.' });
       }
+      if (!Array.isArray(parsed)) {
+        return res.status(502).json({ error: 'The attraction suggestion service returned an unexpected response.' });
+      }
+      const attractions = parsed
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => sanitizeInput(item, 120))
+        .filter(Boolean)
+        .slice(0, 4);
 
-      res.json({ attractions: json });
+      res.json({ attractions, note: 'AI suggestions may be inaccurate. Please verify locations before publishing.' });
     } catch (error: any) {
       console.error('Error generating attractions:', error);
       res.status(500).json({ error: error.message || 'Failed to fetch attractions' });

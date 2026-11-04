@@ -85,7 +85,6 @@ export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
 
 📋 *Booking Enquiry Form:*
 👤 *Name:* ${customerName || 'Guest'}
-📱 *Phone:* ${customerPhone || 'Not provided'}
 🗓️ *Check-in Date:* ${checkInDate}
 🗓️ *Check-out Date:* ${checkOutDate} (${numberOfNights} Nights)
 👥 *Guests:* ${adults} Adults${children > 0 ? `, ${children} Children` : ''} (Total ${totalGuests})

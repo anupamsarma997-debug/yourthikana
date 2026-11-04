@@ -91,6 +91,9 @@ test('owners cannot self-assign verification, featured status, ratings, or paid 
     ...base, subscriptionPlan: 'standard_1500', subscriptionPrice: 1500,
     subscriptionExpiresAt: '2099-01-01T00:00:00.000Z',
   }));
+  await assertFails(setDoc(doc(ownerDb, 'properties', 'extra-admin-field'), {
+    ...base, adminApproved: true,
+  }));
 });
 
 test('owners can edit listing content but cannot grant themselves verification or boosts', async () => {
@@ -136,6 +139,12 @@ test('public enquiries must reference a real property and valid guest details', 
     propertyId: 'missing-property',
     customerName: 'Guest',
     customerPhone: '9876543210',
+  }));
+  await assertFails(setDoc(doc(publicDb, 'enquiries', 'enquiry-extra-field'), {
+    propertyId: 'property-1',
+    customerName: 'Guest',
+    customerPhone: '9876543210',
+    isAdmin: true,
   }));
 });
 

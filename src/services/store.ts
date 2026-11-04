@@ -1,7 +1,7 @@
 import { Property, RoomType, BannerAd, User, UserRole, BookingEnquiry, SubscriptionTransaction, PropertyType, PropertyVisit, PropertyLead } from '../types';
 import { INITIAL_USERS, INITIAL_PROPERTIES, INITIAL_ROOMS, INITIAL_BANNERS, INITIAL_TRANSACTIONS } from '../data/initialData';
 import { db, auth, isFirebaseConfigured, firebaseConfigError } from '../lib/firebase';
-import { collection, doc, setDoc, deleteDoc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, getDoc, onSnapshot, query, where } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { deletePropertyPhoto } from './uploadPropertyImage';
 
@@ -258,6 +258,46 @@ class DataStore {
     }
   }
 
+  private privateDataUnsubscribers: Array<() => void> = [];
+  private privateDataUid = '';
+
+  private syncOwnerPrivateCollections(uid: string) {
+    if (!db || !uid || this.privateDataUid === uid) return;
+    this.privateDataUnsubscribers.forEach((unsubscribe) => unsubscribe());
+    this.privateDataUnsubscribers = [];
+    this.privateDataUid = uid;
+    const propertyIds = this.properties.filter((property) => property.ownerUid === uid).map((property) => property.id).filter(Boolean);
+    if (propertyIds.length === 0) return;
+
+    for (let offset = 0; offset < propertyIds.length; offset += 30) {
+      const ids = propertyIds.slice(offset, offset + 30);
+      const subscribeOwned = <T extends { id: string }>(name: 'enquiries' | 'visits' | 'leads', assign: (records: T[]) => void) => {
+        const ownedQuery = query(collection(db!, name), where('propertyId', 'in', ids));
+        const unsubscribe = onSnapshot(ownedQuery, (snapshot) => {
+          assign(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as T)));
+          this.persist();
+          this.notify(false);
+        }, (error) => console.warn(`Firestore ${name} owner sync notice:`, error?.message || error));
+        this.privateDataUnsubscribers.push(unsubscribe);
+      };
+      subscribeOwned<BookingEnquiry>('enquiries', (records) => {
+        const merged = new Map(this.enquiries.map((item) => [item.id, item]));
+        records.forEach((item) => merged.set(item.id, item));
+        this.enquiries = Array.from(merged.values());
+      });
+      subscribeOwned<PropertyVisit>('visits', (records) => {
+        const merged = new Map(this.visits.map((item) => [item.id, item]));
+        records.forEach((item) => merged.set(item.id, item));
+        this.visits = Array.from(merged.values());
+      });
+      subscribeOwned<PropertyLead>('leads', (records) => {
+        const merged = new Map(this.leads.map((item) => [item.id, item]));
+        records.forEach((item) => merged.set(item.id, item));
+        this.leads = Array.from(merged.values());
+      });
+    }
+  }
+
   private initFirebaseListeners() {
     if (!isFirebaseConfigured || !db) {
       console.info('Running in local/standalone mode (Firebase is not configured).');
@@ -355,69 +395,7 @@ class DataStore {
 
       // Read user profiles individually by authenticated UID; do not scan the users collection.
 
-      // Sync enquiries collection from Firestore
-      onSnapshot(collection(db, 'enquiries'), (snapshot) => {
-        if (!snapshot.empty) {
-          const remoteEnquiries: BookingEnquiry[] = [];
-          snapshot.forEach((docSnap) => {
-            remoteEnquiries.push({ id: docSnap.id, ...docSnap.data() } as BookingEnquiry);
-          });
-          if (remoteEnquiries.length > 0) {
-            const enqMap = new Map<string, BookingEnquiry>();
-            this.enquiries.forEach((e) => enqMap.set(e.id, e));
-            remoteEnquiries.forEach((re) => enqMap.set(re.id, re));
-            this.enquiries = Array.from(enqMap.values());
-            this.persist();
-            this.notify(false);
-          }
-        }
-      }, (err) => {
-        if (!err?.message?.includes('permission') && !err?.message?.includes('Missing or insufficient permissions')) {
-          console.warn('Firestore enquiries sync note:', err?.message || err);
-        }
-      });
-
-      // Sync visits collection from Firestore
-      onSnapshot(collection(db, 'visits'), (snapshot) => {
-        if (!snapshot.empty) {
-          const remoteVisits: PropertyVisit[] = [];
-          snapshot.forEach((docSnap) => {
-            remoteVisits.push({ id: docSnap.id, ...docSnap.data() } as PropertyVisit);
-          });
-          if (remoteVisits.length > 0) {
-            const vMap = new Map<string, PropertyVisit>();
-            this.visits.forEach((v) => vMap.set(v.id, v));
-            remoteVisits.forEach((rv) => vMap.set(rv.id, rv));
-            this.visits = Array.from(vMap.values());
-            this.persist();
-            this.notify(false);
-          }
-        }
-      }, (err) => {
-        console.warn('Firestore visits sync warning:', err);
-      });
-
-      // Sync leads collection from Firestore
-      onSnapshot(collection(db, 'leads'), (snapshot) => {
-        if (!snapshot.empty) {
-          const remoteLeads: PropertyLead[] = [];
-          snapshot.forEach((docSnap) => {
-            remoteLeads.push({ id: docSnap.id, ...docSnap.data() } as PropertyLead);
-          });
-          if (remoteLeads.length > 0) {
-            const lMap = new Map<string, PropertyLead>();
-            this.leads.forEach((l) => lMap.set(l.id, l));
-            remoteLeads.forEach((rl) => lMap.set(rl.id, rl));
-            this.leads = Array.from(lMap.values());
-            this.persist();
-            this.notify(false);
-          }
-        }
-      }, (err) => {
-        console.warn('Firestore leads sync warning:', err);
-      });
-
-    } catch (err: any) {
+      // Private collections are synced only with owner-scoped queries.\n\n    } catch (err: any) {
       console.error('Firebase listeners setup error:', err);
       this.firestoreError = err?.message || String(err);
     }
@@ -425,7 +403,7 @@ class DataStore {
 
   private persist() {
     try {
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(this.users));
+      const safeCachedUsers = this.users.map((user) => {\n        if (!user.googleUid) return user;\n        const { password, passwordHash, passwordSalt, ...safeUser } = user as User & { password?: string; passwordHash?: string; passwordSalt?: string };\n        return safeUser as User;\n      });\n      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(safeCachedUsers));
       localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(this.properties));
       localStorage.setItem(STORAGE_KEYS.ROOMS, JSON.stringify(this.rooms));
       localStorage.setItem(STORAGE_KEYS.BANNERS, JSON.stringify(this.banners));

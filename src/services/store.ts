@@ -171,8 +171,10 @@ function syncPublicProfile(user: User) {
 
 const normalizeProperty = (p: any): Property => ({
   ...p,
-  rating: typeof p?.rating === 'number' && !isNaN(p.rating) ? p.rating : 5.0,
-  reviewsCount: typeof p?.reviewsCount === 'number' && !isNaN(p.reviewsCount) ? p.reviewsCount : 1,
+  // Missing review data must never be presented as fabricated social proof.
+  // New/unrated listings start at zero until real reviews are collected.
+  rating: typeof p?.rating === 'number' && Number.isFinite(p.rating) ? p.rating : 0,
+  reviewsCount: typeof p?.reviewsCount === 'number' && Number.isFinite(p.reviewsCount) ? p.reviewsCount : 0,
 });
 
 class DataStore {

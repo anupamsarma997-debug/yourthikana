@@ -8,6 +8,10 @@ import {
   getRedirectResult,
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
+  signInWithCustomToken,
+  EmailAuthProvider,
+  linkWithCredential,
+  updateProfile,
   sendEmailVerification, 
   sendPasswordResetEmail 
 } from 'firebase/auth';
@@ -62,6 +66,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false);
+  const [pendingSetup, setPendingSetup] = useState(false);
+  const [pendingAuthMethod, setPendingAuthMethod] = useState<'google' | 'email' | null>(null);
 
   // Runtime Diagnostic Result
   const firebaseDiagnostics = checkFirebaseDiagnostics();
@@ -78,6 +84,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setIsLoading(true);
       try {
         const loggedInUser = await store.loginWithFirebaseUser(res.user);
+        setUsername(loggedInUser.username || '');
+        setPassword('');
+        setPendingSetup(true);
+        setPendingAuthMethod('google');
+        return;
         if (
           requiredOwnerId &&
           loggedInUser.id !== requiredOwnerId &&
@@ -124,6 +135,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const gUser = res.user;
         if (gUser.email) {
           const loggedInUser = await store.loginWithFirebaseUser(gUser);
+          setUsername(loggedInUser.username || '');
+          setPassword('');
+          setPendingSetup(true);
+          setPendingAuthMethod('google');
+          return;
 
           if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.googleUid !== requiredOwnerId && loggedInUser.role !== 'admin') {
             setErrorMessage(`Permission Denied! Signed in as @${loggedInUser.username}, but this property belongs to @${targetPropertyOwner?.username || 'another host'}.`);
@@ -187,11 +203,56 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setErrorMessage('Firebase Authentication is not initialized. Check the VITE_FIREBASE_API_KEY, VITE_FIREBASE_PROJECT_ID and VITE_FIREBASE_AUTH_DOMAIN variables, then create a new Vercel deployment.');
   };
 
-  // Email/password account creation is disabled; use verified Google sign-in only.
+  // Email registration uses Firebase Auth; username claims are verified by the server.
   const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage('Email/password registration is disabled. Please use Continue with Google.');
-    setSuccessMessage('');
+    e.preventDefault(); setErrorMessage(''); setSuccessMessage('');
+    if (!auth) { setErrorMessage('Secure registration is unavailable.'); return; }
+    if (!name.trim() || !email.trim() || password.length < 8) {
+      setErrorMessage('Enter your name, email and a password of at least 8 characters.'); return;
+    }
+    setIsLoading(true);
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      await updateProfile(credential.user, { displayName: name.trim() });
+      setUsername(''); setPendingSetup(true); setPendingAuthMethod('email');
+      setSuccessMessage('Account created. Now choose your unique username.');
+    } catch (err: any) {
+      setErrorMessage(err?.code === 'auth/email-already-in-use' ? 'This email already has an account. Please sign in.' : err?.message || 'Registration failed.');
+    } finally { setIsLoading(false); }
+  };
+
+  const handleCompleteProfile = async (e: React.FormEvent) => {
+    e.preventDefault(); setErrorMessage(''); setSuccessMessage('');
+    const firebaseUser = auth?.currentUser;
+    const normalizedUsername = username.trim().replace(/^@/, '').toLowerCase();
+    if (!firebaseUser) { setErrorMessage('Your sign-in session expired. Please sign in again.'); return; }
+    if (!/^[a-z0-9_]{3,20}$/.test(normalizedUsername)) {
+      setErrorMessage('Username must be 3–20 characters using letters, numbers or underscore.'); return;
+    }
+    if (pendingAuthMethod === 'google' && password.length < 8) {
+      setErrorMessage('Create a separate Yourthikana password with at least 8 characters.'); return;
+    }
+    setIsLoading(true);
+    try {
+      if (pendingAuthMethod === 'google') {
+        const hasPassword = firebaseUser.providerData.some((provider) => provider.providerId === 'password');
+        if (!hasPassword) {
+          if (!firebaseUser.email) throw new Error('Google account email is unavailable.');
+          await linkWithCredential(firebaseUser, EmailAuthProvider.credential(firebaseUser.email, password));
+        }
+      }
+      const idToken = await auth!.currentUser!.getIdToken(true);
+      const response = await fetch('/api/auth/claim-username', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+        body: JSON.stringify({ username: normalizedUsername }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Could not save username.');
+      const loggedInUser = await store.loginWithFirebaseUser(auth!.currentUser!);
+      if (onSuccessRole) onSuccessRole(loggedInUser.role);
+      setPendingSetup(false); setPendingAuthMethod(null); onClose();
+    } catch (err: any) { setErrorMessage(err?.message || 'Account setup failed.'); }
+    finally { setIsLoading(false); }
   };
 
   // Existing Firebase email/password accounts only; local/demo password auth is never used.
@@ -210,17 +271,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
     setIsLoading(true);
     try {
-      let emailForAuth = identifier;
+      let credential;
       if (!identifier.includes('@')) {
-        const existingProfile = store.getUsers().find(
-          (u: any) => (u.username || '').toLowerCase() === identifier
-        );
-        if (!existingProfile?.email) {
-          throw new Error('No existing account was found for this username. Try your registered email address.');
-        }
-        emailForAuth = existingProfile.email;
+        const response = await fetch('/api/auth/username-login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: identifier, password: loginPassword }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.customToken) throw new Error(result.error || 'Incorrect username or password.');
+        credential = await signInWithCustomToken(auth, result.customToken);
+      } else {
+        credential = await signInWithEmailAndPassword(auth, identifier, loginPassword);
       }
-      const credential = await signInWithEmailAndPassword(auth, emailForAuth, loginPassword);
       if (!credential.user.email) throw new Error('This Firebase account has no email address.');
       const loggedInUser = await store.loginWithFirebaseUser(credential.user);
       if (onSuccessRole) onSuccessRole(loggedInUser.role);
@@ -389,19 +451,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <div className="relative my-3 text-center">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-slate-800"></div></div>
               <span className="relative bg-white dark:bg-slate-900 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Or Email & Password
+                Or create account with Email
               </span>
             </div>
           </div>
         )}
 
-        {/* MODE 1: REGISTER — Google-only */}
-        {mode === 'register' && (
-          <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 p-4 text-center">
-            <ShieldCheck className="w-7 h-7 mx-auto mb-2 text-emerald-600" />
-            <p className="text-sm font-extrabold text-slate-900 dark:text-white">Google Account Required</p>
-            <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">Create your account using Continue with Google above. Email/password registration is disabled.</p>
-          </div>
+        {/* MODE 1: REGISTER — choose Email OR Google */}
+        {mode === 'register' && !pendingSetup && (
+          <form onSubmit={handleRegisterSubmit} className="space-y-3">
+            <div><label className="block text-xs font-bold mb-1">Full Name</label><input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl px-3 py-2 text-xs" /></div>
+            <div><label className="block text-xs font-bold mb-1">Email Address</label><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl px-3 py-2 text-xs" /></div>
+            <div><label className="block text-xs font-bold mb-1">Yourthikana Password</label><input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl px-3 py-2 text-xs" /></div>
+            <button type="submit" disabled={isLoading} className="w-full bg-emerald-600 text-white font-extrabold text-xs py-3 rounded-xl disabled:opacity-50">{isLoading ? 'Creating account...' : 'Continue with Email'}</button>
+          </form>
+        )}
+        {mode === 'register' && pendingSetup && (
+          <form onSubmit={handleCompleteProfile} className="space-y-3">
+            <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 p-3 text-xs"><p className="font-bold">Choose your unique username</p><p className="mt-1">You can use this username and your Yourthikana password to sign in.</p></div>
+            <div><label className="block text-xs font-bold mb-1">Username</label><input required minLength={3} maxLength={20} value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. anupam_01" className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl px-3 py-2 text-xs" /></div>
+            {pendingAuthMethod === 'google' && <div><label className="block text-xs font-bold mb-1">Create Yourthikana Password</label><input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl px-3 py-2 text-xs" /></div>}
+            <button type="submit" disabled={isLoading} className="w-full bg-emerald-600 text-white font-extrabold text-xs py-3 rounded-xl disabled:opacity-50">{isLoading ? 'Saving securely...' : 'Finish Account Setup'}</button>
+          </form>
         )}
 
         {/* MODE 2: LOGIN */}

@@ -314,13 +314,6 @@ class DataStore {
             return;
           }
           this.syncOwnerPrivateCollections(fbUser.uid);
-          if (fbUser.email) {
-            // Restore the signed-in account from its UID-keyed Firestore profile on
-            // fresh devices where there is no local cache.
-            this.loginWithFirebaseUser(fbUser).catch((error) => {
-              console.warn('Firebase account restore notice:', error?.message || error);
-            });
-          }
           if (fbUser) {
             const existing = this.users.find(
               (u) =>

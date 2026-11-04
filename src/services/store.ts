@@ -949,19 +949,13 @@ class DataStore {
     const currentUser = this.getCurrentUser();
     const firebaseUid = auth?.currentUser?.uid;
 
-    const isOwner = db
-      ? Boolean(
-          firebaseUid &&
-          currentUser &&
-          currentUser.googleUid === firebaseUid &&
-          (currentUser.role === 'admin' ||
-            (currentUser.role === 'owner' && prop.ownerUid === firebaseUid))
-        )
-      : Boolean(
-          currentUser &&
-          (currentUser.role === 'admin' ||
-            this.isOwnerOfProperty(currentUser.id, id))
-        );
+    const isOwner = Boolean(
+      firebaseUid &&
+      currentUser &&
+      currentUser.googleUid === firebaseUid &&
+      (currentUser.role === 'admin' ||
+        (currentUser.role === 'owner' && prop.ownerUid === firebaseUid))
+    );
 
     if (!isOwner) {
       console.error('403 Forbidden: Unauthorized property update blocked for id:', id);
@@ -1002,7 +996,12 @@ class DataStore {
 
   private async updateAdminPropertyFields(id: string, updates: Partial<Property>): Promise<boolean> {
     const prop = this.getPropertyById(id);
-    if (!prop || this.getCurrentUser()?.role !== 'admin') return false;
+    const firebaseUser = auth?.currentUser;
+    const currentUser = this.getCurrentUser();
+    const tokenResult = firebaseUser ? await getIdTokenResult(firebaseUser, true) : null;
+    if (!prop || !firebaseUser || !currentUser ||
+        currentUser.googleUid !== firebaseUser.uid ||
+        tokenResult?.claims?.admin !== true) return false;
     try {
       if (db) await setDoc(doc(db, 'properties', id), sanitizeForFirestore(updates), { merge: true });
       Object.assign(prop, updates);
@@ -1073,19 +1072,13 @@ class DataStore {
 
     const currentUser = this.getCurrentUser();
     const firebaseUid = auth?.currentUser?.uid;
-    const isOwner = db
-      ? Boolean(
-          firebaseUid &&
-          currentUser &&
-          currentUser.googleUid === firebaseUid &&
-          (currentUser.role === 'admin' ||
-            (currentUser.role === 'owner' && prop.ownerUid === firebaseUid))
-        )
-      : Boolean(
-          currentUser &&
-          (currentUser.role === 'admin' ||
-            this.isOwnerOfProperty(currentUser.id, id))
-        );
+    const isOwner = Boolean(
+      firebaseUid &&
+      currentUser &&
+      currentUser.googleUid === firebaseUid &&
+      (currentUser.role === 'admin' ||
+        (currentUser.role === 'owner' && prop.ownerUid === firebaseUid))
+    );
 
     if (!isOwner) {
       return {
@@ -1173,9 +1166,14 @@ class DataStore {
     const prop = this.getPropertyById(room.propertyId);
     const firebaseUid = auth?.currentUser?.uid;
     const currentUser = this.getCurrentUser();
-    const canManage = firebaseUid
-      ? Boolean(prop && prop.ownerUid === firebaseUid)
-      : Boolean(!db && currentUser && prop && this.isOwnerOfProperty(currentUser.id, room.propertyId));
+    const canManage = Boolean(
+      firebaseUid &&
+      currentUser &&
+      currentUser.googleUid === firebaseUid &&
+      currentUser.role === 'owner' &&
+      prop &&
+      prop.ownerUid === firebaseUid
+    );
     if (!canManage || !prop) {
       throw new Error('Only the owner of this property can add rooms.');
     }
@@ -1206,9 +1204,15 @@ class DataStore {
     const firebaseUid = auth?.currentUser?.uid;
     const currentUser = this.getCurrentUser();
     const property = this.getPropertyById(room.propertyId);
-    const canManage = firebaseUid
-      ? Boolean(property && property.ownerUid === firebaseUid && room.ownerUid === firebaseUid)
-      : Boolean(!db && currentUser && property && this.isOwnerOfProperty(currentUser.id, room.propertyId));
+    const canManage = Boolean(
+      firebaseUid &&
+      currentUser &&
+      currentUser.googleUid === firebaseUid &&
+      currentUser.role === 'owner' &&
+      property &&
+      property.ownerUid === firebaseUid &&
+      room.ownerUid === firebaseUid
+    );
     if (!canManage || !property) {
       throw new Error('Only the owner of this property can edit its rooms.');
     }

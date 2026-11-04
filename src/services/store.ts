@@ -994,73 +994,69 @@ class DataStore {
     return { success: true, message: 'Property updated successfully.' };
   }
 
-  public togglePropertyStatus(id: string) {
+  private async updateAdminPropertyFields(id: string, updates: Partial<Property>): Promise<boolean> {
     const prop = this.getPropertyById(id);
-    if (prop) {
-      prop.status = prop.status === 'active' ? 'blocked' : 'active';
-      if (db) {
-        setDoc(doc(db, 'properties', id), { status: prop.status }, { merge: true }).catch((err) => {
-          console.error('Firestore togglePropertyStatus error:', err);
-          this.firestoreError = err?.message || String(err);
-          this.notify();
-        });
-      }
-      this.notify();
+    if (!prop || this.getCurrentUser()?.role !== 'admin') return false;
+    try {
+      if (db) await setDoc(doc(db, 'properties', id), sanitizeForFirestore(updates), { merge: true });
+      Object.assign(prop, updates);
+      this.persist();
+      this.notify(false);
+      return true;
+    } catch (error: any) {
+      console.error('Admin property update failed:', error);
+      this.firestoreError = error?.message || String(error);
+      return false;
     }
   }
 
-  public togglePropertyVerified(id: string, verified?: boolean) {
+  public async togglePropertyStatus(id: string): Promise<boolean> {
     const prop = this.getPropertyById(id);
-    if (prop) {
-      prop.isVerified = verified !== undefined ? verified : !prop.isVerified;
-      if (db) {
-        setDoc(doc(db, 'properties', id), { isVerified: prop.isVerified }, { merge: true }).catch((err) => {
-          console.error('Firestore togglePropertyVerified error:', err);
-          this.firestoreError = err?.message || String(err);
-          this.notify();
-        });
-      }
-      if (prop.isVerified) {
-        this.addTransaction({
-          ownerId: prop.ownerId,
-          ownerName: prop.ownerName,
-          propertyId: prop.id,
-          propertyName: prop.title,
-          type: 'verified_badge',
-          planName: 'Blue Verified Badge (₹500/month)',
-          amount: 500,
-          date: new Date().toISOString().split('T')[0],
-        });
-      }
-      this.notify();
-    }
+    if (!prop) return false;
+    const nextStatus = prop.status === 'active' ? 'blocked' : 'active';
+    return this.updateAdminPropertyFields(id, { status: nextStatus });
   }
 
-  public togglePropertyFeatured(id: string, featured?: boolean) {
+  public async togglePropertyVerified(id: string, verified?: boolean): Promise<boolean> {
     const prop = this.getPropertyById(id);
-    if (prop) {
-      prop.isFeatured = featured !== undefined ? featured : !prop.isFeatured;
-      if (db) {
-        setDoc(doc(db, 'properties', id), { isFeatured: prop.isFeatured }, { merge: true }).catch((err) => {
-          console.error('Firestore togglePropertyFeatured error:', err);
-          this.firestoreError = err?.message || String(err);
-          this.notify();
-        });
-      }
-      if (prop.isFeatured) {
-        this.addTransaction({
-          ownerId: prop.ownerId,
-          ownerName: prop.ownerName,
-          propertyId: prop.id,
-          propertyName: prop.title,
-          type: 'search_boost',
-          planName: 'Top Search Placement ⭐ Featured (₹500/month)',
-          amount: 500,
-          date: new Date().toISOString().split('T')[0],
-        });
-      }
+    if (!prop) return false;
+    const nextValue = verified !== undefined ? verified : !prop.isVerified;
+    const saved = await this.updateAdminPropertyFields(id, { isVerified: nextValue });
+    if (saved && nextValue) {
+      this.addTransaction({
+        ownerId: prop.ownerId,
+        ownerName: prop.ownerName,
+        propertyId: prop.id,
+        propertyName: prop.title,
+        type: 'verified_badge',
+        planName: 'Blue Verified Badge (₹500/month)',
+        amount: 500,
+        date: new Date().toISOString().split('T')[0],
+      });
       this.notify();
     }
+    return saved;
+  }
+
+  public async togglePropertyFeatured(id: string, featured?: boolean): Promise<boolean> {
+    const prop = this.getPropertyById(id);
+    if (!prop) return false;
+    const nextValue = featured !== undefined ? featured : !prop.isFeatured;
+    const saved = await this.updateAdminPropertyFields(id, { isFeatured: nextValue });
+    if (saved && nextValue) {
+      this.addTransaction({
+        ownerId: prop.ownerId,
+        ownerName: prop.ownerName,
+        propertyId: prop.id,
+        propertyName: prop.title,
+        type: 'search_boost',
+        planName: 'Top Search Placement ⭐ Featured (₹500/month)',
+        amount: 500,
+        date: new Date().toISOString().split('T')[0],
+      });
+      this.notify();
+    }
+    return saved;
   }
 
   public async deleteProperty(id: string): Promise<{ success: boolean; status?: number; message?: string }> {
@@ -1356,17 +1352,6 @@ class DataStore {
       }
     } catch (err) {
       console.warn('Firestore lead sync error:', err);
-    }
-
-    // Check reward milestone (5+ leads unlocks featured search boost!)
-    if (safeRef !== 'direct') {
-      const ownerLeadsCount = this.getLeadsForRefId(safeRef).length;
-      if (ownerLeadsCount >= 5) {
-        const prop = this.properties.find((p) => p.id === propertyId);
-        if (prop && !prop.isFeatured) {
-          this.togglePropertyFeatured(propertyId, true);
-        }
-      }
     }
 
     this.notify();

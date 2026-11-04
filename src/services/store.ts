@@ -307,6 +307,13 @@ class DataStore {
       // Sync Firebase Auth state with DataStore currentUserId & user doc
       if (auth) {
         onAuthStateChanged(auth, (fbUser) => {
+          if (!fbUser) {
+            this.privateDataUnsubscribers.forEach((unsubscribe) => unsubscribe());
+            this.privateDataUnsubscribers = [];
+            this.privateDataUid = '';
+            return;
+          }
+          this.syncOwnerPrivateCollections(fbUser.uid);
           if (fbUser) {
             const existing = this.users.find(
               (u) =>
@@ -356,6 +363,7 @@ class DataStore {
             this.properties.forEach((p) => propMap.set(p.id, p));
             remoteProps.forEach((rp) => propMap.set(rp.id, rp));
             this.properties = Array.from(propMap.values());
+            if (auth?.currentUser) this.syncOwnerPrivateCollections(auth.currentUser.uid);
             this.persist();
             this.notify(false);
           }
@@ -403,7 +411,14 @@ class DataStore {
 
   private persist() {
     try {
-      const safeCachedUsers = this.users.map((user) => {\n        if (!user.googleUid) return user;\n        const { password, passwordHash, passwordSalt, ...safeUser } = user as User & { password?: string; passwordHash?: string; passwordSalt?: string };\n        return safeUser as User;\n      });\n      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(safeCachedUsers));
+      const safeCachedUsers = this.users.map((user) => {
+        if (!user.googleUid) return user;
+        const safeUser = { ...user } as User & { password?: string; passwordHash?: string; passwordSalt?: string };
+        delete safeUser.password;
+        delete safeUser.passwordHash;
+        delete safeUser.passwordSalt;
+        return safeUser as User;
+      });\n      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(safeCachedUsers));
       localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(this.properties));
       localStorage.setItem(STORAGE_KEYS.ROOMS, JSON.stringify(this.rooms));
       localStorage.setItem(STORAGE_KEYS.BANNERS, JSON.stringify(this.banners));

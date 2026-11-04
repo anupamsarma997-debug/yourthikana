@@ -65,10 +65,20 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isValidProperty() && isSignedIn() &&
         (request.resource.data.ownerUid == request.auth.uid || isAdmin());
-      allow update: if isValidProperty() && isSignedIn() &&
-        (resource.data.get('ownerUid', '') == request.auth.uid || isAdmin()) &&
-        request.resource.data.get('ownerUid', '') == resource.data.get('ownerUid', '') &&
-        request.resource.data.get('ownerId', '') == resource.data.get('ownerId', '');
+      allow update: if isValidProperty() && isSignedIn() && (
+        isAdmin() ||
+        (
+          resource.data.get('ownerUid', '') == request.auth.uid &&
+          request.resource.data.get('ownerUid', '') == resource.data.get('ownerUid', '') &&
+          request.resource.data.get('ownerId', '') == resource.data.get('ownerId', '') &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'description', 'propertyType', 'address', 'city', 'state',
+            'latitude', 'longitude', 'googleMapUrl', 'photos', 'videoUrl',
+            'nearbyAttractions', 'checkInTime', 'checkOutTime',
+            'ownerPhone', 'ownerWhatsApp'
+          ])
+        )
+      );
       allow delete: if isSignedIn() &&
         (resource.data.get('ownerUid', '') == request.auth.uid || isAdmin());
     }

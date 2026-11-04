@@ -123,6 +123,33 @@ export function App() {
   const [autoOpenAddProperty, setAutoOpenAddProperty] = useState<boolean>(false);
   const [pendingAddProperty, setPendingAddProperty] = useState<boolean>(false);
 
+  // Portal navigation is not an authorization. Require a verified Firebase
+  // session and trusted role before rendering owner or admin dashboards.
+  const handleRoleChange = (role: UserRole) => {
+    if (role === 'customer') {
+      setCurrentRole('customer');
+      setCurrentView('home');
+      return;
+    }
+
+    const firebaseUser = auth?.currentUser;
+    const user = store.getCurrentUser();
+    const hasVerifiedSession = Boolean(firebaseUser && user && user.googleUid === firebaseUser.uid);
+    const allowed = hasVerifiedSession && (
+      role === 'owner'
+        ? user!.role === 'owner' || user!.role === 'admin'
+        : user!.role === 'admin'
+    );
+
+    if (!allowed) {
+      setIsAuthOpen(true);
+      return;
+    }
+
+    setCurrentRole(role);
+    setCurrentView('home');
+  };
+
   const handleOpenAddProperty = () => {
     const user = store.getCurrentUser();
     const firebaseUser = auth?.currentUser;
@@ -173,10 +200,7 @@ export function App() {
         {/* Navigation Bar */}
         <Navbar
           currentRole={currentRole}
-          onRoleChange={(role) => {
-            setCurrentRole(role);
-            setCurrentView('home');
-          }}
+          onRoleChange={handleRoleChange}
           onOpenAuth={() => setIsAuthOpen(true)}
           onOpenAI={() => setIsAIOpen(true)}
           onOpenAddProperty={handleOpenAddProperty}
@@ -240,10 +264,7 @@ export function App() {
 
         {/* Footer */}
         <Footer
-          onRoleChange={(role) => {
-            setCurrentRole(role);
-            setCurrentView('home');
-          }}
+          onRoleChange={handleRoleChange}
           onOpenAddProperty={handleOpenAddProperty}
         />
 

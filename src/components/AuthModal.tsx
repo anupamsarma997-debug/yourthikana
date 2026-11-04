@@ -74,16 +74,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Check for redirect result on mount if redirect auth was used
   React.useEffect(() => {
     if (auth) {
-      getRedirectResult(auth).then((res) => {
+      getRedirectResult(auth).then(async (res) => {
         if (res && res.user && res.user.email) {
           const gUser = res.user;
-          const loggedInUser = store.loginOrRegisterWithGoogle({
-            email: gUser.email,
-            displayName: gUser.displayName || undefined,
-            photoURL: gUser.photoURL || undefined,
-            uid: gUser.uid,
-            desiredRole: role,
-          });
+          const loggedInUser = await store.loginWithFirebaseUser(gUser);
           if (onSuccessRole) onSuccessRole(loggedInUser.role);
           alert(`🎉 Signed in successfully with Google!\n\nName: ${loggedInUser.name}\nEmail: ${loggedInUser.email}`);
           onClose();
@@ -105,13 +99,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const res = await signInWithPopup(auth, googleProvider);
         const gUser = res.user;
         if (gUser.email) {
-          const loggedInUser = store.loginOrRegisterWithGoogle({
-            email: gUser.email,
-            displayName: gUser.displayName || undefined,
-            photoURL: gUser.photoURL || undefined,
-            uid: gUser.uid,
-            desiredRole: role,
-          });
+          const loggedInUser = await store.loginWithFirebaseUser(gUser);
 
           if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.googleUid !== requiredOwnerId && loggedInUser.role !== 'admin') {
             setErrorMessage(`Permission Denied! Signed in as @${loggedInUser.username}, but this property belongs to @${targetPropertyOwner?.username || 'another host'}.`);

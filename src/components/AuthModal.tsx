@@ -113,7 +113,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             desiredRole: role,
           });
 
-          if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.role !== 'admin') {
+          if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.googleUid !== requiredOwnerId && loggedInUser.role !== 'admin') {
             setErrorMessage(`Permission Denied! Signed in as @${loggedInUser.username}, but this property belongs to @${targetPropertyOwner?.username || 'another host'}.`);
             setIsLoading(false);
             return;
@@ -217,7 +217,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
 
       // Automatically log in the newly registered user
-      store.loginWithUsernamePassword(newUser.username, password);
+      await store.loginWithFirebaseUser(userCredential.user);
 
       if (onSuccessRole) {
         onSuccessRole(newUser.role);
@@ -258,16 +258,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (!auth || !emailToTry.includes('@')) {
         throw new Error('Secure sign-in requires an active Firebase account. Please use your registered email address.');
       }
-      await signInWithEmailAndPassword(auth, emailToTry, loginPassword);
-
-      const res = store.loginWithUsernamePassword(loginIdentifier, loginPassword);
-      if (!res.success) {
-        setErrorMessage(res.message || 'Login failed. Invalid username/email or password.');
-        setIsLoading(false);
-        return;
-      }
-
-      const loggedInUser = res.user!;
+      const credential = await signInWithEmailAndPassword(auth, emailToTry, loginPassword);
+      const loggedInUser = await store.loginWithFirebaseUser(credential.user);
 
       if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.role !== 'admin') {
         setErrorMessage(`Permission Denied! You logged in as @${loggedInUser.username}, but this property belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`);

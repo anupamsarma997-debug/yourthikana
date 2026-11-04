@@ -858,8 +858,12 @@ class DataStore {
   public getPropertiesByOwner(ownerId: string): Property[] {
     const user = this.users.find((u) => u.id === ownerId);
     return this.properties.filter((p) => {
+      // A stored Firebase owner UID is authoritative. Never fall back to a
+      // matching local ID/email when the authenticated UID belongs elsewhere.
+      if (p.ownerUid) {
+        return p.ownerUid === ownerId || p.ownerUid === user?.googleUid;
+      }
       if (p.ownerId === ownerId) return true;
-      if (p.ownerUid && (p.ownerUid === ownerId || p.ownerUid === user?.googleUid)) return true;
       if (p.ownerEmail && user?.email && p.ownerEmail.toLowerCase() === user.email.toLowerCase()) return true;
       if (p.ownerEmail && user?.googleEmail && p.ownerEmail.toLowerCase() === user.googleEmail.toLowerCase()) return true;
       return false;

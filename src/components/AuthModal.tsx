@@ -138,7 +138,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setUsername(loggedInUser.username || '');
           setPassword('');
           setPendingSetup(true);
-          setPendingAuthMethod('google');
+          setPendingAuthMethod(gUser.providerData.some((provider) => provider.providerId === 'password') ? 'email' : 'google');
           return;
 
           if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.googleUid !== requiredOwnerId && loggedInUser.role !== 'admin') {

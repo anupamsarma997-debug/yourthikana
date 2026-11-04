@@ -320,12 +320,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative max-h-[90vh] overflow-y-auto">
         
         {/* Close Button */}
-        <button
+        {!pendingSetup && <button
           onClick={onClose}
           className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
-        </button>
+        </button>}
 
         {/* Header Icon */}
         <div className="text-center mb-5">
@@ -355,7 +355,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Mode Selector Tabs */}
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-4 text-xs font-bold">
+        {!pendingSetup && <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-4 text-xs font-bold">
           <button
             onClick={() => { setMode('register'); setErrorMessage(''); setSuccessMessage(''); }}
             className={`flex-1 py-2 rounded-lg transition-all cursor-pointer ${
@@ -380,7 +380,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           >
             Forgot Password
           </button>
-        </div>
+        </div>}
 
         {/* Error / Alert Messages */}
         {errorMessage && (

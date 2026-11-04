@@ -2,7 +2,7 @@ import { Property, RoomType, BannerAd, User, UserRole, BookingEnquiry, Subscript
 import { INITIAL_USERS, INITIAL_PROPERTIES, INITIAL_ROOMS, INITIAL_BANNERS, INITIAL_TRANSACTIONS } from '../data/initialData';
 import { db, auth, isFirebaseConfigured, firebaseConfigError } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, getDoc, onSnapshot, query, where, writeBatch } from 'firebase/firestore';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut, getIdTokenResult } from 'firebase/auth';
 import { deletePropertyPhoto } from './uploadPropertyImage';
 
 const STORAGE_KEYS = {
@@ -551,6 +551,10 @@ class DataStore {
     const profileRef = doc(db, 'users', firebaseUser.uid);
     const profileSnap = await getDoc(profileRef);
     const remote = profileSnap.exists() ? profileSnap.data() : {};
+    // Only a trusted Firebase Auth custom claim may grant admin UI privileges.
+    // A Firestore profile's role field is user data, not an authorization token.
+    const tokenResult = auth?.currentUser ? await getIdTokenResult(auth.currentUser, true) : null;
+    const hasAdminClaim = tokenResult?.claims?.admin === true;
     const user: User = {
       ...(existing || {} as User),
       ...(remote as Partial<User>),
@@ -563,8 +567,8 @@ class DataStore {
       avatar: firebaseUser.photoURL || existing?.avatar,
       phone: (remote.phone as string) || existing?.phone || '',
       whatsapp: (remote.whatsapp as string) || existing?.whatsapp || '',
-      // Never trust a role cached in localStorage; only a server-authorized profile can grant admin.
-      role: (remote.role as UserRole) || (existing?.role === 'customer' ? 'customer' : 'owner'),
+      // Never trust local storage or Firestore profile role for admin privileges.
+      role: hasAdminClaim ? 'admin' : ((remote.role === 'customer' ? 'customer' : 'owner') as UserRole),
       status: (remote.status as User['status']) || existing?.status || 'active',
       createdAt: (remote.createdAt as string) || existing?.createdAt || new Date().toISOString(),
     };

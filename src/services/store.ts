@@ -1116,9 +1116,9 @@ class DataStore {
     return { success: true, message: 'Property deleted successfully.' };
   }
 
-  public renewPropertySubscription(propertyId: string, daysToAdd = 30, planName = 'Standard Listing Plan') {
+  public async renewPropertySubscription(propertyId: string, daysToAdd = 30, planName = 'Standard Listing Plan'): Promise<boolean> {
     const prop = this.getPropertyById(propertyId);
-    if (!prop) return;
+    if (!prop || this.getCurrentUser()?.role !== 'admin') return false;
 
     const price = 1000;
     const now = new Date();
@@ -1126,18 +1126,14 @@ class DataStore {
     const startDate = currentExpiry > now ? currentExpiry : now;
     const newExpiry = new Date(startDate);
     newExpiry.setDate(newExpiry.getDate() + daysToAdd);
+    const expiryIso = newExpiry.toISOString();
 
-    prop.subscriptionExpiresAt = newExpiry.toISOString();
-    prop.subscriptionExpiryDate = newExpiry.toISOString();
-    prop.status = 'active';
-
-    if (db) {
-      setDoc(doc(db, 'properties', propertyId), {
-        subscriptionExpiresAt: prop.subscriptionExpiresAt,
-        subscriptionExpiryDate: prop.subscriptionExpiryDate,
-        status: prop.status
-      }, { merge: true }).catch((err) => console.warn('Firestore renew error:', err));
-    }
+    const saved = await this.updateAdminPropertyFields(propertyId, {
+      subscriptionExpiresAt: expiryIso,
+      subscriptionExpiryDate: expiryIso,
+      status: 'active',
+    });
+    if (!saved) return false;
 
     this.addTransaction({
       ownerId: prop.ownerId,
@@ -1149,8 +1145,8 @@ class DataStore {
       amount: price,
       date: now.toISOString().split('T')[0],
     });
-
     this.notify();
+    return true;
   }
 
   // Room Types

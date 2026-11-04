@@ -40,11 +40,12 @@ service cloud.firestore {
     function isValidEnquiry() {
       let data = request.resource.data;
       return data.keys().hasAll(['propertyId']) &&
-        data.propertyId is string &&
-        (('guestName' in data && data.guestName is string && data.guestName.size() <= 100) ||
-         ('customerName' in data && data.customerName is string && data.customerName.size() <= 100)) &&
-        (('guestPhone' in data && data.guestPhone is string && data.guestPhone.size() <= 30) ||
-         ('customerPhone' in data && data.customerPhone is string && data.customerPhone.size() <= 30)) &&
+        data.propertyId is string && data.propertyId.size() > 0 && data.propertyId.size() <= 100 &&
+        exists(/databases/$(database)/documents/properties/$(data.propertyId)) &&
+        (('guestName' in data && data.guestName is string && data.guestName.size() > 0 && data.guestName.size() <= 100) ||
+         ('customerName' in data && data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 100)) &&
+        (('guestPhone' in data && data.guestPhone is string && data.guestPhone.size() > 0 && data.guestPhone.size() <= 30) ||
+         ('customerPhone' in data && data.customerPhone is string && data.customerPhone.size() > 0 && data.customerPhone.size() <= 30)) &&
         (!('message' in data) || (data.message is string && data.message.size() <= 2000)) &&
         (!('specialRequests' in data) || (data.specialRequests is string && data.specialRequests.size() <= 2000));
     }
@@ -116,16 +117,24 @@ service cloud.firestore {
     // Public visitors may record anonymous analytics, but only admins can read/manage it.
     match /visits/{visitId} {
       allow create: if request.resource.data.keys().hasAll(['propertyId', 'refId', 'timestamp']) &&
-        request.resource.data.propertyId is string && request.resource.data.refId is string;
-      allow read, update, delete: if isAdmin();
+        request.resource.data.propertyId is string && request.resource.data.propertyId.size() > 0 &&
+        request.resource.data.refId is string && request.resource.data.refId.size() <= 120 &&
+        request.resource.data.timestamp is string &&
+        exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId));
+      allow read: if isAdmin() || ownsProperty(resource.data.propertyId);
+      allow update, delete: if isAdmin();
     }
 
     match /leads/{leadId} {
       allow create: if request.resource.data.keys().hasAll(['propertyId', 'refId', 'timestamp']) &&
-        request.resource.data.propertyId is string && request.resource.data.refId is string &&
+        request.resource.data.propertyId is string && request.resource.data.propertyId.size() > 0 &&
+        request.resource.data.refId is string && request.resource.data.refId.size() <= 120 &&
+        request.resource.data.timestamp is string &&
+        exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
         (!('customerName' in request.resource.data) ||
          (request.resource.data.customerName is string && request.resource.data.customerName.size() <= 100));
-      allow read, update, delete: if isAdmin();
+      allow read: if isAdmin() || ownsProperty(resource.data.propertyId);
+      allow update, delete: if isAdmin();
     }
   }
 }

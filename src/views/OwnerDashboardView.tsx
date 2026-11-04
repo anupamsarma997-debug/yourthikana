@@ -769,7 +769,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     setRoomName('Standard Deluxe Room');
     setPricePerNight('');
     setDiscountPrice('');
-    setMaxGuests(2);
+    setMaxGuests('');
     setRoomDescription('');
     setRoomSize('280 sq ft');
     setBedType('Double Bed');
@@ -953,16 +953,18 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
           {/* Filter Sub-Tabs Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-100 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setFilterMode('all')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                  filterMode === 'all'
-                    ? 'bg-slate-900 text-white dark:bg-emerald-500 dark:text-slate-950 shadow-sm'
-                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                🏢 All Platform Listings ({store.getProperties().length})
-              </button>
+              {currentUser?.role === 'admin' && (
+                <button
+                  onClick={() => setFilterMode('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                    filterMode === 'all'
+                      ? 'bg-slate-900 text-white dark:bg-emerald-500 dark:text-slate-950 shadow-sm'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  🏢 All Platform Listings ({store.getProperties().length})
+                </button>
+              )}
               {currentUser && (
                 <button
                   onClick={() => setFilterMode('my')}
@@ -1835,18 +1837,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                       Guest booking enquiries will be sent directly to this WhatsApp number.
                     </p>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Host Calling Mobile Phone
-                    </label>
-                    <input
-                      type="tel"
-                      value={ownerPhoneInput}
-                      onChange={(e) => setOwnerPhoneInput(e.target.value)}
-                      placeholder="e.g. +91 9876543210"
-                      className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
+     
                 </div>
               </div>
 
@@ -2028,7 +2019,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                         required
                         placeholder="Enter your room price or rent"
                         value={pricePerNight}
-                        onChange={(e) => setPricePerNight(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
+                        onChange={(e) => setPricePerNight(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
                       />
                     </div>
@@ -2039,7 +2030,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                         type="number"
                         placeholder="Enter discount price (optional)"
                         value={discountPrice}
-                        onChange={(e) => setDiscountPrice(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
+                        onChange={(e) => setDiscountPrice(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-emerald-600 dark:text-emerald-400"
                       />
                     </div>

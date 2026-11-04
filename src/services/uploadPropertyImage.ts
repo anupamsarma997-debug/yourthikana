@@ -75,7 +75,7 @@ function compressImageToDataUrl(file: File, maxDimension = 1200, quality = 0.82)
 }
 
 /**
- * Uploads a property image to Supabase Storage or returns an optimized Data URL.
+ * Uploads a property image to Firebase Storage using the authenticated owner account.
  */
 export async function uploadPropertyPhoto(
   file: File,
@@ -98,7 +98,7 @@ export async function uploadPropertyPhoto(
     throw new Error(`File "${file.name}" (${sizeInMB} MB) exceeds the maximum allowed size of 5 MB.`);
   }
 
-  if (storage && (!auth?.currentUser || auth.currentUser.uid !== ownerUid)) {
+  if (!storage) {\n    throw new Error('Firebase Storage is not configured.');\n  }\n\n  if (!auth?.currentUser || auth.currentUser.uid !== ownerUid) {
     throw new Error('Please sign in with the account that owns this property before uploading photos.');
   }
 
@@ -157,37 +157,7 @@ export async function uploadPropertyPhoto(
     }
   }
 
-  // 2. Secondary Fallback: Try Supabase Storage
-  if (supabase) {
-    try {
-      if (onProgress) onProgress(60);
-      const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${cleanFileName}`;
-      const filePath = `properties/${ownerUid}/${propertyId}/${uniqueName}`;
-
-      const { data, error } = await supabase.storage
-        .from('properties')
-        .upload(filePath, file, { cacheControl: '3600', upsert: true });
-
-      if (!error && data) {
-        const { data: publicUrlData } = supabase.storage.from('properties').getPublicUrl(filePath);
-        if (publicUrlData?.publicUrl) {
-          if (onProgress) onProgress(100);
-          return publicUrlData.publicUrl;
-        }
-      } else if (error) {
-        console.warn('Supabase storage upload error:', error.message);
-      }
-    } catch (sErr) {
-      console.warn('Supabase Storage upload note:', sErr);
-    }
-  }
-
-  // 3. Final Fallback: Optimized Data URL
-  if (onProgress) onProgress(80);
-  const compressedDataUrl = await compressImageToDataUrl(file);
-  if (onProgress) onProgress(100);
-  return compressedDataUrl;
+  throw new Error('Secure image upload is unavailable. Please check Firebase Storage setup and try again.');
 }
 
 /**

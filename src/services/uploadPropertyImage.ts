@@ -98,7 +98,11 @@ export async function uploadPropertyPhoto(
     throw new Error(`File "${file.name}" (${sizeInMB} MB) exceeds the maximum allowed size of 5 MB.`);
   }
 
-  if (!storage) {\n    throw new Error('Firebase Storage is not configured.');\n  }\n\n  if (!auth?.currentUser || auth.currentUser.uid !== ownerUid) {
+  if (!storage) {
+    throw new Error('Firebase Storage is not configured.');
+  }
+
+  if (!auth?.currentUser || auth.currentUser.uid !== ownerUid) {
     throw new Error('Please sign in with the account that owns this property before uploading photos.');
   }
 

@@ -87,7 +87,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setUsername(loggedInUser.username || '');
         setPassword('');
         setPendingSetup(true);
-        setPendingAuthMethod('google');
+        setPendingAuthMethod(res.user.providerData.some((provider) => provider.providerId === 'password') ? 'email' : 'google');
         return;
         if (
           requiredOwnerId &&
@@ -249,6 +249,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Could not save username.');
       const loggedInUser = await store.loginWithFirebaseUser(auth!.currentUser!);
+      if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.googleUid !== requiredOwnerId && loggedInUser.role !== 'admin') {
+        setErrorMessage(`Permission denied. This property belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`);
+        return;
+      }
       if (onSuccessRole) onSuccessRole(loggedInUser.role);
       setPendingSetup(false); setPendingAuthMethod(null); onClose();
     } catch (err: any) { setErrorMessage(err?.message || 'Account setup failed.'); }
@@ -436,7 +440,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         )}
 
         {/* Google 1-Click Sign In (Available on Login / Register) */}
-        {mode !== 'forgot_password' && (
+        {mode !== 'forgot_password' && !(mode === 'register' && pendingSetup) && (
           <div className="mb-4 space-y-3">
             <button
               type="button"

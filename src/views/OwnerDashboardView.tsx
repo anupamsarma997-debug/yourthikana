@@ -823,17 +823,10 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
   };
 
   // Upgrade Plan / Buy Badges
-  const handleBuyAddon = (propId: string, addonType: 'verified' | 'featured' | 'renew') => {
-    if (addonType === 'verified') {
-      store.togglePropertyVerified(propId, true);
-      alert('Blue Verified Badge activated for ₹500/month!');
-    } else if (addonType === 'featured') {
-      store.togglePropertyFeatured(propId, true);
-      alert('⭐ Search Boost activated for ₹500/month! Your homestay will appear at the top of search results.');
-    } else if (addonType === 'renew') {
-      store.renewPropertySubscription(propId, 30, '₹1000 Standard Listing Plan');
-      alert('Listing subscription renewed for 30 days (₹1000).');
-    }
+  const handleBuyAddon = async (propId: string, addonType: 'verified' | 'featured' | 'renew') => {
+    // Payment collection/manual approval is not integrated yet. Owners must not
+    // be shown a false success or be allowed to grant paid status to themselves.
+    alert('This paid feature is not activated automatically yet. Please contact THIKANA support for manual verification and activation.');
   };
 
   return (

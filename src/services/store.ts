@@ -879,10 +879,6 @@ class DataStore {
     }
 
     const now = new Date();
-    const expires = new Date();
-    expires.setDate(now.getDate() + 30);
-
-    const price = planType === 'standard_1500' ? 1500 : 1000;
 
     const ownerUid = firebaseUid || currentUser?.googleUid || currentUser?.id || 'owner_' + Date.now();
     const ownerEmail = firebaseEmail || currentUser?.googleEmail || currentUser?.email || prop.ownerEmail || '';
@@ -925,9 +921,6 @@ class DataStore {
     }
 
     // Do not record revenue until payment is independently confirmed.
-
-
-
     if (firebaseUid) {
       this.privateDataUid = '';
       this.syncOwnerPrivateCollections(firebaseUid);

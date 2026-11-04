@@ -904,7 +904,8 @@ class DataStore {
       try {
         await setDoc(doc(db, 'properties', newProp.id), sanitizeForFirestore(newProp));
       } catch (err: any) {
-        console.warn('Firestore addProperty sync notice:', err);
+        console.error('Firestore addProperty failed:', err);
+        throw new Error('Property could not be saved to the server. Please check your sign-in and Firebase setup, then try again.');
       }
     }
 
@@ -967,7 +968,12 @@ class DataStore {
       try {
         await setDoc(doc(db, 'properties', id), sanitizeForFirestore(updatedProp), { merge: true });
       } catch (err: any) {
-        console.warn('Firestore updateProperty sync notice:', err);
+        console.error('Firestore updateProperty failed:', err);
+        return {
+          success: false,
+          status: 500,
+          message: 'Property could not be updated on the server. Please check your sign-in and try again.',
+        };
       }
     }
 

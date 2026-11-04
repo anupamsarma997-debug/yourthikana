@@ -161,6 +161,9 @@ test('public enquiries must reference a real property and valid guest details', 
     customerPhone: '9876543210',
     isAdmin: true,
   }));
+  await assertFails(updateDoc(doc(ownerDb, 'enquiries', 'enquiry-1'), {
+    propertyId: 'another-property',
+  }));
 });
 
 test('owners can query only enquiries for their own property', async () => {
@@ -194,6 +197,18 @@ test('public analytics writes must reference an existing property; owners can re
     propertyId: 'missing-property',
     refId: 'qr-owner',
     timestamp: new Date().toISOString(),
+  }));
+  await assertFails(setDoc(doc(publicDb, 'leads', 'lead-extra-field'), {
+    propertyId: 'property-1',
+    refId: 'qr-owner',
+    timestamp: new Date().toISOString(),
+    isAdmin: true,
+  }));
+  await assertFails(setDoc(doc(publicDb, 'visits', 'visit-invalid-name'), {
+    propertyId: 'property-1',
+    refId: 'qr-owner',
+    timestamp: new Date().toISOString(),
+    customerName: { unexpected: 'object' },
   }));
 
   const ownVisits = query(collection(ownerDb, 'visits'), where('propertyId', '==', 'property-1'));

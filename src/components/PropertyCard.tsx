@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Property, RoomType } from '../types';
 import { store } from '../services/store';
 import { getEffectiveRoomPrice, hasValidRoomDiscount } from '../utils/roomPricing';
@@ -29,6 +29,30 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 }) => {
   const rooms = store.getRoomsByProperty(property.id);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+  // Ignore accidental card activation when a finger is scrolling the page.
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const pointerMovedRef = useRef(false);
+
+  const handleCardPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    pointerStartRef.current = { x: event.clientX, y: event.clientY };
+    pointerMovedRef.current = false;
+  };
+
+  const handleCardPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const start = pointerStartRef.current;
+    if (!start) return;
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 10) {
+      pointerMovedRef.current = true;
+    }
+  };
+
+  const selectPropertyOnTap = () => {
+    if (pointerMovedRef.current) {
+      pointerMovedRef.current = false;
+      return;
+    }
+    onSelect(property);
+  };
 
   // Find lowest price room
   const lowestPriceRoom = rooms.length > 0
@@ -46,7 +70,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
     : 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80';
 
   return (
-    <div className="bg-white dark:bg-slate-800/90 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group relative">
+    <div onPointerDownCapture={handleCardPointerDown} onPointerMoveCapture={handleCardPointerMove} className="bg-white dark:bg-slate-800/90 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group relative">
       
       {/* Top Media Banner */}
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-900">
@@ -126,7 +150,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           </div>
 
           <h3 
-            onClick={() => onSelect(property)}
+            onClick={selectPropertyOnTap}
             className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white line-clamp-1 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer transition-colors"
           >
             {property.title}
@@ -178,7 +202,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => onSelect(property)}
+              onClick={selectPropertyOnTap}
               className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold px-3 py-2 rounded-xl transition-all"
             >
               Details

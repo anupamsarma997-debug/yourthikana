@@ -552,9 +552,12 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
 
       const actualAmenities = Array.from(ownerAmenitiesSet);
 
+      const firebaseUser = auth?.currentUser;
+      if (!firebaseUser) throw new Error('Please sign in with your owner account first.');
+      const idToken = await firebaseUser.getIdToken();
       const res = await fetch('/api/ai/generate-description', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
         body: JSON.stringify({
           propertyName: title.trim(),
           propertyType,

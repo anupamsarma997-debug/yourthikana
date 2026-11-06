@@ -341,10 +341,16 @@ service cloud.firestore {
         (
           isUser(userId) &&
           isValidUserProfile() &&
-          request.resource.data.get('role', '') ==
-            resource.data.get('role', '') &&
-          request.resource.data.get('status', '') ==
-            resource.data.get('status', '')
+          // Permit the initial profile bootstrap after Admin SDK username
+          // registration, but never let a user change an existing role/status.
+          (!('role' in resource.data) ||
+            request.resource.data.get('role', '') == resource.data.get('role', '')) &&
+          (!('status' in resource.data) ||
+            request.resource.data.get('status', '') == resource.data.get('status', '')) &&
+          (!('role' in request.resource.data) ||
+            request.resource.data.role in ['customer', 'owner']) &&
+          (!('status' in request.resource.data) ||
+            request.resource.data.status == 'active')
         );
 
       allow delete: if isAdmin();

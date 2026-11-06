@@ -1441,7 +1441,24 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                     )}
                   </div>
 
-
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const reason = window.prompt('Why are you reporting this enquiry as fake or suspicious? (5–500 characters)');
+                      if (!reason || !reason.trim()) return;
+                      try {
+                        await store.reportEnquiry(enq.id, enq.propertyId, reason);
+                        alert('Report submitted privately to THIKANA for review.');
+                      } catch (error) {
+                        alert(error instanceof Error ? error.message : 'Could not submit report. Please try again.');
+                      }
+                    }}
+                    className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-rose-200 dark:border-rose-900 px-3 py-2 text-xs font-bold text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                    aria-label={`Report suspicious enquiry from ${enq.customerName || 'guest'}`}
+                  >
+                    <Flag className="h-4 w-4" />
+                    Report fake request
+                  </button>
                 </div>
               ))}
             </div>

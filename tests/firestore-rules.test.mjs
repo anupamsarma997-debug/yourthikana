@@ -271,6 +271,9 @@ test('public profile role cannot be escalated after initial creation', async () 
   await assertFails(updateDoc(doc(userDb, 'public_profiles', 'profile-user'), {
     role: 'admin',
   }));
+  await assertFails(updateDoc(doc(userDb, 'public_profiles', 'profile-user'), {
+    role: 'customer',
+  }));
 });
 
 test('admin privileges require a trusted Firebase Auth custom claim, not a Firestore profile role', async () => {

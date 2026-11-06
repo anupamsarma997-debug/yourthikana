@@ -230,6 +230,49 @@ test('users cannot grant themselves the admin role', async () => {
   }));
 });
 
+test('users can bootstrap missing role/status once but cannot change them later', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'users', 'bootstrap-user'), {
+      id: 'bootstrap-user',
+      email: 'bootstrap@example.com',
+      username: 'bootstrap_user',
+    });
+  });
+
+  const userDb = testEnv.authenticatedContext('bootstrap-user').firestore();
+  await assertSucceeds(updateDoc(doc(userDb, 'users', 'bootstrap-user'), {
+    role: 'owner',
+    status: 'active',
+  }));
+
+  await assertFails(updateDoc(doc(userDb, 'users', 'bootstrap-user'), {
+    role: 'customer',
+  }));
+  await assertFails(updateDoc(doc(userDb, 'users', 'bootstrap-user'), {
+    role: 'admin',
+  }));
+  await assertFails(updateDoc(doc(userDb, 'users', 'bootstrap-user'), {
+    status: 'suspended',
+  }));
+});
+
+test('public profile role cannot be escalated after initial creation', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'public_profiles', 'profile-user'), {
+      id: 'profile-user',
+      name: 'Profile User',
+    });
+  });
+
+  const userDb = testEnv.authenticatedContext('profile-user').firestore();
+  await assertSucceeds(updateDoc(doc(userDb, 'public_profiles', 'profile-user'), {
+    role: 'owner',
+  }));
+  await assertFails(updateDoc(doc(userDb, 'public_profiles', 'profile-user'), {
+    role: 'admin',
+  }));
+});
+
 test('admin privileges require a trusted Firebase Auth custom claim, not a Firestore profile role', async () => {
   const ownerDb = await createOwnedProperty('owner-admin-test', 'admin-test-property');
   const publicDb = testEnv.unauthenticatedContext().firestore();

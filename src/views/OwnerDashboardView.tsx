@@ -27,6 +27,7 @@ import {
   Wand2, 
   ChevronRight,
   UserCheck,
+  Flag,
   Zap,
   Loader2,
   X,

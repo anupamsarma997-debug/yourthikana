@@ -14,6 +14,22 @@ async function startServer() {
 
   // The app is deployed behind one trusted reverse proxy in hosted environments.
   app.set('trust proxy', 1);
+  app.disable('x-powered-by');
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
+    res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+    if (process.env.NODE_ENV === 'production') {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    if (req.path.startsWith('/api/')) {
+      res.setHeader('Cache-Control', 'no-store, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+    }
+    next();
+  });
   app.use(express.json({ limit: '1mb' }));
 
   // Lightweight per-process abuse protection for paid Gemini endpoints.
@@ -241,6 +257,31 @@ async function startServer() {
     }
   });
 
+  // Owner-only AI tools must receive a Firebase ID token. The owner role is
+  // read from the private UID-keyed profile; admin access requires a trusted claim.
+  const requireOwnerAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    try {
+      const authorization = req.headers.authorization || '';
+      const idToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+      if (!idToken) return res.status(401).json({ error: 'Please sign in with your owner account to use this tool.' });
+      const { auth: adminAuth, db: adminDb } = await getFirebaseAdmin();
+      const decoded = await adminAuth.verifyIdToken(idToken);
+      if (decoded.admin !== true) {
+        const profile = await adminDb.collection('users').doc(decoded.uid).get();
+        if (!profile.exists || profile.data()?.role !== 'owner') {
+          return res.status(403).json({ error: 'An owner account is required to use this tool.' });
+        }
+      }
+      return next();
+    } catch (error: any) {
+      if (error?.code === 'auth/id-token-expired' || error?.code === 'auth/argument-error' || error?.code === 'auth/invalid-id-token') {
+        return res.status(401).json({ error: 'Your sign-in session expired. Please sign in again.' });
+      }
+      console.error('Owner AI authorization failed:', error?.message || error);
+      return res.status(503).json({ error: 'Owner verification is temporarily unavailable. Please try again.' });
+    }
+  };
+
   // Health API
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', app: 'THIKANA Marketplace', time: new Date().toISOString() });
@@ -256,7 +297,7 @@ async function startServer() {
 
 
   // AI Helper 1: Generate Listing Description (Zero Hallucinations, strictly grounded in owner factual data)
-  app.post('/api/ai/generate-description', async (req, res) => {
+  app.post('/api/ai/generate-description', requireOwnerAuth, async (req, res) => {
     try {
       const propertyName = sanitizeInput(req.body.propertyName, 100);
       if (!propertyName) {
@@ -312,7 +353,7 @@ STRICT RULES (ZERO HALLUCINATIONS):
   });
 
   // AI Helper 2: Generate Nearby Attractions
-  app.post('/api/ai/nearby-attractions', async (req, res) => {
+  app.post('/api/ai/nearby-attractions', requireOwnerAuth, async (req, res) => {
     try {
       const city = sanitizeInput(req.body.city, 100);
       const address = sanitizeInput(req.body.address, 150);

@@ -61,12 +61,20 @@ export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
   const [isSent, setIsSent] = useState(false);
 
   useEffect(() => {
-    if (initialRoom) {
-      setSelectedRoomId(initialRoom.id);
-    } else if (rooms.length > 0) {
-      setSelectedRoomId(rooms[0].id);
-    }
-  }, [initialRoom, property]);
+    if (!isOpen || !property) return;
+
+    // The modal stays mounted while hidden. Reset the previous enquiry when
+    // it is opened again so a sent-state or stale date cannot leak into a new
+    // property's enquiry.
+    setIsSent(false);
+    setCustomerName(currentUser?.name || '');
+    setCheckInDate(todayStr);
+    setCheckOutDate(checkOutStr);
+    setAdults(1);
+    setChildren(0);
+    setSpecialRequests('');
+    setSelectedRoomId(initialRoom?.id || rooms[0]?.id || '');
+  }, [isOpen, property?.id, initialRoom?.id]);
 
   if (!isOpen || !property) return null;
 

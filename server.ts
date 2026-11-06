@@ -134,7 +134,7 @@ async function startServer() {
         return res.status(400).json({ error: 'Username must be 3–20 characters using letters, numbers or underscore.' });
       }
       const { auth: adminAuth, db: adminDb } = await getFirebaseAdmin();
-      const decoded = await adminAuth.verifyIdToken(idToken);
+      const decoded = await adminAuth.verifyIdToken(idToken, true);
       const authUser = await adminAuth.getUser(decoded.uid);
       if (!authUser.email) return res.status(400).json({ error: 'A verified Firebase account email is required.' });
       const usernameRef = adminDb.collection('username_index').doc(username);
@@ -163,7 +163,7 @@ async function startServer() {
       return res.json({ success: true, username });
     } catch (error: any) {
       if (error?.code === 'USERNAME_TAKEN') return res.status(409).json({ error: 'This username is already taken. Please choose another.' });
-      if (error?.code === 'auth/id-token-expired' || error?.code === 'auth/argument-error') return res.status(401).json({ error: 'Your sign-in session expired. Please sign in again.' });
+      if (error?.code === 'auth/id-token-expired' || error?.code === 'auth/id-token-revoked' || error?.code === 'auth/user-disabled' || error?.code === 'auth/user-not-found' || error?.code === 'auth/argument-error') return res.status(401).json({ error: 'Your sign-in session expired. Please sign in again.' });
       console.error('Username claim failed:', error?.message || error);
       return res.status(500).json({ error: 'Username setup is temporarily unavailable. Please try again.' });
     }
@@ -175,7 +175,7 @@ async function startServer() {
       const idToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
       if (!idToken) return res.status(401).json({ error: 'Please sign in again.' });
       const { auth: adminAuth, db: adminDb } = await getFirebaseAdmin();
-      const decoded = await adminAuth.verifyIdToken(idToken);
+      const decoded = await adminAuth.verifyIdToken(idToken, true);
       const [account, profileSnap] = await Promise.all([
         adminAuth.getUser(decoded.uid),
         adminDb.collection('users').doc(decoded.uid).get(),
@@ -266,7 +266,7 @@ async function startServer() {
       const idToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
       if (!idToken) return res.status(401).json({ error: 'Please sign in with your owner account to use this tool.' });
       const { auth: adminAuth, db: adminDb } = await getFirebaseAdmin();
-      const decoded = await adminAuth.verifyIdToken(idToken);
+      const decoded = await adminAuth.verifyIdToken(idToken, true);
       if (decoded.admin !== true) {
         const profile = await adminDb.collection('users').doc(decoded.uid).get();
         const profileData = profile.data();
@@ -279,7 +279,7 @@ async function startServer() {
       }
       return next();
     } catch (error: any) {
-      if (error?.code === 'auth/id-token-expired' || error?.code === 'auth/argument-error' || error?.code === 'auth/invalid-id-token') {
+      if (error?.code === 'auth/id-token-expired' || error?.code === 'auth/id-token-revoked' || error?.code === 'auth/user-disabled' || error?.code === 'auth/user-not-found' || error?.code === 'auth/argument-error' || error?.code === 'auth/invalid-id-token') {
         return res.status(401).json({ error: 'Your sign-in session expired. Please sign in again.' });
       }
       console.error('Owner AI authorization failed:', error?.message || error);

@@ -1,12 +1,7 @@
-import type { Request, Response } from 'express';
+// The build script creates dist/server.cjs before Vercel packages API functions.
+// @ts-expect-error Generated build artifact; resolved by Vercel after the build step.
+import serverModule from '../dist/server.cjs';
 
-// Lightweight platform liveness probe. This intentionally does not import the
-// Express application, so Vercel's function runtime can be tested independently.
-export default function handler(_req: Request, res: Response) {
-  res.setHeader('Cache-Control', 'no-store');
-  return res.status(200).json({
-    status: 'ok',
-    service: 'YourThikana API function',
-    runtime: 'vercel-serverless',
-  });
-}
+const serverHandler = (serverModule as any).default || serverModule;
+
+export default serverHandler;

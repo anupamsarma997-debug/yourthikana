@@ -1,6 +1,5 @@
 import express from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 
@@ -523,6 +522,9 @@ Generate a helpful, friendly, and concise response addressing the user's query a
 
   // Vite middleware for development vs production static serving
   if (process.env.NODE_ENV !== 'production') {
+    // Load Vite only for local development; avoid importing the dev server
+    // into the production serverless function bundle.
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -549,6 +551,13 @@ const appPromise = startServer();
 // Vercel invokes this exported handler for /api/* requests. Local development
 // continues to use the Express listener above.
 export default async function handler(req: express.Request, res: express.Response) {
-  const app = await appPromise;
-  return app(req, res);
+  try {
+    const app = await appPromise;
+    return app(req, res);
+  } catch (error: any) {
+    console.error('Vercel server initialization failed:', error?.stack || error?.message || error);
+    if (!res.headersSent) {
+      return res.status(503).json({ error: 'The service is temporarily unavailable. Please try again shortly.' });
+    }
+  }
 }

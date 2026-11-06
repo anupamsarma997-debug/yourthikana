@@ -142,7 +142,7 @@ test('only the owner of a property can create and edit its rooms', async () => {
   }));
 });
 
-test('public enquiries must reference a real property and valid guest details', async () => {
+test('public WhatsApp enquiries must reference a real property and validate guest details without requiring guest phone', async () => {
   const ownerDb = await createOwnedProperty();
   const publicDb = testEnv.unauthenticatedContext().firestore();
   await assertSucceeds(setDoc(doc(publicDb, 'enquiries', 'enquiry-1'), {
@@ -154,6 +154,36 @@ test('public enquiries must reference a real property and valid guest details', 
     propertyId: 'missing-property',
     customerName: 'Guest',
     customerPhone: '9876543210',
+  }));
+  // Match the actual WhatsApp enquiry form: customer phone is not collected,
+  // while the booking summary includes numberOfNights and formattedMessage.
+  await assertSucceeds(setDoc(doc(publicDb, 'enquiries', 'enquiry-no-phone'), {
+    propertyId: 'property-1',
+    propertyName: 'Test Homestay',
+    ownerId: 'owner-1',
+    ownerName: 'Host',
+    ownerWhatsApp: '919876543210',
+    customerName: 'Guest',
+    checkInDate: '2026-11-10',
+    checkOutDate: '2026-11-12',
+    numberOfDays: 2,
+    numberOfNights: 2,
+    adults: 2,
+    children: 1,
+    totalGuests: 3,
+    selectedRoomId: 'room-1',
+    selectedRoomName: 'Deluxe',
+    pricePerNight: 1500,
+    calculatedTotal: 3000,
+    specialRequests: 'Late check-in',
+    formattedMessage: 'Hello host, I want to enquire.',
+    sentAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  }));
+  await assertFails(setDoc(doc(publicDb, 'enquiries', 'enquiry-invalid-nights'), {
+    propertyId: 'property-1',
+    customerName: 'Guest',
+    numberOfNights: 999,
   }));
   await assertFails(setDoc(doc(publicDb, 'enquiries', 'enquiry-extra-field'), {
     propertyId: 'property-1',

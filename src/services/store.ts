@@ -1237,6 +1237,29 @@ class DataStore {
     return this.getAllEnquiries();
   }
 
+  // Owners can report suspicious booking enquiries. Firestore rules verify
+  // that the signed-in reporter owns the property and the enquiry belongs to it.
+  public async reportEnquiry(enquiryId: string, propertyId: string, reason: string): Promise<void> {
+    const reporterUid = auth?.currentUser?.uid;
+    const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
+    if (!db || !reporterUid) {
+      throw new Error('Please sign in with your verified owner account before reporting.');
+    }
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(enquiryId) ||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(propertyId) ||
+        normalizedReason.length < 5 || normalizedReason.length > 500) {
+      throw new Error('Add a short reason (5–500 characters) and try again.');
+    }
+    const reportId = `${reporterUid}_${enquiryId}`;
+    await setDoc(doc(db, 'enquiry_reports', reportId), {
+      enquiryId,
+      propertyId,
+      reporterUid,
+      reason: normalizedReason,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
   // Banner Ads
   public getBanners(position?: BannerAd['position']): BannerAd[] {
     if (!position) return this.banners.filter((b) => b.isActive);

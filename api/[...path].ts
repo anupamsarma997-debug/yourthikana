@@ -1,3 +1,3 @@
-import handler from '../server';
+import handler from '../server.ts';
 
 export default handler;

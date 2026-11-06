@@ -114,11 +114,17 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           </div>
         )}
 
-        {/* Rating Badge */}
+        {/* Show only verified review data; never invent a default rating. */}
         <div className="absolute bottom-3 right-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-2.5 py-1 rounded-lg text-xs font-black shadow-md flex items-center gap-1">
-          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-          <span>{(typeof property?.rating === 'number' ? property.rating : 5.0).toFixed(1)}</span>
-          <span className="text-[10px] text-slate-400 font-normal">({property?.reviewsCount ?? 0})</span>
+          {Number(property?.reviewsCount) > 0 && Number(property?.rating) > 0 ? (
+            <>
+              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              <span>{property.rating.toFixed(1)}</span>
+              <span className="text-[10px] text-slate-400 font-normal">({property.reviewsCount})</span>
+            </>
+          ) : (
+            <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">New listing · No reviews</span>
+          )}
         </div>
 
         {/* Photo Switcher Dots */}

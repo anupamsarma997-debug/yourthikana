@@ -105,11 +105,15 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
         </h1>
 
         <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-300 flex-wrap">
-          <div className="flex items-center gap-1 font-extrabold text-slate-900 dark:text-white">
-            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-            <span>{(typeof property?.rating === 'number' ? property.rating : 5.0).toFixed(1)}</span>
-            <span className="text-slate-400 font-normal">({property?.reviewsCount ?? 0} customer reviews)</span>
-          </div>
+          {Number(property?.reviewsCount) > 0 && Number(property?.rating) > 0 ? (
+            <div className="flex items-center gap-1 font-extrabold text-slate-900 dark:text-white">
+              <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+              <span>{property.rating.toFixed(1)}</span>
+              <span className="text-slate-400 font-normal">({property.reviewsCount} customer reviews)</span>
+            </div>
+          ) : (
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">New listing · No reviews yet</span>
+          )}
 
           <div className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
             <MapPin className="w-4 h-4" />

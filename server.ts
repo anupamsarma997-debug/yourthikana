@@ -428,22 +428,45 @@ Return ONLY a JSON array of strings. Do not invent distances or claim exact prox
           }))
         : [];
 
-      const candidateProperties = Array.isArray(body.availableProperties)
-        ? body.availableProperties.slice(0, 6).filter((p: any) => p && typeof p === 'object').map((p: any) => ({
-            id: sanitizeInput(p.id, 50),
-            title: sanitizeInput(p.title, 100),
-            propertyType: sanitizeInput(p.propertyType || p.type, 50),
-            city: sanitizeInput(p.city, 50),
-            state: sanitizeInput(p.state, 50),
-            startingPrice: safeNumber(p.startingPrice ?? p.price, 1, 10000000) ?? null,
-            maxGuests: safeNumber(p.maxGuests ?? p.maxCapacity, 1, 100) ?? null,
-            amenities: Array.isArray(p.amenities)
-              ? p.amenities.slice(0, 5).map((item: unknown) => sanitizeInput(item, 50)).filter(Boolean)
-              : [],
-            distanceNote: sanitizeInput(p.distanceNote || '', 100),
-            matchReason: sanitizeInput(p.matchReason || '', 150),
-          }))
+      // Never trust listing details supplied by a public browser. Accept only
+      // document IDs, then load canonical, public-safe listing fields server-side.
+      const candidateIds = Array.isArray(body.availableProperties)
+        ? Array.from(new Set(body.availableProperties.slice(0, 6)
+            .map((item: any) => sanitizeInput(typeof item === 'string' ? item : item?.id, 80))
+            .filter(Boolean)))
         : [];
+      let candidateProperties: Array<Record<string, unknown>> = [];
+      if (candidateIds.length > 0) {
+        try {
+          const { db: adminDb } = await getFirebaseAdmin();
+          const snapshots = await Promise.all(
+            candidateIds.map((id: string) => adminDb.collection('properties').doc(id).get())
+          );
+          candidateProperties = snapshots
+            .filter((snapshot: any) => snapshot.exists)
+            .map((snapshot: any) => {
+              const property = snapshot.data() || {};
+              // Do not expose hidden/pending listings or private owner data to the model.
+              if (property.status === 'blocked' || property.status === 'pending' || property.isHidden === true) return null;
+              return {
+                id: snapshot.id,
+                title: sanitizeInput(property.title, 100),
+                propertyType: sanitizeInput(property.propertyType || property.type, 50),
+                city: sanitizeInput(property.city, 50),
+                state: sanitizeInput(property.state, 50),
+                startingPrice: safeNumber(property.startingPrice ?? property.price, 1, 10000000) ?? null,
+                maxGuests: safeNumber(property.maxGuests ?? property.maxCapacity, 1, 100) ?? null,
+                amenities: Array.isArray(property.amenities)
+                  ? property.amenities.slice(0, 5).map((item: unknown) => sanitizeInput(item, 50)).filter(Boolean)
+                  : [],
+              };
+            })
+            .filter((item: Record<string, unknown> | null): item is Record<string, unknown> => item !== null);
+        } catch (error: any) {
+          console.error('AI Mitra canonical listing lookup failed:', error?.message || error);
+          return res.status(503).json({ error: 'Stay listings could not be verified right now. Please try again shortly.' });
+        }
+      }
 
       const ai = getGenAI();
 

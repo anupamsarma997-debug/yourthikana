@@ -1,7 +1,12 @@
-import serverHandler from '../server.ts';
 import type { Request, Response } from 'express';
 
-// Dedicated health route using the same bundled serverless handler as the API catch-all.
-export default function handler(req: Request, res: Response) {
-  return serverHandler(req, res);
+// Lightweight platform liveness probe. This intentionally does not import the
+// Express application, so Vercel's function runtime can be tested independently.
+export default function handler(_req: Request, res: Response) {
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(200).json({
+    status: 'ok',
+    service: 'YourThikana API function',
+    runtime: 'vercel-serverless',
+  });
 }

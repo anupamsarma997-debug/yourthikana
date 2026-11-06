@@ -204,6 +204,11 @@ async function startServer() {
       const suggested = normalizeUsername(account.email?.split('@')[0] || '').slice(0, 20);
       return res.json({ complete: false, username: /^[a-z0-9_]{3,20}$/.test(suggested) ? suggested : '' });
     } catch (error: any) {
+      if (error?.code === 'auth/id-token-expired' || error?.code === 'auth/id-token-revoked' ||
+          error?.code === 'auth/user-disabled' || error?.code === 'auth/user-not-found' ||
+          error?.code === 'auth/argument-error' || error?.code === 'auth/invalid-id-token') {
+        return res.status(401).json({ error: 'Your sign-in session expired. Please sign in again.' });
+      }
       console.error('Username status check failed:', error?.message || error);
       return res.status(500).json({ error: 'Could not verify account setup. Please try again.' });
     }

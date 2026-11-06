@@ -302,6 +302,35 @@ service cloud.firestore {
         );
     }
 
+    // PRIVATE OWNER REPORTS — visible only to trusted admins.
+    match /enquiry_reports/{reportId} {
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasAll([
+          'enquiryId', 'propertyId', 'reporterUid', 'reason', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'enquiryId', 'propertyId', 'reporterUid', 'reason', 'createdAt'
+        ]) &&
+        request.resource.data.reporterUid == request.auth.uid &&
+        request.resource.data.enquiryId is string &&
+        request.resource.data.enquiryId.size() > 0 &&
+        request.resource.data.enquiryId.size() <= 128 &&
+        request.resource.data.propertyId is string &&
+        request.resource.data.propertyId.size() > 0 &&
+        request.resource.data.propertyId.size() <= 128 &&
+        request.resource.data.reason is string &&
+        request.resource.data.reason.size() >= 5 &&
+        request.resource.data.reason.size() <= 500 &&
+        request.resource.data.createdAt is string &&
+        request.resource.data.createdAt.size() <= 50 &&
+        ownsProperty(request.resource.data.propertyId) &&
+        exists(/databases/$(database)/documents/enquiries/$(request.resource.data.enquiryId)) &&
+        get(/databases/$(database)/documents/enquiries/$(request.resource.data.enquiryId)).data.propertyId ==
+          request.resource.data.propertyId;
+
+      allow read, update, delete: if isAdmin();
+    }
+
     // BANNERS
     match /banners/{bannerId} {
       allow read: if true;

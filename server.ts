@@ -269,8 +269,12 @@ async function startServer() {
       const decoded = await adminAuth.verifyIdToken(idToken);
       if (decoded.admin !== true) {
         const profile = await adminDb.collection('users').doc(decoded.uid).get();
-        if (!profile.exists || profile.data()?.role !== 'owner') {
+        const profileData = profile.data();
+        if (!profile.exists || profileData?.role !== 'owner') {
           return res.status(403).json({ error: 'An owner account is required to use this tool.' });
+        }
+        if (profileData.status && profileData.status !== 'active') {
+          return res.status(403).json({ error: 'This owner account is not active. Please contact support.' });
         }
       }
       return next();

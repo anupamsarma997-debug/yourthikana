@@ -394,34 +394,54 @@ Return ONLY a JSON array of strings. Do not invent distances or claim exact prox
   // AI Helper 3: THIKANA AI Mitra Discovery & Travel Assistant Agent
   app.post('/api/ai/travel-assistant', async (req, res) => {
     try {
-      const query = sanitizeInput(req.body.query, 600);
-      const criteria = req.body.criteria || {};
-      const conversationHistory = Array.isArray(req.body.conversationHistory)
-        ? req.body.conversationHistory.slice(-6).map((m: any) => ({
+      const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+      const query = sanitizeInput(body.query, 600);
+      if (!query) return res.status(400).json({ error: 'Please enter a travel or stay search query.' });
+
+      const rawCriteria = body.criteria && typeof body.criteria === 'object' && !Array.isArray(body.criteria)
+        ? body.criteria
+        : {};
+      const safeNumber = (value: unknown, min: number, max: number) => {
+        const number = Number(value);
+        return Number.isFinite(number) && number >= min && number <= max ? number : undefined;
+      };
+      const validTripTypes = ['solo', 'couple', 'family', 'group', 'safari', 'trekking', 'peaceful', 'general'];
+      const criteria = {
+        destination: sanitizeInput(rawCriteria.destination, 100),
+        state: sanitizeInput(rawCriteria.state, 80),
+        guests: safeNumber(rawCriteria.guests, 1, 50),
+        minBudget: safeNumber(rawCriteria.minBudget, 0, 10000000),
+        maxBudget: safeNumber(rawCriteria.maxBudget, 0, 10000000),
+        propertyType: sanitizeInput(rawCriteria.propertyType, 60),
+        amenities: Array.isArray(rawCriteria.amenities)
+          ? rawCriteria.amenities.slice(0, 10).map((item: unknown) => sanitizeInput(item, 50)).filter(Boolean)
+          : [],
+        nearAttraction: sanitizeInput(rawCriteria.nearAttraction, 100),
+        checkIn: sanitizeInput(rawCriteria.checkIn, 20),
+        checkOut: sanitizeInput(rawCriteria.checkOut, 20),
+        tripType: validTripTypes.includes(rawCriteria.tripType) ? rawCriteria.tripType : 'general',
+      };
+      const conversationHistory = Array.isArray(body.conversationHistory)
+        ? body.conversationHistory.slice(-6).filter((m: any) => m && typeof m === 'object').map((m: any) => ({
             role: m.sender === 'user' ? 'user' : 'model',
             text: sanitizeInput(m.text, 400),
           }))
         : [];
 
-      const candidateProperties = Array.isArray(req.body.availableProperties)
-        ? req.body.availableProperties.slice(0, 6).map((p: any) => ({
+      const candidateProperties = Array.isArray(body.availableProperties)
+        ? body.availableProperties.slice(0, 6).filter((p: any) => p && typeof p === 'object').map((p: any) => ({
             id: sanitizeInput(p.id, 50),
             title: sanitizeInput(p.title, 100),
             propertyType: sanitizeInput(p.propertyType || p.type, 50),
             city: sanitizeInput(p.city, 50),
             state: sanitizeInput(p.state, 50),
-            startingPrice: Number.isFinite(Number(p.startingPrice ?? p.price)) && Number(p.startingPrice ?? p.price) > 0
-              ? Number(p.startingPrice ?? p.price)
-              : null,
-            maxGuests: Number.isFinite(Number(p.maxGuests ?? p.maxCapacity)) && Number(p.maxGuests ?? p.maxCapacity) > 0
-              ? Number(p.maxGuests ?? p.maxCapacity)
-              : null,
-            amenities: Array.isArray(p.amenities) ? p.amenities.slice(0, 5) : [],
+            startingPrice: safeNumber(p.startingPrice ?? p.price, 1, 10000000) ?? null,
+            maxGuests: safeNumber(p.maxGuests ?? p.maxCapacity, 1, 100) ?? null,
+            amenities: Array.isArray(p.amenities)
+              ? p.amenities.slice(0, 5).map((item: unknown) => sanitizeInput(item, 50)).filter(Boolean)
+              : [],
             distanceNote: sanitizeInput(p.distanceNote || '', 100),
             matchReason: sanitizeInput(p.matchReason || '', 150),
-            isVerified: Boolean(p.isVerified || p.verified),
-            ownerName: sanitizeInput(p.ownerName || '', 50),
-            ownerWhatsApp: sanitizeInput(p.ownerWhatsApp || '', 20),
           }))
         : [];
 
@@ -461,15 +481,11 @@ Generate a helpful, friendly, and concise response addressing the user's query a
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.7-flash',
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: systemPrompt },
-              { text: userPrompt }
-            ]
-          }
-        ],
+        config: {
+          // Keep safety and grounding instructions separate from untrusted user data.
+          systemInstruction: systemPrompt,
+        },
+        contents: userPrompt,
       });
 
       res.json({

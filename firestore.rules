@@ -360,8 +360,15 @@ service cloud.firestore {
     match /public_profiles/{userId} {
       allow read: if true;
 
-      allow create, update: if isUser(userId) &&
-        isValidPublicProfile();
+      allow create: if isUser(userId) &&
+        isValidPublicProfile() &&
+        (!('role' in request.resource.data) ||
+          request.resource.data.role in ['customer', 'owner'] || isAdmin());
+
+      allow update: if isUser(userId) &&
+        isValidPublicProfile() &&
+        (!('role' in resource.data) ||
+          request.resource.data.get('role', '') == resource.data.get('role', ''));
 
       allow delete: if isUser(userId) || isAdmin();
     }

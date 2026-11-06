@@ -4,7 +4,7 @@ import type { Request, Response } from 'express';
 // are returned as a safe JSON response instead of Vercel's generic invocation failure.
 export default async function handler(req: Request, res: Response) {
   try {
-    const { default: serverHandler } = await import('../server');
+    const { default: serverHandler } = await import('../server.ts');
     return await serverHandler(req, res);
   } catch (error: any) {
     console.error('Health route could not initialize server:', error?.stack || error?.message || error);

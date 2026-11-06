@@ -556,6 +556,18 @@ class DataStore {
     const profileRef = doc(db, 'users', firebaseUser.uid);
     const profileSnap = await getDoc(profileRef);
     const remote = profileSnap.exists() ? profileSnap.data() : {};
+    const accountStatus = typeof remote.status === 'string'
+      ? remote.status
+      : 'active';
+    if (accountStatus !== 'active') {
+      // Revoke the Firebase session as well as the local app session. Hiding
+      // the dashboard alone is not sufficient for a suspended account.
+      this.currentUserId = '';
+      this.persist();
+      if (auth) await signOut(auth);
+      this.notify(false);
+      throw new Error('This account is not active. Please contact YourThikana support.');
+    }
     // Only a trusted Firebase Auth custom claim may grant admin UI privileges.
     // A Firestore profile's role field is user data, not an authorization token.
     const tokenResult = auth?.currentUser ? await getIdTokenResult(auth.currentUser, true) : null;

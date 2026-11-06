@@ -1,6 +1,5 @@
 import express from 'express';
 import path from 'path';
-import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -63,11 +62,14 @@ async function startServer() {
   app.use('/api/ai', aiRateLimit);
 
   // Initialize Gemini AI Client lazily/safely
-  const getGenAI = () => {
+  const getGenAI = async () => {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY environment variable is missing.');
     }
+    // Load the AI SDK only when an AI endpoint is called, not during every
+    // serverless cold start or the basic health check.
+    const { GoogleGenAI } = await import('@google/genai');
     return new GoogleGenAI({
       apiKey,
       httpOptions: {
@@ -311,7 +313,7 @@ async function startServer() {
         ? req.body.amenities.map((a: any) => sanitizeInput(a, 50)).filter(Boolean).slice(0, 20)
         : [];
 
-      const ai = getGenAI();
+      const ai = await getGenAI();
 
       // Assemble only factual data provided
       const facts: string[] = [
@@ -357,7 +359,7 @@ STRICT RULES (ZERO HALLUCINATIONS):
       const city = sanitizeInput(req.body.city, 100);
       const address = sanitizeInput(req.body.address, 150);
       if (!city) return res.status(400).json({ error: 'City is required to suggest nearby attractions.' });
-      const ai = getGenAI();
+      const ai = await getGenAI();
 
       const prompt = `Suggest up to 4 nearby places around "${address ? address + ', ' : ''}${city}" in Northeast India.
 Return ONLY a JSON array of strings. Do not invent distances or claim exact proximity when it is unknown. If reliable suggestions cannot be made, return an empty array.`;
@@ -467,7 +469,7 @@ Return ONLY a JSON array of strings. Do not invent distances or claim exact prox
         }
       }
 
-      const ai = getGenAI();
+      const ai = await getGenAI();
 
       const systemPrompt = `You are "THIKANA AI Mitra", the official Northeast Stay Discovery Assistant on THIKANA (a zero-commission direct-booking marketplace connecting travelers directly with homestays, Chang Ghar bamboo stays, eco cottages, and boutique resorts in Northeast India: Assam, Meghalaya, Arunachal Pradesh, Sikkim, Nagaland, Mizoram, Manipur, Tripura).
 

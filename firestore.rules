@@ -63,7 +63,7 @@ service cloud.firestore {
           'ownerName', 'ownerWhatsApp',
           'customerName', 'customerPhone', 'customerWhatsApp',
           'guestName', 'guestPhone',
-          'checkInDate', 'checkOutDate', 'numberOfDays',
+          'checkInDate', 'checkOutDate', 'numberOfDays', 'numberOfNights',
           'adults', 'children', 'totalGuests',
           'selectedRoomId', 'selectedRoomName',
           'pricePerNight', 'calculatedTotal',
@@ -86,20 +86,30 @@ service cloud.firestore {
             data.customerName.size() <= 100)
         ) &&
 
-        (
-          ('guestPhone' in data &&
-            data.guestPhone is string &&
-            data.guestPhone.size() > 0 &&
-            data.guestPhone.size() <= 30) ||
-          ('customerPhone' in data &&
-            data.customerPhone is string &&
-            data.customerPhone.size() > 0 &&
-            data.customerPhone.size() <= 30)
-        ) &&
-
+        // The marketplace sends enquiries to the host's WhatsApp directly;
+        // a guest phone number is intentionally optional and is not collected.
+        (!('guestPhone' in data) ||
+          (data.guestPhone is string && data.guestPhone.size() <= 30)) &&
+        (!('customerPhone' in data) ||
+          (data.customerPhone is string && data.customerPhone.size() <= 30)) &&
+        (!('numberOfDays' in data) ||
+          (data.numberOfDays is int && data.numberOfDays >= 1 && data.numberOfDays <= 365)) &&
+        (!('numberOfNights' in data) ||
+          (data.numberOfNights is int && data.numberOfNights >= 1 && data.numberOfNights <= 365)) &&
+        (!('adults' in data) ||
+          (data.adults is int && data.adults >= 1 && data.adults <= 10)) &&
+        (!('children' in data) ||
+          (data.children is int && data.children >= 0 && data.children <= 6)) &&
+        (!('totalGuests' in data) ||
+          (data.totalGuests is int && data.totalGuests >= 1 && data.totalGuests <= 16)) &&
+        (!('pricePerNight' in data) ||
+          (data.pricePerNight is number && data.pricePerNight >= 0 && data.pricePerNight <= 10000000)) &&
+        (!('calculatedTotal' in data) ||
+          (data.calculatedTotal is number && data.calculatedTotal >= 0 && data.calculatedTotal <= 100000000)) &&
         (!('message' in data) ||
           (data.message is string && data.message.size() <= 2000)) &&
-
+        (!('formattedMessage' in data) ||
+          (data.formattedMessage is string && data.formattedMessage.size() <= 4000)) &&
         (!('specialRequests' in data) ||
           (data.specialRequests is string && data.specialRequests.size() <= 2000));
     }

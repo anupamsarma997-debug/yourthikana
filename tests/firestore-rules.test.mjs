@@ -196,6 +196,35 @@ test('public WhatsApp enquiries must reference a real property and validate gues
   }));
 });
 
+test('only the owning property account can submit a private suspicious-enquiry report', async () => {
+  const ownerDb = await createOwnedProperty('owner-1', 'property-1');
+  const attackerDb = testEnv.authenticatedContext('attacker').firestore();
+  const publicDb = testEnv.unauthenticatedContext().firestore();
+  await assertSucceeds(setDoc(doc(publicDb, 'enquiries', 'enquiry-report-1'), {
+    propertyId: 'property-1',
+    customerName: 'Guest',
+  }));
+
+  const report = {
+    enquiryId: 'enquiry-report-1',
+    propertyId: 'property-1',
+    reporterUid: 'owner-1',
+    reason: 'The guest details appear fabricated.',
+    createdAt: new Date().toISOString(),
+  };
+  await assertSucceeds(setDoc(doc(ownerDb, 'enquiry_reports', 'owner-1_enquiry-report-1'), report));
+  await assertFails(setDoc(doc(attackerDb, 'enquiry_reports', 'attacker_enquiry-report-1'), {
+    ...report, reporterUid: 'attacker',
+  }));
+  await assertFails(setDoc(doc(publicDb, 'enquiry_reports', 'anonymous_report'), report));
+  await assertFails(setDoc(doc(ownerDb, 'enquiry_reports', 'owner-1_wrong-property'), {
+    ...report, propertyId: 'another-property',
+  }));
+  await assertFails(setDoc(doc(ownerDb, 'enquiry_reports', 'owner-1_wrong-enquiry'), {
+    ...report, enquiryId: 'missing-enquiry',
+  }));
+});
+
 test('owners can query only enquiries for their own property', async () => {
   const ownerDb = await createOwnedProperty();
   const publicDb = testEnv.unauthenticatedContext().firestore();

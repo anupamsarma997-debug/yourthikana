@@ -9,6 +9,7 @@ import {
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   setDoc,
@@ -193,6 +194,38 @@ test('public WhatsApp enquiries must reference a real property and validate gues
   }));
   await assertFails(updateDoc(doc(ownerDb, 'enquiries', 'enquiry-1'), {
     propertyId: 'another-property',
+  }));
+});
+
+test('suspicious-enquiry reports are private to trusted admins and cannot be changed by owners', async () => {
+  const ownerDb = await createOwnedProperty('owner-private', 'property-private');
+  const publicDb = testEnv.unauthenticatedContext().firestore();
+  const attackerDb = testEnv.authenticatedContext('attacker-private').firestore();
+  const adminDb = testEnv.authenticatedContext('trusted-admin', { admin: true }).firestore();
+
+  await assertSucceeds(setDoc(doc(publicDb, 'enquiries', 'private-enquiry'), {
+    propertyId: 'property-private',
+    customerName: 'Guest',
+  }));
+  const reportRef = doc(ownerDb, 'enquiry_reports', 'owner-private_private-enquiry');
+  await assertSucceeds(setDoc(reportRef, {
+    enquiryId: 'private-enquiry',
+    propertyId: 'property-private',
+    reporterUid: 'owner-private',
+    reason: 'This enquiry appears to contain false contact details.',
+    createdAt: new Date().toISOString(),
+  }));
+
+  await assertFails(getDoc(reportRef));
+  await assertFails(getDoc(doc(attackerDb, 'enquiry_reports', 'owner-private_private-enquiry')));
+  await assertSucceeds(getDoc(doc(adminDb, 'enquiry_reports', 'owner-private_private-enquiry')));
+  await assertFails(updateDoc(reportRef, { reason: 'Changed after submission.' }));
+  await assertFails(setDoc(reportRef, {
+    enquiryId: 'private-enquiry',
+    propertyId: 'property-private',
+    reporterUid: 'owner-private',
+    reason: 'Replacement report text.',
+    createdAt: new Date().toISOString(),
   }));
 });
 

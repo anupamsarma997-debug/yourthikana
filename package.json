@@ -10,8 +10,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-thikana \"node --test tests/firestore-rules.test.mjs\"",
-    "test:storage": "firebase emulators:exec --only storage --project demo-thikana \"node --test tests/storage-rules.test.mjs\""
+    "test:rules": "npx --yes firebase-tools@15.35.0 emulators:exec --only firestore --project demo-thikana \"node --test tests/firestore-rules.test.mjs\"",
+    "test:storage": "npx --yes firebase-tools@15.35.0 emulators:exec --only storage --project demo-thikana \"node --test tests/storage-rules.test.mjs\""
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -38,7 +38,9 @@
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.3",
-    "@firebase/rules-unit-testing": "^5.0.0",
-    "firebase-tools": "^14.0.0"
+    "@firebase/rules-unit-testing": "^5.0.0"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.5"
   }
 }

@@ -12,7 +12,9 @@
     "lint": "tsc --noEmit",
     "test:rules": "npx --yes firebase-tools@15.35.0 emulators:exec --only firestore --project demo-thikana \"node --test tests/firestore-rules.test.mjs\"",
     "test:storage": "npx --yes firebase-tools@15.35.0 emulators:exec --only storage --project demo-thikana \"node --test tests/storage-rules.test.mjs\"",
-    "test:auth": "npx --yes firebase-tools@15.35.0 emulators:exec --only auth --project demo-thikana \"node --test tests/auth-emulator.test.mjs\""
+    "test:auth": "npx --yes firebase-tools@15.35.0 emulators:exec --only auth --project demo-thikana \"node --test tests/auth-emulator.test.mjs\"",
+    "audit:ownership": "node scripts/audit-firestore-ownership.mjs",
+    "provision:admin": "node scripts/provision-admin.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

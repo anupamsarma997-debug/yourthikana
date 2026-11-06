@@ -34,6 +34,10 @@ jobs:
         run: npm audit --audit-level=moderate
       - name: TypeScript check
         run: npm run lint
+      - name: Validate maintenance scripts
+        run: |
+          node --check scripts/audit-firestore-ownership.mjs
+          node --check scripts/provision-admin.mjs
       - name: Production build
         run: npm run build
       - name: Firestore security rules tests

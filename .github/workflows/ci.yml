@@ -40,3 +40,5 @@ jobs:
         run: npm run test:rules
       - name: Firebase Storage security rules tests
         run: npm run test:storage
+      - name: Firebase Authentication emulator tests
+        run: npm run test:auth

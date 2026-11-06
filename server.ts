@@ -170,16 +170,21 @@ async function startServer() {
   });
 
   app.post('/api/auth/username-status', usernameRateLimit, async (req, res) => {
+    let verificationStage = 'read-auth-header';
     try {
       const authorization = req.headers.authorization || '';
       const idToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
       if (!idToken) return res.status(401).json({ error: 'Please sign in again.' });
+      verificationStage = 'initialize-firebase-admin';
       const { auth: adminAuth, db: adminDb } = await getFirebaseAdmin();
+      verificationStage = 'verify-firebase-id-token';
       const decoded = await adminAuth.verifyIdToken(idToken, true);
+      verificationStage = 'read-auth-account-and-profile';
       const [account, profileSnap] = await Promise.all([
         adminAuth.getUser(decoded.uid),
         adminDb.collection('users').doc(decoded.uid).get(),
       ]);
+      verificationStage = 'verify-username-index';
       const profileUsername = normalizeUsername(profileSnap.data()?.username);
       if (profileUsername && /^[a-z0-9_]{3,20}$/.test(profileUsername)) {
         const usernameRef = adminDb.collection('username_index').doc(profileUsername);
@@ -209,7 +214,14 @@ async function startServer() {
           error?.code === 'auth/argument-error' || error?.code === 'auth/invalid-id-token') {
         return res.status(401).json({ error: 'Your sign-in session expired. Please sign in again.' });
       }
-      console.error('Username status check failed:', error?.message || error);
+      // Log only the failed stage and safe error metadata; never log ID tokens,
+      // account emails, service-account JSON, or private keys.
+      console.error('Username status check failed:', {
+        stage: verificationStage,
+        code: error?.code || 'unknown',
+        name: error?.name || 'Error',
+        message: error?.message || 'No error message',
+      });
       return res.status(500).json({ error: 'Could not verify account setup. Please try again.' });
     }
   });

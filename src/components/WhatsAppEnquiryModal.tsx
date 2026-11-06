@@ -23,25 +23,32 @@ interface WhatsAppEnquiryModalProps {
   onClose: () => void;
 }
 
+const formatLocalDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
   property,
   initialRoom,
   isOpen,
   onClose,
 }) => {
-  if (!isOpen || !property) return null;
-
-  const rooms = store.getRoomsByProperty(property.id);
+  // Hooks must run in the same order even while the modal is closed or no
+  // property is selected. Resolve optional data safely before the render guard.
+  const rooms = property ? store.getRoomsByProperty(property.id) : [];
   const currentUser = store.getCurrentUser();
 
   // Form States
   const [customerName, setCustomerName] = useState(currentUser?.name || '');
 
   // Default dates: Today & 2 days later
-  const todayStr = new Date().toISOString().split('T')[0];
-  const defaultCheckOut = new Date();
-  defaultCheckOut.setDate(defaultCheckOut.getDate() + 2);
-  const checkOutStr = defaultCheckOut.toISOString().split('T')[0];
+  const today = new Date();
+  const todayStr = formatLocalDate(today);
+  const defaultCheckOut = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2);
+  const checkOutStr = formatLocalDate(defaultCheckOut);
 
   const [checkInDate, setCheckInDate] = useState(todayStr);
   const [checkOutDate, setCheckOutDate] = useState(checkOutStr);
@@ -60,6 +67,8 @@ export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
       setSelectedRoomId(rooms[0].id);
     }
   }, [initialRoom, property]);
+
+  if (!isOpen || !property) return null;
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0];
 
@@ -304,7 +313,7 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
                   min="1"
                   max="10"
                   value={adults}
-                  onChange={(e) => setAdults(parseInt(e.target.value) || 1)}
+                  onChange={(e) => setAdults(Math.min(10, Math.max(1, Number.parseInt(e.target.value, 10) || 1)))}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
               </div>
@@ -319,7 +328,7 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
                   min="0"
                   max="6"
                   value={children}
-                  onChange={(e) => setChildren(parseInt(e.target.value) || 0)}
+                  onChange={(e) => setChildren(Math.min(6, Math.max(0, Number.parseInt(e.target.value, 10) || 0)))}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
               </div>

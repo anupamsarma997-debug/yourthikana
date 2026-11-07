@@ -16,7 +16,8 @@ import {
   sendPasswordResetEmail,
   type User as FirebaseUser,
 } from 'firebase/auth';
-import { auth, googleProvider, checkFirebaseDiagnostics } from '../lib/firebase';
+import { auth, db, googleProvider, checkFirebaseDiagnostics } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -83,14 +84,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     `Permission denied. This property belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`;
 
   const finishGoogleSignIn = async (firebaseUser: FirebaseUser) => {
-    if (!firebaseUser.email || !auth) throw new Error('Google account email is unavailable.');
+    if (!firebaseUser.email || !auth || !db) throw new Error('Google account email or Firebase profile service is unavailable.');
+
+    // Existing Firebase users already have a UID-keyed profile. Read it directly
+    // first so a transient Admin SDK/API issue cannot block a returning user.
+    // Firestore rules restrict this read to the authenticated account's own UID.
+    try {
+      const profileSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
+      const profileUsername = String(profileSnap.data()?.username || '').trim().replace(/^@/, '').toLowerCase();
+      if (profileSnap.exists() && /^[a-z0-9_]{3,20}$/.test(profileUsername)) {
+        const loggedInUser = await store.loginWithFirebaseUser(firebaseUser);
+        if (!canAccessTargetProperty(loggedInUser)) {
+          store.logout();
+          throw new Error(targetPropertyDeniedMessage());
+        }
+        if (onSuccessRole) onSuccessRole(loggedInUser.role);
+        setPendingSetup(false);
+        setPendingAuthMethod(null);
+        onClose();
+        return;
+      }
+    } catch (profileError: any) {
+      // Preserve explicit authorization/account-status errors; only fall back
+      // to the server setup check for a missing profile or transient read error.
+      if (profileError?.message?.startsWith('Permission denied.') ||
+          profileError?.message?.includes('account is not active')) throw profileError;
+      console.warn('Direct Google profile lookup unavailable; checking server setup:', profileError?.code || profileError?.message);
+    }
+
     const idToken = await firebaseUser.getIdToken(true);
     const response = await fetch('/api/auth/username-status', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + idToken },
     });
     const status = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(status.error || 'Could not verify account setup.');
+    if (!response.ok) {
+      throw new Error(status.error || `Account setup check failed (HTTP ${response.status}). Please try again.`);
+    }
     if (status.complete) {
       const loggedInUser = await store.loginWithFirebaseUser(firebaseUser);
       if (!canAccessTargetProperty(loggedInUser)) {

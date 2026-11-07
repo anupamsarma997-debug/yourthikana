@@ -2,7 +2,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, initializeFirestore } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
-import { initializeAppCheck, ReCaptchaV3Provider, type AppCheck } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, type AppCheck } from 'firebase/app-check';
 
 // Safely attempt to load firebase-applet-config.json if present
 let config: Record<string, any> = {};
@@ -63,7 +63,7 @@ if (isFirebaseConfigured) {
     const appCheckSiteKey = (import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY || '').trim();
     if (appCheckSiteKey) {
       appCheck = initializeAppCheck(app, {
-        provider: new ReCaptchaV3Provider(appCheckSiteKey),
+        provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
         isTokenAutoRefreshEnabled: true,
       });
     }

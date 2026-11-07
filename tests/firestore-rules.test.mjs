@@ -348,6 +348,23 @@ test('users can bootstrap missing role/status once but cannot change them later'
   }));
 });
 
+test('legacy public profile with no role cannot be upgraded directly to admin', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'public_profiles', 'legacy-profile'), {
+      id: 'legacy-profile',
+      name: 'Legacy Profile',
+    });
+  });
+
+  const userDb = testEnv.authenticatedContext('legacy-profile').firestore();
+  await assertSucceeds(updateDoc(doc(userDb, 'public_profiles', 'legacy-profile'), {
+    role: 'owner',
+  }));
+  await assertFails(updateDoc(doc(userDb, 'public_profiles', 'legacy-profile'), {
+    role: 'admin',
+  }));
+});
+
 test('public profile role cannot be escalated after initial creation', async () => {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), 'public_profiles', 'profile-user'), {

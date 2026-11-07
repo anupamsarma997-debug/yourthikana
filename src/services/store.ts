@@ -1,8 +1,8 @@
 import { Property, RoomType, BannerAd, User, UserRole, BookingEnquiry, SubscriptionTransaction, PropertyType, PropertyVisit, PropertyLead } from '../types';
 import { INITIAL_USERS, INITIAL_PROPERTIES, INITIAL_ROOMS, INITIAL_BANNERS, INITIAL_TRANSACTIONS } from '../data/initialData';
 import { db, auth, isFirebaseConfigured, firebaseConfigError } from '../lib/firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { collection, doc, setDoc, deleteDoc, getDoc, onSnapshot, query, where, writeBatch } from 'firebase/firestore';
+import { onAuthStateChanged, signOut, getIdTokenResult } from 'firebase/auth';
 import { deletePropertyPhoto } from './uploadPropertyImage';
 
 const STORAGE_KEYS = {
@@ -155,7 +155,7 @@ function syncPublicProfile(user: User) {
   if (!db) return;
   try {
     setDoc(
-      doc(db, 'public_profiles', user.id),
+      doc(db, 'public_profiles', user.googleUid || user.id),
       {
         id: user.id,
         name: user.name || '',
@@ -171,8 +171,10 @@ function syncPublicProfile(user: User) {
 
 const normalizeProperty = (p: any): Property => ({
   ...p,
-  rating: typeof p?.rating === 'number' && !isNaN(p.rating) ? p.rating : 5.0,
-  reviewsCount: typeof p?.reviewsCount === 'number' && !isNaN(p.reviewsCount) ? p.reviewsCount : 1,
+  // Missing review data must never be presented as fabricated social proof.
+  // New/unrated listings start at zero until real reviews are collected.
+  rating: typeof p?.rating === 'number' && Number.isFinite(p.rating) ? p.rating : 0,
+  reviewsCount: typeof p?.reviewsCount === 'number' && Number.isFinite(p.reviewsCount) ? p.reviewsCount : 0,
 });
 
 class DataStore {
@@ -203,16 +205,17 @@ class DataStore {
       const rawUsers: User[] = storedUsers ? JSON.parse(storedUsers) : INITIAL_USERS;
       this.users = rawUsers.map((u) => {
         const userObj = { ...u };
-        if ((userObj as any).password) {
-          const salt = userObj.passwordSalt || generateSalt();
-          userObj.passwordSalt = salt;
-          userObj.passwordHash = hashPasswordWithSalt((userObj as any).password, salt);
-          delete (userObj as any).password;
-        } else if (!userObj.passwordHash) {
-          const salt = userObj.passwordSalt || generateSalt();
-          userObj.passwordSalt = salt;
-          userObj.passwordHash = hashPasswordWithSalt('123456', salt);
+        // Browser storage and bundled seed data are untrusted. A cached role must
+        // never grant admin access; the authenticated Firestore profile restores
+        // a legitimate admin role after Firebase Auth has verified the session.
+        if (userObj.role === 'admin') {
+          userObj.role = 'customer';
         }
+        // Firebase Authentication is the only supported credential authority.
+        // Do not create predictable demo passwords or retain legacy local hashes.
+        delete (userObj as any).password;
+        delete (userObj as any).passwordHash;
+        delete (userObj as any).passwordSalt;
         return userObj;
       });
 
@@ -258,6 +261,46 @@ class DataStore {
     }
   }
 
+  private privateDataUnsubscribers: Array<() => void> = [];
+  private privateDataUid = '';
+
+  private syncOwnerPrivateCollections(uid: string) {
+    if (!db || !uid || this.privateDataUid === uid) return;
+    this.privateDataUnsubscribers.forEach((unsubscribe) => unsubscribe());
+    this.privateDataUnsubscribers = [];
+    const propertyIds = this.properties.filter((property) => property.ownerUid === uid).map((property) => property.id).filter(Boolean);
+    if (propertyIds.length === 0) { this.privateDataUid = ''; return; }
+    this.privateDataUid = uid;
+
+    for (let offset = 0; offset < propertyIds.length; offset += 30) {
+      const ids = propertyIds.slice(offset, offset + 30);
+      const subscribeOwned = <T extends { id: string }>(name: 'enquiries' | 'visits' | 'leads', assign: (records: T[]) => void) => {
+        const ownedQuery = query(collection(db!, name), where('propertyId', 'in', ids));
+        const unsubscribe = onSnapshot(ownedQuery, (snapshot) => {
+          assign(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as T)));
+          this.persist();
+          this.notify(false);
+        }, (error) => console.warn(`Firestore ${name} owner sync notice:`, error?.message || error));
+        this.privateDataUnsubscribers.push(unsubscribe);
+      };
+      subscribeOwned<BookingEnquiry>('enquiries', (records) => {
+        const merged = new Map(this.enquiries.map((item) => [item.id, item]));
+        records.forEach((item) => merged.set(item.id, item));
+        this.enquiries = Array.from(merged.values());
+      });
+      subscribeOwned<PropertyVisit>('visits', (records) => {
+        const merged = new Map(this.visits.map((item) => [item.id, item]));
+        records.forEach((item) => merged.set(item.id, item));
+        this.visits = Array.from(merged.values());
+      });
+      subscribeOwned<PropertyLead>('leads', (records) => {
+        const merged = new Map(this.leads.map((item) => [item.id, item]));
+        records.forEach((item) => merged.set(item.id, item));
+        this.leads = Array.from(merged.values());
+      });
+    }
+  }
+
   private initFirebaseListeners() {
     if (!isFirebaseConfigured || !db) {
       console.info('Running in local/standalone mode (Firebase is not configured).');
@@ -267,6 +310,16 @@ class DataStore {
       // Sync Firebase Auth state with DataStore currentUserId & user doc
       if (auth) {
         onAuthStateChanged(auth, (fbUser) => {
+          if (!fbUser) {
+            this.privateDataUnsubscribers.forEach((unsubscribe) => unsubscribe());
+            this.privateDataUnsubscribers = [];
+            this.privateDataUid = '';
+            this.currentUserId = '';
+            this.persist();
+            this.notify(false);
+            return;
+          }
+          this.syncOwnerPrivateCollections(fbUser.uid);
           if (fbUser) {
             const existing = this.users.find(
               (u) =>
@@ -286,8 +339,9 @@ class DataStore {
               try {
                 onSnapshot(doc(db, 'users', fbUser.uid), (docSnap) => {
                   if (docSnap.exists()) {
-                    const uData = { id: docSnap.id, ...docSnap.data() } as User;
-                    const idx = this.users.findIndex((u) => u.id === uData.id);
+                    const profileData = docSnap.data();
+                    const uData = { ...profileData, id: (profileData.id as string) || docSnap.id } as User;
+                    const idx = this.users.findIndex((u) => u.id === uData.id || u.googleUid === fbUser.uid);
                     if (idx !== -1) {
                       this.users[idx] = { ...this.users[idx], ...uData };
                     } else {
@@ -316,6 +370,10 @@ class DataStore {
             this.properties.forEach((p) => propMap.set(p.id, p));
             remoteProps.forEach((rp) => propMap.set(rp.id, rp));
             this.properties = Array.from(propMap.values());
+            if (auth?.currentUser) {
+              this.privateDataUid = '';
+              this.syncOwnerPrivateCollections(auth.currentUser.uid);
+            }
             this.persist();
             this.notify(false);
           }
@@ -353,90 +411,9 @@ class DataStore {
         console.error('Firestore rooms sync error:', err);
       });
 
-      // Sync users collection from Firestore (for admins/authorized roles)
-      onSnapshot(collection(db, 'users'), (snapshot) => {
-        if (!snapshot.empty) {
-          const remoteUsers: User[] = [];
-          snapshot.forEach((docSnap) => {
-            remoteUsers.push({ id: docSnap.id, ...docSnap.data() } as User);
-          });
-          if (remoteUsers.length > 0) {
-            const userMap = new Map<string, User>();
-            this.users.forEach((u) => userMap.set(u.id, u));
-            remoteUsers.forEach((ru) => userMap.set(ru.id, ru));
-            this.users = Array.from(userMap.values());
-            this.persist();
-            this.notify(false);
-          }
-        }
-      }, (err) => {
-        // Handle security rule restriction on collection scan gracefully
-        if (!err?.message?.includes('permission') && !err?.message?.includes('Missing or insufficient permissions')) {
-          console.warn('Firestore users sync note:', err?.message || err);
-        }
-      });
+      // Read user profiles individually by authenticated UID; do not scan the users collection.
 
-      // Sync enquiries collection from Firestore
-      onSnapshot(collection(db, 'enquiries'), (snapshot) => {
-        if (!snapshot.empty) {
-          const remoteEnquiries: BookingEnquiry[] = [];
-          snapshot.forEach((docSnap) => {
-            remoteEnquiries.push({ id: docSnap.id, ...docSnap.data() } as BookingEnquiry);
-          });
-          if (remoteEnquiries.length > 0) {
-            const enqMap = new Map<string, BookingEnquiry>();
-            this.enquiries.forEach((e) => enqMap.set(e.id, e));
-            remoteEnquiries.forEach((re) => enqMap.set(re.id, re));
-            this.enquiries = Array.from(enqMap.values());
-            this.persist();
-            this.notify(false);
-          }
-        }
-      }, (err) => {
-        if (!err?.message?.includes('permission') && !err?.message?.includes('Missing or insufficient permissions')) {
-          console.warn('Firestore enquiries sync note:', err?.message || err);
-        }
-      });
-
-      // Sync visits collection from Firestore
-      onSnapshot(collection(db, 'visits'), (snapshot) => {
-        if (!snapshot.empty) {
-          const remoteVisits: PropertyVisit[] = [];
-          snapshot.forEach((docSnap) => {
-            remoteVisits.push({ id: docSnap.id, ...docSnap.data() } as PropertyVisit);
-          });
-          if (remoteVisits.length > 0) {
-            const vMap = new Map<string, PropertyVisit>();
-            this.visits.forEach((v) => vMap.set(v.id, v));
-            remoteVisits.forEach((rv) => vMap.set(rv.id, rv));
-            this.visits = Array.from(vMap.values());
-            this.persist();
-            this.notify(false);
-          }
-        }
-      }, (err) => {
-        console.warn('Firestore visits sync warning:', err);
-      });
-
-      // Sync leads collection from Firestore
-      onSnapshot(collection(db, 'leads'), (snapshot) => {
-        if (!snapshot.empty) {
-          const remoteLeads: PropertyLead[] = [];
-          snapshot.forEach((docSnap) => {
-            remoteLeads.push({ id: docSnap.id, ...docSnap.data() } as PropertyLead);
-          });
-          if (remoteLeads.length > 0) {
-            const lMap = new Map<string, PropertyLead>();
-            this.leads.forEach((l) => lMap.set(l.id, l));
-            remoteLeads.forEach((rl) => lMap.set(rl.id, rl));
-            this.leads = Array.from(lMap.values());
-            this.persist();
-            this.notify(false);
-          }
-        }
-      }, (err) => {
-        console.warn('Firestore leads sync warning:', err);
-      });
+      // Private collections are synced only with owner-scoped queries.
 
     } catch (err: any) {
       console.error('Firebase listeners setup error:', err);
@@ -446,7 +423,15 @@ class DataStore {
 
   private persist() {
     try {
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(this.users));
+      const safeCachedUsers = this.users.map((user) => {
+        if (!user.googleUid) return user;
+        const safeUser = { ...user } as User & { password?: string; passwordHash?: string; passwordSalt?: string };
+        delete safeUser.password;
+        delete safeUser.passwordHash;
+        delete safeUser.passwordSalt;
+        return safeUser as User;
+      });
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(safeCachedUsers));
       localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(this.properties));
       localStorage.setItem(STORAGE_KEYS.ROOMS, JSON.stringify(this.rooms));
       localStorage.setItem(STORAGE_KEYS.BANNERS, JSON.stringify(this.banners));
@@ -508,7 +493,7 @@ class DataStore {
       if (googleData.displayName && (!found.name || found.name === 'Host User')) found.name = googleData.displayName;
       this.currentUserId = found.id;
       if (db) {
-        setDoc(doc(db, 'users', found.id), sanitizeUserForFirestore(found), { merge: true }).catch((err) =>
+        setDoc(doc(db, 'users', googleData.uid || found.googleUid || found.id), sanitizeUserForFirestore(found), { merge: true }).catch((err) =>
           console.warn('Firestore sync user error:', err)
         );
       }
@@ -531,7 +516,7 @@ class DataStore {
     }
 
     const newUser: User = {
-      id: googleData.uid ? `google_${googleData.uid}` : 'user_' + Date.now(),
+      id: googleData.uid || 'user_' + Date.now(),
       name: baseName,
       username: baseUsername || 'user_' + Math.floor(1000 + Math.random() * 9000),
       email: googleData.email,
@@ -549,13 +534,70 @@ class DataStore {
     this.users.push(newUser);
     this.currentUserId = newUser.id;
     if (db) {
-      setDoc(doc(db, 'users', newUser.id), sanitizeUserForFirestore(newUser)).catch((err) =>
+      setDoc(doc(db, 'users', newUser.googleUid || newUser.id), sanitizeUserForFirestore(newUser)).catch((err) =>
         console.warn('Firestore register Google User error:', err)
       );
     }
     syncPublicProfile(newUser);
     this.notify();
     return newUser;
+  }
+
+  public async loginWithFirebaseUser(firebaseUser: { uid: string; email: string | null; displayName?: string | null; photoURL?: string | null }): Promise<User> {
+    if (!firebaseUser?.uid || !firebaseUser.email || !db) {
+      throw new Error('Firebase account profile is unavailable. Please try again.');
+    }
+
+    const existing = this.users.find((u) =>
+      u.googleUid === firebaseUser.uid ||
+      u.id === firebaseUser.uid ||
+      (u.email && u.email.toLowerCase() === firebaseUser.email!.toLowerCase())
+    );
+    const profileRef = doc(db, 'users', firebaseUser.uid);
+    const profileSnap = await getDoc(profileRef);
+    const remote = profileSnap.exists() ? profileSnap.data() : {};
+    const accountStatus = typeof remote.status === 'string'
+      ? remote.status
+      : 'active';
+    if (accountStatus !== 'active') {
+      // Revoke the Firebase session as well as the local app session. Hiding
+      // the dashboard alone is not sufficient for a suspended account.
+      this.currentUserId = '';
+      this.persist();
+      if (auth) await signOut(auth);
+      this.notify(false);
+      throw new Error('This account is not active. Please contact YourThikana support.');
+    }
+    // Only a trusted Firebase Auth custom claim may grant admin UI privileges.
+    // A Firestore profile's role field is user data, not an authorization token.
+    const tokenResult = auth?.currentUser ? await getIdTokenResult(auth.currentUser, true) : null;
+    const hasAdminClaim = tokenResult?.claims?.admin === true;
+    const user: User = {
+      ...(existing || {} as User),
+      ...(remote as Partial<User>),
+      id: (remote.id as string) || existing?.id || firebaseUser.uid,
+      name: (remote.name as string) || existing?.name || firebaseUser.displayName || firebaseUser.email.split('@')[0],
+      username: (remote.username as string) || existing?.username || firebaseUser.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, ''),
+      email: firebaseUser.email,
+      googleEmail: firebaseUser.email,
+      googleUid: firebaseUser.uid,
+      avatar: firebaseUser.photoURL || existing?.avatar,
+      phone: (remote.phone as string) || existing?.phone || '',
+      whatsapp: (remote.whatsapp as string) || existing?.whatsapp || '',
+      // Never trust local storage or Firestore profile role for admin privileges.
+      role: hasAdminClaim ? 'admin' : ((remote.role === 'customer' ? 'customer' : 'owner') as UserRole),
+      status: (remote.status as User['status']) || existing?.status || 'active',
+      createdAt: (remote.createdAt as string) || existing?.createdAt || new Date().toISOString(),
+    };
+
+    const idx = this.users.findIndex((u) => u.id === user.id || u.googleUid === firebaseUser.uid);
+    if (idx >= 0) this.users[idx] = { ...this.users[idx], ...user };
+    else this.users.push(user);
+    this.currentUserId = user.id;
+    await setDoc(profileRef, sanitizeUserForFirestore(user), { merge: true });
+    syncPublicProfile(user);
+    this.notify();
+    return user;
   }
 
   public findUserByGoogleUid(uid: string): User | undefined {
@@ -570,8 +612,8 @@ class DataStore {
   }
 
   public getUsers(): User[] {
-    // Strip plaintext & hashed password fields from returned users list for security
-    return this.users.map(({ password, passwordHash, ...u }) => u as User);
+    // Never expose legacy local credential material to UI components.
+    return this.users.map(({ password, passwordHash, passwordSalt, ...u }) => u as User);
   }
 
   public setCurrentUserId(id: string) {
@@ -599,7 +641,7 @@ class DataStore {
       passwordHash: pwd ? hashPasswordWithSalt(pwd, salt) : undefined,
       googleEmail: user.googleEmail || user.email,
       googleUid: user.googleUid,
-      id: 'user_' + Date.now(),
+      id: user.googleUid || 'user_' + Date.now(),
       status: 'active',
       createdAt: new Date().toISOString(),
     };
@@ -608,82 +650,20 @@ class DataStore {
     this.users.push(newUser);
     this.currentUserId = newUser.id;
     if (db) {
-      setDoc(doc(db, 'users', newUser.id), sanitizeUserForFirestore(newUser)).catch((err) => console.warn('Firestore registerUser error:', err));
+      setDoc(doc(db, 'users', newUser.googleUid || newUser.id), sanitizeUserForFirestore(newUser)).catch((err) => console.warn('Firestore registerUser error:', err));
     }
     syncPublicProfile(newUser);
     this.notify();
     return newUser;
   }
 
-  public loginWithUsernamePassword(identifier: string, passwordInput: string): { success: boolean; user?: User; message?: string } {
-    const q = identifier.trim().toLowerCase();
-
-    // Check rate limiting / lockout
-    const attemptInfo = this.failedLoginAttempts.get(q);
-    if (attemptInfo && attemptInfo.lockUntil > Date.now()) {
-      const remainingMins = Math.ceil((attemptInfo.lockUntil - Date.now()) / 60000);
-      return {
-        success: false,
-        message: `Too many failed login attempts! Account locked for security. Please try again in ${remainingMins} minute(s) or use Google Email password reset.`,
-      };
-    }
-
-    const found = this.users.find((u) => 
-      (u.username && u.username.toLowerCase() === q) ||
-      (u.email && u.email.toLowerCase() === q) ||
-      (u.googleEmail && u.googleEmail.toLowerCase() === q) ||
-      u.phone === identifier.trim()
-    );
-
-    if (!found) {
-      return { success: false, message: 'No account found with this username, email, or mobile number.' };
-    }
-
-    if (!passwordInput || !passwordInput.trim()) {
-      return { success: false, message: 'Please enter your password.' };
-    }
-
-    // Verify password via user-specific salt hash or legacy hash fallback
-    let isValidPassword = false;
-    if (found.passwordSalt && found.passwordHash) {
-      const computedHash = hashPasswordWithSalt(passwordInput, found.passwordSalt);
-      isValidPassword = found.passwordHash === computedHash;
-    } else if (found.passwordHash) {
-      // Legacy single-round static salt hash fallback
-      const legacyHash = hashPassword(passwordInput);
-      isValidPassword = found.passwordHash === legacyHash;
-    }
-
-    if (!isValidPassword) {
-      // Record failed attempt
-      const currentCount = (attemptInfo?.count || 0) + 1;
-      let lockUntil = 0;
-      if (currentCount >= 5) {
-        lockUntil = Date.now() + 15 * 60 * 1000; // 15 minute lockout
-      }
-      this.failedLoginAttempts.set(q, { count: currentCount, lockUntil });
-
-      const attemptsLeft = 5 - currentCount;
-      const warningMessage = currentCount >= 5
-        ? 'Too many failed login attempts! Account locked for 15 minutes.'
-        : `Incorrect password! (${attemptsLeft} attempt(s) remaining before temporary lockout).`;
-
-      return { success: false, message: warningMessage };
-    }
-
-    // Login success - clear attempt counter
-    this.failedLoginAttempts.delete(q);
-
-    // Auto-migrate legacy user to unique per-user salt + 10,000-round hash
-    if (!found.passwordSalt) {
-      found.passwordSalt = generateSalt();
-      found.passwordHash = hashPasswordWithSalt(passwordInput, found.passwordSalt);
-    }
-    delete found.password;
-
-    this.currentUserId = found.id;
-    this.notify();
-    return { success: true, user: found };
+  // Legacy local username/password authentication is disabled. It must never
+  // create an app session; only Firebase Authentication can establish identity.
+  public loginWithUsernamePassword(_identifier: string, _passwordInput: string): { success: boolean; user?: User; message?: string } {
+    return {
+      success: false,
+      message: 'Username and password login is disabled. Sign in with your verified Google account.',
+    };
   }
 
   public resetPasswordWithGoogleEmail(googleEmailInput: string, newPassword: string, newUsername?: string): { success: boolean; user?: User; message?: string } {
@@ -765,11 +745,14 @@ class DataStore {
     const firebaseUid = auth?.currentUser?.uid;
     const firebaseEmail = auth?.currentUser?.email;
 
+    // If a Firebase UID is stored, it is the sole ownership authority.
+    // Do not let stale owner IDs or matching email fields override it.
+    if (prop.ownerUid) return Boolean(firebaseUid && prop.ownerUid === firebaseUid);
+
     const matchesUid =
       prop.ownerId === userId ||
-      prop.ownerUid === userId ||
-      (!!firebaseUid && (prop.ownerUid === firebaseUid || prop.ownerId === firebaseUid || prop.ownerId === `google_${firebaseUid}`)) ||
-      (!!user?.googleUid && (prop.ownerUid === user.googleUid || prop.ownerId === user.googleUid || prop.ownerId === `google_${user.googleUid}`));
+      (!!firebaseUid && (prop.ownerId === firebaseUid || prop.ownerId === `google_${firebaseUid}`)) ||
+      (!!user?.googleUid && (prop.ownerId === user.googleUid || prop.ownerId === `google_${user.googleUid}`));
 
     const matchesEmail =
       (!!firebaseEmail && prop.ownerEmail?.toLowerCase() === firebaseEmail.toLowerCase()) ||
@@ -831,8 +814,12 @@ class DataStore {
   public getPropertiesByOwner(ownerId: string): Property[] {
     const user = this.users.find((u) => u.id === ownerId);
     return this.properties.filter((p) => {
+      // A stored Firebase owner UID is authoritative. Never fall back to a
+      // matching local ID/email when the authenticated UID belongs elsewhere.
+      if (p.ownerUid) {
+        return p.ownerUid === ownerId || p.ownerUid === user?.googleUid;
+      }
       if (p.ownerId === ownerId) return true;
-      if (p.ownerUid && (p.ownerUid === ownerId || p.ownerUid === user?.googleUid)) return true;
       if (p.ownerEmail && user?.email && p.ownerEmail.toLowerCase() === user.email.toLowerCase()) return true;
       if (p.ownerEmail && user?.googleEmail && p.ownerEmail.toLowerCase() === user.googleEmail.toLowerCase()) return true;
       return false;
@@ -847,15 +834,19 @@ class DataStore {
     const firebaseEmail = auth?.currentUser?.email;
     const currentUser = this.getCurrentUser();
 
-    if (!currentUser && !firebaseUid) {
-      throw new Error('Authentication required: Please sign in with Google or Email to list a new property.');
+    const hasVerifiedOwnerSession = Boolean(
+      firebaseUid &&
+      currentUser &&
+      currentUser.googleUid === firebaseUid &&
+      (currentUser.role === 'owner' || currentUser.role === 'admin')
+    );
+    // Never allow local/demo mode to create listings. A cached owner role is
+    // not authentication, even when Firestore is unavailable or misconfigured.
+    if (!hasVerifiedOwnerSession) {
+      throw new Error('Authentication required: Please sign in with your verified owner account to list a new property.');
     }
 
     const now = new Date();
-    const expires = new Date();
-    expires.setDate(now.getDate() + 30);
-
-    const price = planType === 'standard_1500' ? 1500 : 1000;
 
     const ownerUid = firebaseUid || currentUser?.googleUid || currentUser?.id || 'owner_' + Date.now();
     const ownerEmail = firebaseEmail || currentUser?.googleEmail || currentUser?.email || prop.ownerEmail || '';
@@ -867,24 +858,27 @@ class DataStore {
       ownerUid,
       ownerEmail,
       id: 'prop_' + Date.now(),
-      rating: 5.0,
-      reviewsCount: 1,
+      rating: 0,
+      reviewsCount: 0,
       isVerified: false,
       isFeatured: false,
       status: 'active',
-      subscriptionPlan: planType,
-      subscriptionPrice: price,
-      subscriptionExpiresAt: expires.toISOString(),
-      subscriptionExpiryDate: expires.toISOString(),
+      // A listing request is not proof of payment. Admin activates paid plans separately.
+      subscriptionPlan: 'none',
+      subscriptionPrice: 0,
+      subscriptionExpiresAt: '',
+      subscriptionExpiryDate: '',
       createdAt: now.toISOString(),
     };
 
     // Save to Firestore if database is active
     if (db) {
       try {
-        await setDoc(doc(db, 'properties', newProp.id), sanitizeForFirestore(newProp));
+        const { ownerEmail: _privateOwnerEmail, ...publicPropertyData } = newProp;
+        await setDoc(doc(db, 'properties', newProp.id), sanitizeForFirestore(publicPropertyData));
       } catch (err: any) {
-        console.warn('Firestore addProperty sync notice:', err);
+        console.error('Firestore addProperty failed:', err);
+        throw new Error('Property could not be saved to the server. Please check your sign-in and Firebase setup, then try again.');
       }
     }
 
@@ -895,17 +889,11 @@ class DataStore {
       this.properties[existingIdx] = newProp;
     }
 
-    this.addTransaction({
-      ownerId: newProp.ownerId,
-      ownerName: newProp.ownerName,
-      propertyId: newProp.id,
-      propertyName: newProp.title,
-      type: planType,
-      planName: `${planType === 'standard_1500' ? 'Prime Location' : 'Standard'} Listing Subscription (1 Month)`,
-      amount: price,
-      date: now.toISOString().split('T')[0],
-    });
-
+    // Do not record revenue until payment is independently confirmed.
+    if (firebaseUid) {
+      this.privateDataUid = '';
+      this.syncOwnerPrivateCollections(firebaseUid);
+    }
     this.persist();
     this.notify();
     return newProp;
@@ -921,10 +909,13 @@ class DataStore {
     const currentUser = this.getCurrentUser();
     const firebaseUid = auth?.currentUser?.uid;
 
-    const isOwner =
-      currentUser?.role === 'admin' ||
-      (!!firebaseUid && prop.ownerUid === firebaseUid) ||
-      this.isOwnerOfProperty(currentUser?.id, id);
+    const isOwner = Boolean(
+      firebaseUid &&
+      currentUser &&
+      currentUser.googleUid === firebaseUid &&
+      (currentUser.role === 'admin' ||
+        (currentUser.role === 'owner' && prop.ownerUid === firebaseUid))
+    );
 
     if (!isOwner) {
       console.error('403 Forbidden: Unauthorized property update blocked for id:', id);
@@ -945,9 +936,15 @@ class DataStore {
 
     if (db) {
       try {
-        await setDoc(doc(db, 'properties', id), sanitizeForFirestore(updatedProp), { merge: true });
+        const { ownerEmail: _privateOwnerEmail, ...publicPropertyData } = updatedProp;
+        await setDoc(doc(db, 'properties', id), sanitizeForFirestore(publicPropertyData), { merge: true });
       } catch (err: any) {
-        console.warn('Firestore updateProperty sync notice:', err);
+        console.error('Firestore updateProperty failed:', err);
+        return {
+          success: false,
+          status: 500,
+          message: 'Property could not be updated on the server. Please check your sign-in and try again.',
+        };
       }
     }
 
@@ -957,73 +954,74 @@ class DataStore {
     return { success: true, message: 'Property updated successfully.' };
   }
 
-  public togglePropertyStatus(id: string) {
+  private async updateAdminPropertyFields(id: string, updates: Partial<Property>): Promise<boolean> {
     const prop = this.getPropertyById(id);
-    if (prop) {
-      prop.status = prop.status === 'active' ? 'blocked' : 'active';
-      if (db) {
-        setDoc(doc(db, 'properties', id), { status: prop.status }, { merge: true }).catch((err) => {
-          console.error('Firestore togglePropertyStatus error:', err);
-          this.firestoreError = err?.message || String(err);
-          this.notify();
-        });
-      }
-      this.notify();
+    const firebaseUser = auth?.currentUser;
+    const currentUser = this.getCurrentUser();
+    const tokenResult = firebaseUser ? await getIdTokenResult(firebaseUser, true) : null;
+    if (!prop || !firebaseUser || !currentUser ||
+        currentUser.googleUid !== firebaseUser.uid ||
+        tokenResult?.claims?.admin !== true) return false;
+    try {
+      if (db) await setDoc(doc(db, 'properties', id), sanitizeForFirestore(updates), { merge: true });
+      Object.assign(prop, updates);
+      this.persist();
+      this.notify(false);
+      return true;
+    } catch (error: any) {
+      console.error('Admin property update failed:', error);
+      this.firestoreError = error?.message || String(error);
+      return false;
     }
   }
 
-  public togglePropertyVerified(id: string, verified?: boolean) {
+  public async togglePropertyStatus(id: string): Promise<boolean> {
     const prop = this.getPropertyById(id);
-    if (prop) {
-      prop.isVerified = verified !== undefined ? verified : !prop.isVerified;
-      if (db) {
-        setDoc(doc(db, 'properties', id), { isVerified: prop.isVerified }, { merge: true }).catch((err) => {
-          console.error('Firestore togglePropertyVerified error:', err);
-          this.firestoreError = err?.message || String(err);
-          this.notify();
-        });
-      }
-      if (prop.isVerified) {
-        this.addTransaction({
-          ownerId: prop.ownerId,
-          ownerName: prop.ownerName,
-          propertyId: prop.id,
-          propertyName: prop.title,
-          type: 'verified_badge',
-          planName: 'Blue Verified Badge (₹500/month)',
-          amount: 500,
-          date: new Date().toISOString().split('T')[0],
-        });
-      }
-      this.notify();
-    }
+    if (!prop) return false;
+    const nextStatus = prop.status === 'active' ? 'blocked' : 'active';
+    return this.updateAdminPropertyFields(id, { status: nextStatus });
   }
 
-  public togglePropertyFeatured(id: string, featured?: boolean) {
+  public async togglePropertyVerified(id: string, verified?: boolean): Promise<boolean> {
     const prop = this.getPropertyById(id);
-    if (prop) {
-      prop.isFeatured = featured !== undefined ? featured : !prop.isFeatured;
-      if (db) {
-        setDoc(doc(db, 'properties', id), { isFeatured: prop.isFeatured }, { merge: true }).catch((err) => {
-          console.error('Firestore togglePropertyFeatured error:', err);
-          this.firestoreError = err?.message || String(err);
-          this.notify();
-        });
-      }
-      if (prop.isFeatured) {
-        this.addTransaction({
-          ownerId: prop.ownerId,
-          ownerName: prop.ownerName,
-          propertyId: prop.id,
-          propertyName: prop.title,
-          type: 'search_boost',
-          planName: 'Top Search Placement ⭐ Featured (₹500/month)',
-          amount: 500,
-          date: new Date().toISOString().split('T')[0],
-        });
-      }
+    if (!prop) return false;
+    const nextValue = verified !== undefined ? verified : !prop.isVerified;
+    const saved = await this.updateAdminPropertyFields(id, { isVerified: nextValue });
+    if (saved && nextValue) {
+      this.addTransaction({
+        ownerId: prop.ownerId,
+        ownerName: prop.ownerName,
+        propertyId: prop.id,
+        propertyName: prop.title,
+        type: 'verified_badge',
+        planName: 'Blue Verified Badge (₹500/month)',
+        amount: 500,
+        date: new Date().toISOString().split('T')[0],
+      });
       this.notify();
     }
+    return saved;
+  }
+
+  public async togglePropertyFeatured(id: string, featured?: boolean): Promise<boolean> {
+    const prop = this.getPropertyById(id);
+    if (!prop) return false;
+    const nextValue = featured !== undefined ? featured : !prop.isFeatured;
+    const saved = await this.updateAdminPropertyFields(id, { isFeatured: nextValue });
+    if (saved && nextValue) {
+      this.addTransaction({
+        ownerId: prop.ownerId,
+        ownerName: prop.ownerName,
+        propertyId: prop.id,
+        propertyName: prop.title,
+        type: 'search_boost',
+        planName: 'Top Search Placement ⭐ Featured (₹500/month)',
+        amount: 500,
+        date: new Date().toISOString().split('T')[0],
+      });
+      this.notify();
+    }
+    return saved;
   }
 
   public async deleteProperty(id: string): Promise<{ success: boolean; status?: number; message?: string }> {
@@ -1034,50 +1032,61 @@ class DataStore {
 
     const currentUser = this.getCurrentUser();
     const firebaseUid = auth?.currentUser?.uid;
-
-    const isOwner =
-      currentUser?.role === 'admin' ||
-      (!!firebaseUid && prop.ownerUid === firebaseUid) ||
-      this.isOwnerOfProperty(currentUser?.id, id);
+    const isOwner = Boolean(
+      firebaseUid &&
+      currentUser &&
+      currentUser.googleUid === firebaseUid &&
+      (currentUser.role === 'admin' ||
+        (currentUser.role === 'owner' && prop.ownerUid === firebaseUid))
+    );
 
     if (!isOwner) {
-      console.error('403 Forbidden: Unauthorized property deletion blocked for id:', id);
-      return { 
-        success: false, 
-        status: 403, 
-        message: '403 Forbidden: Only the property owner can delete this listing.' 
+      return {
+        success: false,
+        status: 403,
+        message: '403 Forbidden: Only the property owner can delete this listing.',
       };
     }
 
-    // Delete associated property photos from Firebase Storage (best-effort)
-    if (prop.photos && Array.isArray(prop.photos)) {
-      for (const photoUrl of prop.photos) {
-        deletePropertyPhoto(photoUrl).catch(() => {});
-      }
-    }
-
+    // Remove rooms first: Firestore room-delete rules verify ownership through
+    // the parent property document, so deleting the property first would block cleanup.
     if (db) {
       try {
-        await deleteDoc(doc(db, 'properties', id));
-        const deletedRooms = this.rooms.filter((r) => r.propertyId === id);
-        for (const r of deletedRooms) {
-          await deleteDoc(doc(db, 'rooms', r.id)).catch(() => {});
+        const relatedRooms = this.rooms.filter((room) => room.propertyId === id);
+        if (relatedRooms.length > 499) {
+          return { success: false, status: 400, message: 'This property has too many room records for a safe single-step deletion. Please contact support.' };
         }
-      } catch (err: any) {
-        console.warn('Firestore deleteProperty sync notice:', err);
+        const batch = writeBatch(db);
+        relatedRooms.forEach((room) => batch.delete(doc(db, 'rooms', room.id)));
+        batch.delete(doc(db, 'properties', id));
+        await batch.commit();
+      } catch (error: any) {
+        console.error('Firestore deleteProperty failed:', error);
+        return {
+          success: false,
+          status: 500,
+          message: 'The property could not be deleted completely on the server. Please retry; your local listing has been kept.',
+        };
       }
     }
 
-    this.properties = this.properties.filter((p) => p.id !== id);
-    this.rooms = this.rooms.filter((r) => r.propertyId !== id);
+    // Firebase photo cleanup is best-effort after the database delete succeeds.
+    if (Array.isArray(prop.photos)) {
+      await Promise.all(prop.photos.map((photoUrl) => deletePropertyPhoto(photoUrl).catch((error) => {
+        console.warn('Property photo cleanup notice:', error?.message || error);
+      })));
+    }
+
+    this.properties = this.properties.filter((property) => property.id !== id);
+    this.rooms = this.rooms.filter((room) => room.propertyId !== id);
     this.persist();
     this.notify();
     return { success: true, message: 'Property deleted successfully.' };
   }
 
-  public renewPropertySubscription(propertyId: string, daysToAdd = 30, planName = 'Standard Listing Plan') {
+  public async renewPropertySubscription(propertyId: string, daysToAdd = 30, planName = 'Standard Listing Plan'): Promise<boolean> {
     const prop = this.getPropertyById(propertyId);
-    if (!prop) return;
+    if (!prop || this.getCurrentUser()?.role !== 'admin') return false;
 
     const price = 1000;
     const now = new Date();
@@ -1085,18 +1094,14 @@ class DataStore {
     const startDate = currentExpiry > now ? currentExpiry : now;
     const newExpiry = new Date(startDate);
     newExpiry.setDate(newExpiry.getDate() + daysToAdd);
+    const expiryIso = newExpiry.toISOString();
 
-    prop.subscriptionExpiresAt = newExpiry.toISOString();
-    prop.subscriptionExpiryDate = newExpiry.toISOString();
-    prop.status = 'active';
-
-    if (db) {
-      setDoc(doc(db, 'properties', propertyId), {
-        subscriptionExpiresAt: prop.subscriptionExpiresAt,
-        subscriptionExpiryDate: prop.subscriptionExpiryDate,
-        status: prop.status
-      }, { merge: true }).catch((err) => console.warn('Firestore renew error:', err));
-    }
+    const saved = await this.updateAdminPropertyFields(propertyId, {
+      subscriptionExpiresAt: expiryIso,
+      subscriptionExpiryDate: expiryIso,
+      status: 'active',
+    });
+    if (!saved) return false;
 
     this.addTransaction({
       ownerId: prop.ownerId,
@@ -1108,8 +1113,8 @@ class DataStore {
       amount: price,
       date: now.toISOString().split('T')[0],
     });
-
     this.notify();
+    return true;
   }
 
   // Room Types
@@ -1117,61 +1122,86 @@ class DataStore {
     return this.rooms.filter((r) => r.propertyId === propertyId);
   }
 
-  public addRoom(room: Omit<RoomType, 'id'>): RoomType {
+  public async addRoom(room: Omit<RoomType, 'id'>): Promise<RoomType> {
     const prop = this.getPropertyById(room.propertyId);
     const firebaseUid = auth?.currentUser?.uid;
-    const ownerId = room.ownerId || prop?.ownerId || (firebaseUid ? `google_${firebaseUid}` : 'owner-demo');
-    const ownerUid = room.ownerUid || prop?.ownerUid || firebaseUid || undefined;
+    const currentUser = this.getCurrentUser();
+    const canManage = Boolean(
+      firebaseUid &&
+      currentUser &&
+      currentUser.googleUid === firebaseUid &&
+      currentUser.role === 'owner' &&
+      prop &&
+      prop.ownerUid === firebaseUid
+    );
+    if (!canManage || !prop) {
+      throw new Error('Only the owner of this property can add rooms.');
+    }
 
     const newRoom: RoomType = {
       ...room,
-      ownerId,
-      ownerUid,
+      ownerId: prop.ownerId,
+      ownerUid: firebaseUid || prop.ownerUid || currentUser?.googleUid || currentUser?.id,
       id: 'room_' + Date.now(),
     };
-    this.rooms.push(newRoom);
     if (db) {
-      setDoc(doc(db, 'rooms', newRoom.id), sanitizeForFirestore(newRoom)).catch((err) => console.warn('Firestore addRoom error:', err));
+      const { ownerEmail: _privateOwnerEmail, ...publicRoomData } = newRoom;
+      await setDoc(doc(db, 'rooms', newRoom.id), sanitizeForFirestore(publicRoomData));
     }
+    this.rooms.push(newRoom);
     this.notify();
     return newRoom;
   }
 
-  public addRoomType(room: Omit<RoomType, 'id'>): RoomType {
+  public async addRoomType(room: Omit<RoomType, 'id'>): Promise<RoomType> {
     return this.addRoom(room);
   }
 
-  public updateRoom(id: string, updates: Partial<RoomType>) {
+  public async updateRoom(id: string, updates: Partial<RoomType>): Promise<boolean> {
     const idx = this.rooms.findIndex((r) => r.id === id);
-    if (idx !== -1) {
-      const room = this.rooms[idx];
-      const currentUser = this.getCurrentUser();
-      if (currentUser && !this.isOwnerOfProperty(currentUser.id, room.propertyId)) {
-        console.warn('Unauthorized room update blocked:', id);
-        return;
-      }
-      this.rooms[idx] = { ...this.rooms[idx], ...updates };
-      if (db) {
-        setDoc(doc(db, 'rooms', id), this.rooms[idx], { merge: true }).catch((err) => console.warn('Firestore updateRoom error:', err));
-      }
-      this.notify();
+    if (idx === -1) return false;
+    const room = this.rooms[idx];
+    const firebaseUid = auth?.currentUser?.uid;
+    const currentUser = this.getCurrentUser();
+    const property = this.getPropertyById(room.propertyId);
+    const canManage = Boolean(
+      firebaseUid &&
+      currentUser &&
+      currentUser.googleUid === firebaseUid &&
+      currentUser.role === 'owner' &&
+      property &&
+      property.ownerUid === firebaseUid &&
+      room.ownerUid === firebaseUid
+    );
+    if (!canManage || !property) {
+      throw new Error('Only the owner of this property can edit its rooms.');
     }
+    const updatedRoom = { ...room, ...updates, ownerUid: firebaseUid || room.ownerUid, propertyId: room.propertyId };
+    if (db) {
+      const { ownerEmail: _privateOwnerEmail, ...publicRoomData } = updatedRoom;
+      await setDoc(doc(db, 'rooms', id), sanitizeForFirestore(publicRoomData), { merge: true });
+    }
+    this.rooms[idx] = updatedRoom;
+    this.notify();
+    return true;
   }
 
-  public deleteRoom(id: string) {
+  public async deleteRoom(id: string): Promise<boolean> {
     const room = this.rooms.find((r) => r.id === id);
-    if (room) {
-      const currentUser = this.getCurrentUser();
-      if (currentUser && !this.isOwnerOfProperty(currentUser.id, room.propertyId)) {
-        console.warn('Unauthorized room deletion blocked:', id);
-        return;
-      }
-      this.rooms = this.rooms.filter((r) => r.id !== id);
-      if (db) {
-        deleteDoc(doc(db, 'rooms', id)).catch((err) => console.warn('Firestore deleteRoom error:', err));
-      }
-      this.notify();
+    if (!room) return false;
+    const firebaseUid = auth?.currentUser?.uid;
+    const currentUser = this.getCurrentUser();
+    const property = this.getPropertyById(room.propertyId);
+    const canManage = firebaseUid
+      ? Boolean(property && property.ownerUid === firebaseUid && room.ownerUid === firebaseUid)
+      : Boolean(!db && currentUser && property && this.isOwnerOfProperty(currentUser.id, room.propertyId));
+    if (!canManage || !property) {
+      throw new Error('Only the owner of this property can delete its rooms.');
     }
+    if (db) await deleteDoc(doc(db, 'rooms', id));
+    this.rooms = this.rooms.filter((r) => r.id !== id);
+    this.notify();
+    return true;
   }
 
   public deleteRoomType(id: string) {
@@ -1205,6 +1235,29 @@ class DataStore {
 
   public getEnquiries(): BookingEnquiry[] {
     return this.getAllEnquiries();
+  }
+
+  // Owners can report suspicious booking enquiries. Firestore rules verify
+  // that the signed-in reporter owns the property and the enquiry belongs to it.
+  public async reportEnquiry(enquiryId: string, propertyId: string, reason: string): Promise<void> {
+    const reporterUid = auth?.currentUser?.uid;
+    const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
+    if (!db || !reporterUid) {
+      throw new Error('Please sign in with your verified owner account before reporting.');
+    }
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(enquiryId) ||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(propertyId) ||
+        normalizedReason.length < 5 || normalizedReason.length > 500) {
+      throw new Error('Add a short reason (5–500 characters) and try again.');
+    }
+    const reportId = `${reporterUid}_${enquiryId}`;
+    await setDoc(doc(db, 'enquiry_reports', reportId), {
+      enquiryId,
+      propertyId,
+      reporterUid,
+      reason: normalizedReason,
+      createdAt: new Date().toISOString(),
+    });
   }
 
   // Banner Ads
@@ -1313,17 +1366,6 @@ class DataStore {
       }
     } catch (err) {
       console.warn('Firestore lead sync error:', err);
-    }
-
-    // Check reward milestone (5+ leads unlocks featured search boost!)
-    if (safeRef !== 'direct') {
-      const ownerLeadsCount = this.getLeadsForRefId(safeRef).length;
-      if (ownerLeadsCount >= 5) {
-        const prop = this.properties.find((p) => p.id === propertyId);
-        if (prop && !prop.isFeatured) {
-          this.togglePropertyFeatured(propertyId, true);
-        }
-      }
     }
 
     this.notify();

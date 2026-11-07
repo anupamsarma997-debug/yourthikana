@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { UserRole, Property, RoomType } from './types';
 import { store } from './services/store';
+import { auth } from './lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { AlertTriangle, Sparkles } from 'lucide-react';
 
 // Components
@@ -40,6 +42,30 @@ export function App() {
       setIsMobileFrame(store.getMobileFrame());
       setIsDark(store.getTheme());
     });
+  }, []);
+
+  // Restore the authenticated account's real role after a page reload.
+  // The store restores the profile; this keeps the React view in sync with it.
+  useEffect(() => {
+    if (!auth) return;
+    let active = true;
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        if (active) setCurrentRole('customer');
+        return;
+      }
+      try {
+        const profile = await store.loginWithFirebaseUser(firebaseUser);
+        if (active) setCurrentRole(profile.role);
+      } catch (error) {
+        console.error('Authenticated profile restore failed:', error);
+        if (active) setCurrentRole('customer');
+      }
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   const hasTrackedVisitRef = React.useRef<boolean>(false);
@@ -97,12 +123,43 @@ export function App() {
   const [autoOpenAddProperty, setAutoOpenAddProperty] = useState<boolean>(false);
   const [pendingAddProperty, setPendingAddProperty] = useState<boolean>(false);
 
+  // Portal navigation is not an authorization. Require a verified Firebase
+  // session and trusted role before rendering owner or admin dashboards.
+  const handleRoleChange = (role: UserRole) => {
+    if (role === 'customer') {
+      setCurrentRole('customer');
+      setCurrentView('home');
+      return;
+    }
+
+    const firebaseUser = auth?.currentUser;
+    const user = store.getCurrentUser();
+    const hasVerifiedSession = Boolean(firebaseUser && user && user.googleUid === firebaseUser.uid);
+    const allowed = hasVerifiedSession && (
+      role === 'owner'
+        ? user!.role === 'owner' || user!.role === 'admin'
+        : user!.role === 'admin'
+    );
+
+    if (!allowed) {
+      setIsAuthOpen(true);
+      return;
+    }
+
+    setCurrentRole(role);
+    setCurrentView('home');
+  };
+
   const handleOpenAddProperty = () => {
     const user = store.getCurrentUser();
+    const firebaseUser = auth?.currentUser;
+    // A cached/local role is never proof of authentication. Require a live
+    // Firebase session linked to the current application profile.
     const isAuthenticHost = Boolean(
-      user && 
-      user.id !== 'customer_1' && 
-      (user.role === 'owner' || user.role === 'admin' || user.googleEmail || user.googleUid)
+      firebaseUser &&
+      user &&
+      user.googleUid === firebaseUser.uid &&
+      (user.role === 'owner' || user.role === 'admin')
     );
 
     if (!isAuthenticHost) {
@@ -143,10 +200,7 @@ export function App() {
         {/* Navigation Bar */}
         <Navbar
           currentRole={currentRole}
-          onRoleChange={(role) => {
-            setCurrentRole(role);
-            setCurrentView('home');
-          }}
+          onRoleChange={handleRoleChange}
           onOpenAuth={() => setIsAuthOpen(true)}
           onOpenAI={() => setIsAIOpen(true)}
           onOpenAddProperty={handleOpenAddProperty}
@@ -210,10 +264,7 @@ export function App() {
 
         {/* Footer */}
         <Footer
-          onRoleChange={(role) => {
-            setCurrentRole(role);
-            setCurrentView('home');
-          }}
+          onRoleChange={handleRoleChange}
           onOpenAddProperty={handleOpenAddProperty}
         />
 
@@ -266,11 +317,15 @@ export function App() {
         }}
         onSuccessRole={(role) => {
           setIsAuthOpen(false);
-          setCurrentRole('owner');
+          setCurrentRole(role);
           setCurrentView('home');
           if (pendingAddProperty) {
             setPendingAddProperty(false);
-            setAutoOpenAddProperty(true);
+            if (role === 'owner' || role === 'admin') {
+              setAutoOpenAddProperty(true);
+            } else {
+              alert('An owner account is required to add a property. Please sign in or register as a host.');
+            }
           }
         }}
       />

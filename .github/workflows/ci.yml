@@ -1,0 +1,48 @@
+name: Thikana CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, security-fixes-2026-11]
+
+concurrency:
+  group: thikana-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-typecheck:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Set up Java 21 for Firebase Emulator Suite
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Dependency vulnerability audit
+        run: npm audit --audit-level=moderate
+      - name: TypeScript check
+        run: npm run lint
+      - name: Validate maintenance scripts
+        run: |
+          node --check scripts/audit-firestore-ownership.mjs
+          node --check scripts/provision-admin.mjs
+      - name: Production build
+        run: npm run build
+      - name: Firestore security rules tests
+        run: npm run test:rules
+      - name: Firebase Storage security rules tests
+        run: npm run test:storage
+      - name: Firebase Authentication emulator tests
+        run: npm run test:auth

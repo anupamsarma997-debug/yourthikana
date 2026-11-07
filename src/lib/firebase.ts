@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, initializeFirestore } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, type AppCheck } from 'firebase/app-check';
 
 // Safely attempt to load firebase-applet-config.json if present
 let config: Record<string, any> = {};
@@ -34,6 +35,7 @@ let app: any = null;
 let db: any = null;
 let auth: any = null;
 let storage: any = null;
+let appCheck: AppCheck | null = null;
 let firebaseConfigError: string | null = null;
 
 if (isFirebaseConfigured) {
@@ -55,6 +57,16 @@ if (isFirebaseConfigured) {
     }
     auth = getAuth(app);
     storage = getStorage(app);
+
+    // App Check is opt-in until a site key is configured and verified in Firebase.
+    // Do not enable Firebase enforcement before this client initialization is deployed.
+    const appCheckSiteKey = (import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY || '').trim();
+    if (appCheckSiteKey) {
+      appCheck = initializeAppCheck(app, {
+        provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+    }
   } catch (e: any) {
     firebaseConfigError = e?.message || String(e);
     console.error('Firebase initialization error:', e);
@@ -106,7 +118,7 @@ export const checkFirebaseDiagnostics = (): FirebaseDiagnostic => {
   };
 };
 
-export { app, db, auth, storage, firebaseConfigError };
+export { app, db, auth, storage, appCheck, firebaseConfigError };
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account',

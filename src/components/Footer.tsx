@@ -35,10 +35,7 @@ export const Footer: React.FC<FooterProps> = ({ onRoleChange, onOpenAddProperty 
 
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => {
-                onRoleChange('owner');
-                onOpenAddProperty();
-              }}
+              onClick={onOpenAddProperty}
               className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl transition-all shadow-lg cursor-pointer"
             >
               Add Property Now

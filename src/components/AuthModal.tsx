@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { store } from '../services/store';
-import { UserRole } from '../types';
+import { UserRole, type User } from '../types';
 import { X, ShieldCheck, Mail, Lock, CheckCircle2, AlertCircle, RefreshCw, Send, UserCheck, KeyRound } from 'lucide-react';
 import { 
   signInWithPopup, 
@@ -8,10 +8,16 @@ import {
   getRedirectResult,
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
+  signInWithCustomToken,
+  EmailAuthProvider,
+  linkWithCredential,
+  updateProfile,
   sendEmailVerification, 
-  sendPasswordResetEmail 
+  sendPasswordResetEmail,
+  type User as FirebaseUser,
 } from 'firebase/auth';
-import { auth, googleProvider, checkFirebaseDiagnostics } from '../lib/firebase';
+import { auth, db, googleProvider, checkFirebaseDiagnostics } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -39,8 +45,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   targetPropertyTitle,
   requiredOwnerId
 }) => {
-  if (!isOpen) return null;
-
   const [mode, setMode] = useState<'login' | 'register' | 'forgot_password'>(initialMode);
   const [role, setRole] = useState<UserRole>('owner');
 
@@ -64,6 +68,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [showDiagnostics, setShowDiagnostics] = useState<boolean>(false);
+  const [pendingSetup, setPendingSetup] = useState(false);
+  const [pendingAuthMethod, setPendingAuthMethod] = useState<'google' | 'email' | null>(null);
 
   // Runtime Diagnostic Result
   const firebaseDiagnostics = checkFirebaseDiagnostics();
@@ -71,32 +77,99 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Helper notice if editing specific property
   const targetPropertyOwner = requiredOwnerId ? store.getUsers().find(u => u.id === requiredOwnerId) : null;
 
-  // Direct Google Email Login State
-  const [showDirectGoogleInput, setShowDirectGoogleInput] = useState(true);
-  const [directGoogleEmailInput, setDirectGoogleEmailInput] = useState('rupaamsarma1234@gmail.com');
-  const [directGoogleNameInput, setDirectGoogleNameInput] = useState('Rupaam Sarma');
+  const canAccessTargetProperty = (user: User) =>
+    !requiredOwnerId || user.id === requiredOwnerId || user.googleUid === requiredOwnerId || user.role === 'admin';
 
-  // Check for redirect result on mount if redirect auth was used
-  React.useEffect(() => {
-    if (auth) {
-      getRedirectResult(auth).then((res) => {
-        if (res && res.user && res.user.email) {
-          const gUser = res.user;
-          const loggedInUser = store.loginOrRegisterWithGoogle({
-            email: gUser.email,
-            displayName: gUser.displayName || undefined,
-            photoURL: gUser.photoURL || undefined,
-            uid: gUser.uid,
-            desiredRole: role,
-          });
-          if (onSuccessRole) onSuccessRole(loggedInUser.role);
-          alert(`🎉 Signed in successfully with Google!\n\nName: ${loggedInUser.name}\nEmail: ${loggedInUser.email}`);
-          onClose();
+  const targetPropertyDeniedMessage = () =>
+    `Permission denied. This property belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`;
+
+  const finishGoogleSignIn = async (firebaseUser: FirebaseUser) => {
+    if (!firebaseUser.email || !auth || !db) throw new Error('Google account email or Firebase profile service is unavailable.');
+
+    // Existing Firebase users already have a UID-keyed profile. Read it directly
+    // first so a transient Admin SDK/API issue cannot block a returning user.
+    // Firestore rules restrict this read to the authenticated account's own UID.
+    try {
+      const profileSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
+      const profileUsername = String(profileSnap.data()?.username || '').trim().replace(/^@/, '').toLowerCase();
+      if (profileSnap.exists() && /^[a-z0-9_]{3,20}$/.test(profileUsername)) {
+        const loggedInUser = await store.loginWithFirebaseUser(firebaseUser);
+        if (!canAccessTargetProperty(loggedInUser)) {
+          store.logout();
+          throw new Error(targetPropertyDeniedMessage());
         }
-      }).catch((err) => {
-        console.warn('Redirect result check error:', err);
-      });
+        if (onSuccessRole) onSuccessRole(loggedInUser.role);
+        setPendingSetup(false);
+        setPendingAuthMethod(null);
+        onClose();
+        return;
+      }
+    } catch (profileError: any) {
+      // Preserve explicit authorization/account-status errors; only fall back
+      // to the server setup check for a missing profile or transient read error.
+      if (profileError?.message?.startsWith('Permission denied.') ||
+          profileError?.message?.includes('account is not active')) throw profileError;
+      console.warn('Direct Google profile lookup unavailable; checking server setup:', profileError?.code || profileError?.message);
     }
+
+    const idToken = await firebaseUser.getIdToken(true);
+    const response = await fetch('/api/auth/username-status', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + idToken },
+    });
+    const status = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(status.error || `Account setup check failed (HTTP ${response.status}). Please try again.`);
+    }
+    if (status.complete) {
+      const loggedInUser = await store.loginWithFirebaseUser(firebaseUser);
+      if (!canAccessTargetProperty(loggedInUser)) {
+        store.logout();
+        throw new Error(targetPropertyDeniedMessage());
+      }
+      if (onSuccessRole) onSuccessRole(loggedInUser.role);
+      setPendingSetup(false);
+      setPendingAuthMethod(null);
+      onClose();
+      return;
+    }
+    setUsername(status.username || firebaseUser.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20));
+    setPassword('');
+    setMode('register');
+    setPendingSetup(true);
+    setPendingAuthMethod(firebaseUser.providerData.some((provider) => provider.providerId === 'password') ? 'email' : 'google');
+    setSuccessMessage('Finish setting up your unique username to continue.');
+  };
+
+  // Complete Google sign-in after Firebase redirects back to this page.
+  React.useEffect(() => {
+    if (!auth) return;
+    let active = true;
+    getRedirectResult(auth).then(async (res) => {
+      if (!active || !res?.user?.email) return;
+      setIsLoading(true);
+      try {
+        await finishGoogleSignIn(res.user);
+      } catch (error: any) {
+        const code = error?.code || 'auth/profile-restore-failed';
+        console.error('Google redirect profile restore failed:', code, error?.message || error);
+        setErrorMessage(`Google sign-in returned, but account setup failed (${code}). Check Firebase Firestore access and try again.`);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    }).catch((err: any) => {
+      if (!active) return;
+      const code = err?.code || 'auth/redirect-failed';
+      console.error('Google redirect result error:', code, err?.message || err);
+      setErrorMessage(
+        code === 'auth/unauthorized-domain'
+          ? 'This website domain is not authorized in Firebase Authentication → Settings → Authorized domains.'
+          : code === 'auth/operation-not-allowed'
+            ? 'Google sign-in is disabled in Firebase Authentication → Sign-in method.'
+            : `Google redirect sign-in failed (${code}). Check Firebase Authentication settings and try again.`
+      );
+    });
+    return () => { active = false; };
   }, []);
 
   // 1-Click Google Sign-In
@@ -110,247 +183,184 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const res = await signInWithPopup(auth, googleProvider);
         const gUser = res.user;
         if (gUser.email) {
-          const loggedInUser = store.loginOrRegisterWithGoogle({
-            email: gUser.email,
-            displayName: gUser.displayName || undefined,
-            photoURL: gUser.photoURL || undefined,
-            uid: gUser.uid,
-            desiredRole: role,
-          });
-
-          if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.role !== 'admin') {
-            setErrorMessage(`Permission Denied! Signed in as @${loggedInUser.username}, but this property belongs to @${targetPropertyOwner?.username || 'another host'}.`);
-            setIsLoading(false);
-            return;
-          }
-
-          if (onSuccessRole) onSuccessRole(loggedInUser.role);
-          alert(`🎉 Signed in successfully with Google!\n\nName: ${loggedInUser.name}\nEmail: ${loggedInUser.email}`);
-          onClose();
+          await finishGoogleSignIn(gUser);
           return;
         }
       } catch (err: any) {
-        console.warn('Google Popup Auth notice:', err?.code || err);
-        if (err?.code === 'auth/popup-closed-by-user') {
-          setErrorMessage('Sign in cancelled.');
-          setIsLoading(false);
+        const code = err?.code || 'auth/unknown';
+        console.error('Google Sign-In failed:', code, err?.message || err);
+
+        if (code === 'auth/popup-closed-by-user') {
+          setErrorMessage('Google Sign-In was cancelled. Please try again.');
           return;
         }
-        // If popup blocked or cancelled, try redirect
-        if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/cancelled-popup-request') {
+
+        // If the browser blocks the popup, use Firebase's redirect flow.
+        if (code === 'auth/popup-blocked' || code === 'auth/cancelled-popup-request') {
           try {
             setSuccessMessage('Redirecting to Google Sign-In...');
             await signInWithRedirect(auth, googleProvider);
             return;
-          } catch (redErr: any) {
-            console.warn('Redirect auth failed:', redErr);
+          } catch (redirectError: any) {
+            const redirectCode = redirectError?.code || 'auth/redirect-failed';
+            console.error('Google redirect sign-in failed:', redirectCode, redirectError?.message || redirectError);
+            setErrorMessage(
+              redirectCode === 'auth/unauthorized-domain'
+                ? 'This website domain is not authorized in Firebase Authentication. Add the current Vercel domain under Authentication → Settings → Authorized domains.'
+                : redirectCode === 'auth/operation-not-allowed'
+                  ? 'Google sign-in is disabled in Firebase Authentication → Sign-in method.'
+                  : redirectCode === 'auth/network-request-failed'
+                    ? 'Network error while contacting Firebase. Check your internet connection and try again.'
+                    : `Google sign-in failed (${redirectCode}): ${redirectError?.message || 'Please check Firebase Authentication settings.'}`
+            );
+            return;
           }
         }
+
+        setErrorMessage(
+          code === 'auth/unauthorized-domain'
+            ? 'This website domain is not authorized in Firebase Authentication. Add the current Vercel domain under Authentication → Settings → Authorized domains.'
+            : code === 'auth/operation-not-allowed'
+              ? 'Google sign-in is disabled in Firebase Authentication → Sign-in method.'
+              : code === 'auth/api-key-not-valid'
+                ? 'The Firebase API key is invalid for this web app. Check VITE_FIREBASE_API_KEY in Vercel.'
+                : code === 'auth/network-request-failed'
+                  ? 'Network error while contacting Firebase. Check your internet connection and try again.'
+                  : `Google sign-in failed (${code}): ${err?.message || 'Please check Firebase Authentication settings.'}`
+        );
+        return;
       } finally {
         setIsLoading(false);
       }
     }
 
-    // Direct Google Email Input Fallback if Popup/Auth is unavailable
-    setShowDirectGoogleInput(true);
-    setErrorMessage('Direct Google Auth: Please enter your Google Email address below to sign in directly.');
+    setErrorMessage('Firebase Authentication is not initialized. Check the VITE_FIREBASE_API_KEY, VITE_FIREBASE_PROJECT_ID and VITE_FIREBASE_AUTH_DOMAIN variables, then create a new Vercel deployment.');
   };
 
-  // Handle Direct Google Email Login
-  const handleDirectGoogleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    const emailToUse = directGoogleEmailInput.trim();
-    if (!emailToUse || !emailToUse.includes('@')) {
-      setErrorMessage('Please enter a valid Google Email Address (e.g. name@gmail.com).');
-      return;
+  // Email registration uses Firebase Auth; username claims are verified by the server.
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); setErrorMessage(''); setSuccessMessage('');
+    if (!auth) { setErrorMessage('Secure registration is unavailable.'); return; }
+    if (!name.trim() || !email.trim() || password.length < 8) {
+      setErrorMessage('Enter your name, email and a password of at least 8 characters.'); return;
     }
-
     setIsLoading(true);
     try {
-      const nameToUse = directGoogleNameInput.trim() || emailToUse.split('@')[0];
-      const googleUid = 'google_direct_' + emailToUse.replace(/[^a-zA-Z0-9]/g, '_');
+      const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      await updateProfile(credential.user, { displayName: name.trim() });
+      setUsername(''); setPendingSetup(true); setPendingAuthMethod('email');
+      setSuccessMessage('Account created. Now choose your unique username.');
+    } catch (err: any) {
+      setErrorMessage(err?.code === 'auth/email-already-in-use' ? 'This email already has an account. Please sign in.' : err?.message || 'Registration failed.');
+    } finally { setIsLoading(false); }
+  };
 
-      const loggedInUser = store.loginOrRegisterWithGoogle({
-        email: emailToUse,
-        displayName: nameToUse,
-        uid: googleUid,
-        desiredRole: role,
+  const handleCompleteProfile = async (e: React.FormEvent) => {
+    e.preventDefault(); setErrorMessage(''); setSuccessMessage('');
+    const firebaseUser = auth?.currentUser;
+    const normalizedUsername = username.trim().replace(/^@/, '').toLowerCase();
+    if (!firebaseUser) { setErrorMessage('Your sign-in session expired. Please sign in again.'); return; }
+    if (!/^[a-z0-9_]{3,20}$/.test(normalizedUsername)) {
+      setErrorMessage('Username must be 3–20 characters using letters, numbers or underscore.'); return;
+    }
+    if (pendingAuthMethod === 'google' && password.length < 8) {
+      setErrorMessage('Create a separate Yourthikana password with at least 8 characters.'); return;
+    }
+    setIsLoading(true);
+    try {
+      if (pendingAuthMethod === 'google') {
+        const hasPassword = firebaseUser.providerData.some((provider) => provider.providerId === 'password');
+        if (!hasPassword) {
+          if (!firebaseUser.email) throw new Error('Google account email is unavailable.');
+          await linkWithCredential(firebaseUser, EmailAuthProvider.credential(firebaseUser.email, password));
+        }
+      }
+      const idToken = await auth!.currentUser!.getIdToken(true);
+      const response = await fetch('/api/auth/claim-username', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+        body: JSON.stringify({ username: normalizedUsername }),
       });
-
-      if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.role !== 'admin') {
-        setErrorMessage(`Permission Denied! Signed in as @${loggedInUser.username}, but this property belongs to @${targetPropertyOwner?.username || 'another host'}.`);
-        setIsLoading(false);
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Could not save username.');
+      const loggedInUser = await store.loginWithFirebaseUser(auth!.currentUser!);
+      if (!canAccessTargetProperty(loggedInUser)) {
+        store.logout();
+        setErrorMessage(targetPropertyDeniedMessage());
         return;
       }
-
       if (onSuccessRole) onSuccessRole(loggedInUser.role);
-      alert(`🎉 Signed in as Google User!\n\nName: ${loggedInUser.name}\nGoogle Email: ${loggedInUser.email}\nUsername: @${loggedInUser.username}`);
-      onClose();
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Google email sign in failed.');
-    } finally {
-      setIsLoading(false);
-    }
+      setPendingSetup(false); setPendingAuthMethod(null); onClose();
+    } catch (err: any) { setErrorMessage(err?.message || 'Account setup failed.'); }
+    finally { setIsLoading(false); }
   };
 
-  // Quick 1-Click Demo Login Helper
-  const handleQuickDemoLogin = (username: string) => {
-    setErrorMessage('');
-    setSuccessMessage('');
-    setIsLoading(true);
-    setTimeout(() => {
-      const res = store.loginWithUsernamePassword(username, '123456');
-      setIsLoading(false);
-      if (res.success && res.user) {
-        if (requiredOwnerId && res.user.id !== requiredOwnerId && res.user.role !== 'admin') {
-          setErrorMessage(`Permission Denied! Signed in as @${res.user.username}, but this listing belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`);
-          return;
-        }
-        if (onSuccessRole) onSuccessRole(res.user.role);
-        alert(`⚡ Quick Logged In as ${res.user.name} (@${res.user.username})!`);
-        onClose();
-      } else {
-        setErrorMessage(res.message || 'Quick login failed.');
-      }
-    }, 250);
-  };
-
-  // Register with Email & Password + Instant Verification & Login
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    if (!name.trim()) {
-      setErrorMessage('Please enter your Full Name.');
-      return;
-    }
-    if (!email.trim() || !email.includes('@')) {
-      setErrorMessage('Please enter a valid Email Address.');
-      return;
-    }
-    if (!username.trim() || username.trim().length < 3) {
-      setErrorMessage('Username must be at least 3 characters long.');
-      return;
-    }
-    if (!password || password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters long.');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      let firebaseUid = `user_${Date.now()}`;
-      if (auth) {
-        try {
-          const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-          firebaseUid = userCredential.user.uid;
-          try {
-            await sendEmailVerification(userCredential.user);
-          } catch {
-            // Ignore verification error if email service is unconfigured
-          }
-        } catch (fbErr: any) {
-          if (fbErr.code === 'auth/email-already-in-use') {
-            setErrorMessage('This email is already registered. Please log in or use Forgot Password.');
-            setIsLoading(false);
-            return;
-          }
-        }
-      }
-
-      // Sync user to Store & log them in immediately
-      const newUser = store.registerUser({
-        name: name.trim(),
-        username: username.trim().toLowerCase().replace(/\s+/g, '_'),
-        password,
-        email: email.trim(),
-        googleUid: firebaseUid,
-        phone: phone.trim(),
-        whatsapp: whatsapp.trim() || phone.trim(),
-        role,
-      });
-
-      // Automatically log in the newly registered user
-      store.loginWithUsernamePassword(newUser.username, password);
-
-      if (onSuccessRole) {
-        onSuccessRole(newUser.role);
-      }
-
-      alert(`🎉 Registration & Sign-In Successful!\n\nWelcome, ${newUser.name}!\nUsername: @${newUser.username}\nEmail: ${newUser.email}\nRole: ${newUser.role.toUpperCase()}`);
-      onClose();
-    } catch (err: any) {
-      console.error('Registration error:', err);
-      setErrorMessage(err?.message || 'Registration failed. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Login with Email / Username & Password
+  // Existing Firebase email/password accounts only; local/demo password auth is never used.
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
-
-    if (!loginIdentifier.trim() || !loginPassword) {
-      setErrorMessage('Please enter your Email/Username and Password.');
+    if (!auth) {
+      setErrorMessage('Secure sign-in is unavailable. Please try again later.');
       return;
     }
-
+    const identifier = loginIdentifier.trim().replace(/^@/, '').toLowerCase();
+    if (!identifier || !loginPassword) {
+      setErrorMessage('Enter your existing username/email and password.');
+      return;
+    }
     setIsLoading(true);
-
     try {
-      let emailToTry = loginIdentifier.trim();
-      if (!emailToTry.includes('@')) {
-        const matched = store.getUsers().find(u => u.username?.toLowerCase() === emailToTry.toLowerCase());
-        if (matched && matched.email) {
-          emailToTry = matched.email;
+      let credential;
+      if (!identifier.includes('@')) {
+        const response = await fetch('/api/auth/username-login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: identifier, password: loginPassword }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.customToken) throw new Error(result.error || 'Incorrect username or password.');
+        credential = await signInWithCustomToken(auth, result.customToken);
+      } else {
+        credential = await signInWithEmailAndPassword(auth, identifier, loginPassword);
+        const idToken = await credential.user.getIdToken(true);
+        const statusResponse = await fetch('/api/auth/username-status', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + idToken },
+        });
+        const status = await statusResponse.json().catch(() => ({}));
+        if (!statusResponse.ok) throw new Error(status.error || 'Could not verify account setup.');
+        if (!status.complete) {
+          setUsername(status.username || '');
+          setMode('register');
+          setPendingSetup(true);
+          setPendingAuthMethod('email');
+          setSuccessMessage('Finish setting up your unique username to continue.');
+          return;
         }
       }
-
-      if (auth && emailToTry.includes('@')) {
-        try {
-          await signInWithEmailAndPassword(auth, emailToTry, loginPassword);
-        } catch (fbErr) {
-          console.warn('Firebase signIn notice:', fbErr);
-        }
-      }
-
-      const res = store.loginWithUsernamePassword(loginIdentifier, loginPassword);
-      if (!res.success) {
-        setErrorMessage(res.message || 'Login failed. Invalid username/email or password.');
-        setIsLoading(false);
+      if (!credential.user.email) throw new Error('This Firebase account has no email address.');
+      const loggedInUser = await store.loginWithFirebaseUser(credential.user);
+      if (!canAccessTargetProperty(loggedInUser)) {
+        store.logout();
+        setErrorMessage(targetPropertyDeniedMessage());
         return;
       }
-
-      const loggedInUser = res.user!;
-
-      if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.role !== 'admin') {
-        setErrorMessage(`Permission Denied! You logged in as @${loggedInUser.username}, but this property belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`);
-        setIsLoading(false);
-        return;
-      }
-
-      if (onSuccessRole) {
-        onSuccessRole(loggedInUser.role);
-      }
-
-      alert(`Welcome back, ${loggedInUser.name}! (@${loggedInUser.username}) Logged in successfully.`);
+      if (onSuccessRole) onSuccessRole(loggedInUser.role);
       onClose();
     } catch (err: any) {
-      setErrorMessage(err?.message || 'Login failed.');
+      const code = err?.code || '';
+      setErrorMessage(
+        code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found'
+          ? 'Incorrect username/email or password. Only previously registered accounts can sign in.'
+          : code === 'auth/too-many-requests'
+            ? 'Too many attempts. Please wait and try again.'
+            : err?.message || 'Sign-in failed. Please try again.'
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Forgot Password: On-screen Instant Password Reset
+  // Password recovery must be completed through Firebase's verified email link.
   const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -360,44 +370,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setErrorMessage('Please enter a valid registered email address.');
       return;
     }
+    if (!auth) {
+      setErrorMessage('Secure password recovery is unavailable because Firebase Authentication is not configured.');
+      return;
+    }
 
     setIsLoading(true);
-
     try {
-      if (auth) {
-        sendPasswordResetEmail(auth, resetEmail.trim()).catch(() => {});
-      }
-
-      // Perform instant on-screen password reset in local store & Firestore
-      const newTempPassword = 'ThikanaPass' + Math.floor(100 + Math.random() * 900);
-      const res = store.resetPasswordWithGoogleEmail(resetEmail.trim(), newTempPassword);
-
-      if (res.success && res.user) {
-        setSuccessMessage(`🔑 Password Reset Successful!\nYour new login password for ${res.user.email} (@${res.user.username}) is: ${newTempPassword}\n\nYou are now automatically logged in!`);
-        alert(`🔑 Password Reset Successful!\n\nEmail: ${res.user.email}\nNew Password: ${newTempPassword}\n\nYou are now signed in.`);
-        if (onSuccessRole) onSuccessRole(res.user.role);
-        onClose();
-      } else {
-        setErrorMessage(`No account found registered with email "${resetEmail.trim()}". Please check your email or click "Sign Up" to create an account.`);
-      }
+      await sendPasswordResetEmail(auth, resetEmail.trim());
+      setSuccessMessage('If an account exists for this email, Firebase has sent a password reset link. Check your inbox and spam folder.');
     } catch (err: any) {
-      setErrorMessage(err?.message || 'Password reset request failed.');
+      // Avoid revealing whether an email address has an account.
+      if (err?.code === 'auth/invalid-email') {
+        setErrorMessage('Please enter a valid email address.');
+      } else {
+        setSuccessMessage('If an account exists for this email, Firebase has sent a password reset link. Check your inbox and spam folder.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md">
       <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative max-h-[90vh] overflow-y-auto">
         
         {/* Close Button */}
-        <button
+        {!pendingSetup && <button
           onClick={onClose}
           className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
-        </button>
+        </button>}
 
         {/* Header Icon */}
         <div className="text-center mb-5">
@@ -427,7 +433,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Mode Selector Tabs */}
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-4 text-xs font-bold">
+        {!pendingSetup && <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-4 text-xs font-bold">
           <button
             onClick={() => { setMode('register'); setErrorMessage(''); setSuccessMessage(''); }}
             className={`flex-1 py-2 rounded-lg transition-all cursor-pointer ${
@@ -452,7 +458,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           >
             Forgot Password
           </button>
-        </div>
+        </div>}
 
         {/* Error / Alert Messages */}
         {errorMessage && (
@@ -489,7 +495,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         )}
 
         {/* Google 1-Click Sign In (Available on Login / Register) */}
-        {mode !== 'forgot_password' && (
+        {mode !== 'forgot_password' && !(mode === 'register' && pendingSetup) && (
           <div className="mb-4 space-y-3">
             <button
               type="button"
@@ -501,188 +507,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <span>Continue with Google</span>
             </button>
 
-            {/* Direct Google Email Sign-In Form (Shown if popup is unavailable) */}
-            {showDirectGoogleInput && (
-              <form onSubmit={handleDirectGoogleSubmit} className="p-3 bg-emerald-50/80 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200 dark:border-emerald-800 space-y-2">
-                <div className="flex items-center justify-between text-xs font-black text-emerald-800 dark:text-emerald-300">
-                  <span className="flex items-center gap-1.5">
-                    <GoogleIcon />
-                    <span>Google Email Sign In</span>
-                  </span>
-                </div>
-                <div className="space-y-1.5">
-                  <input
-                    type="email"
-                    required
-                    placeholder="Enter your Google Email (e.g. name@gmail.com)"
-                    value={directGoogleEmailInput}
-                    onChange={(e) => setDirectGoogleEmailInput(e.target.value)}
-                    className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                  <div className="flex gap-1.5">
-                    <input
-                      type="text"
-                      placeholder="Your Name (Optional)"
-                      value={directGoogleNameInput}
-                      onChange={(e) => setDirectGoogleNameInput(e.target.value)}
-                      className="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl shrink-0 cursor-pointer shadow-sm transition-transform active:scale-95 disabled:opacity-50"
-                    >
-                      Sign In
-                    </button>
-                  </div>
-                </div>
-              </form>
-            )}
-
             <div className="relative my-3 text-center">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-slate-800"></div></div>
               <span className="relative bg-white dark:bg-slate-900 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Or Email & Password
+                Or create account with Email
               </span>
             </div>
           </div>
         )}
 
-        {/* MODE 1: REGISTER */}
-        {mode === 'register' && (
+        {/* MODE 1: REGISTER — choose Email OR Google */}
+        {mode === 'register' && !pendingSetup && (
           <form onSubmit={handleRegisterSubmit} className="space-y-3">
-            {/* Account Role Selector */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Account Type
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRole('owner')}
-                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                    role === 'owner'
-                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                  }`}
-                >
-                  Homestay / Hotel Host
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRole('customer')}
-                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                    role === 'customer'
-                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                  }`}
-                >
-                  Traveler / Customer
-                </button>
-              </div>
-            </div>
-
-            {/* Full Name */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Full Name
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Pranab Gogoi"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-              />
-            </div>
-
-            {/* Email Address */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Email Address <span className="text-emerald-600 dark:text-emerald-400 font-semibold">(Verification Link Sent)</span>
-              </label>
-              <input
-                type="email"
-                required
-                placeholder="pranab@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-              />
-            </div>
-
-            {/* Username */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                <span>Create Username</span>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Min 3 chars</span>
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">@</span>
-                <input
-                  type="text"
-                  required
-                  placeholder="pranab_kaziranga"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl pl-7 pr-3 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                <span>Password</span>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Min 6 chars</span>
-              </label>
-              <input
-                type="password"
-                required
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-              />
-            </div>
-
-            {/* Phone / WhatsApp */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Phone <span className="font-normal text-slate-400">(Optional)</span>
-                </label>
-                <input
-                  type="tel"
-                  placeholder="+91 9435012345"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  WhatsApp <span className="font-normal text-slate-400">(Optional)</span>
-                </label>
-                <input
-                  type="tel"
-                  placeholder="For Direct Bookings"
-                  value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs py-3 rounded-xl shadow-md transition-all cursor-pointer mt-2 disabled:opacity-50"
-            >
-              {isLoading ? 'Creating Account...' : 'Create Account'}
-            </button>
+            <div><label className="block text-xs font-bold mb-1">Full Name</label><input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl px-3 py-2 text-xs" /></div>
+            <div><label className="block text-xs font-bold mb-1">Email Address</label><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl px-3 py-2 text-xs" /></div>
+            <div><label className="block text-xs font-bold mb-1">Yourthikana Password</label><input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl px-3 py-2 text-xs" /></div>
+            <button type="submit" disabled={isLoading} className="w-full bg-emerald-600 text-white font-extrabold text-xs py-3 rounded-xl disabled:opacity-50">{isLoading ? 'Creating account...' : 'Continue with Email'}</button>
+          </form>
+        )}
+        {mode === 'register' && pendingSetup && (
+          <form onSubmit={handleCompleteProfile} className="space-y-3">
+            <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 p-3 text-xs"><p className="font-bold">Choose your unique username</p><p className="mt-1">You can use this username and your Yourthikana password to sign in.</p></div>
+            <div><label className="block text-xs font-bold mb-1">Username</label><input required minLength={3} maxLength={20} value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. anupam_01" className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl px-3 py-2 text-xs" /></div>
+            {pendingAuthMethod === 'google' && <div><label className="block text-xs font-bold mb-1">Create Yourthikana Password</label><input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl px-3 py-2 text-xs" /></div>}
+            <button type="submit" disabled={isLoading} className="w-full bg-emerald-600 text-white font-extrabold text-xs py-3 rounded-xl disabled:opacity-50">{isLoading ? 'Saving securely...' : 'Finish Account Setup'}</button>
           </form>
         )}
 

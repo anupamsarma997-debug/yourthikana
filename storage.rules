@@ -1,7 +1,6 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-
     function isSignedIn() {
       return request.auth != null;
     }
@@ -10,17 +9,25 @@ service firebase.storage {
       return isSignedIn() && request.auth.uid == ownerUid;
     }
 
-    // Property photos: public read, but only the owning user (matched by UID in the
-    // path) can upload/delete their own property's images.
+    function isAllowedImage() {
+      return request.resource != null &&
+        request.resource.size > 0 &&
+        request.resource.size <= 5 * 1024 * 1024 &&
+        request.resource.contentType in [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/avif',
+          'image/gif'
+        ];
+    }
+
     match /properties/{ownerUid}/{propertyId}/{fileName} {
       allow read: if true;
-      allow write: if isOwner(ownerUid)
-                   && request.resource.size < 5 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+      allow create, update: if isOwner(ownerUid) && isAllowedImage();
       allow delete: if isOwner(ownerUid);
     }
 
-    // Deny everything else by default
     match /{allPaths=**} {
       allow read, write: if false;
     }

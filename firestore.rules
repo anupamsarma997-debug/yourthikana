@@ -406,6 +406,10 @@ service cloud.firestore {
 
       allow update: if isUser(userId) &&
         isValidPublicProfile() &&
+        // A missing legacy role may be initialized only as customer/owner.
+        // Admin is reserved for a trusted Auth custom claim.
+        (!('role' in request.resource.data) ||
+          request.resource.data.role in ['customer', 'owner'] || isAdmin()) &&
         (!('role' in resource.data) ||
           request.resource.data.get('role', '') == resource.data.get('role', ''));
 

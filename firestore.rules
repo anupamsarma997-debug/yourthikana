@@ -91,7 +91,7 @@ service cloud.firestore {
           !request.resource.data.diff(resource.data).affectedKeys().hasAny([
             'isVerified', 'isFeatured', 'rating', 'reviewsCount',
             'subscriptionPlan', 'subscriptionPrice', 'subscriptionExpiresAt',
-            'subscriptionExpiryDate', 'ownerUid', 'ownerId', 'ownerEmail'
+            'subscriptionExpiryDate', 'ownerUid', 'ownerId', 'ownerEmail', 'status'
           ])
         );
       allow delete: if isAdmin() ||
@@ -113,7 +113,7 @@ service cloud.firestore {
 
     match /enquiries/{enquiryId} {
       allow create: if validEnquiryCreate();
-      allow read, update, delete: if isAdmin() ||
+      allow read, delete: if isAdmin() ||
         (signedIn() && resource.data.get('ownerUid', '') == request.auth.uid);
       allow update: if isAdmin() ||
         (signedIn() &&

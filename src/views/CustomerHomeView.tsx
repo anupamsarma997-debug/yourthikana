@@ -261,9 +261,12 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
           <div className="pt-2">
             <form onSubmit={(e) => e.preventDefault()} className="bg-white dark:bg-slate-900 p-2 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center gap-2">
               <div className="flex-1 flex items-center gap-2.5 px-3 py-2 w-full">
-                <Search className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <Search className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+                <label htmlFor="thikana-destination-search" className="sr-only">Search by destination, property name or state</label>
                 <input
-                  type="text"
+                  id="thikana-destination-search"
+                  type="search"
+                  autoComplete="off"
                   placeholder="Search by city (e.g. Kaziranga, Shillong, Tawang), stay name, or state..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}

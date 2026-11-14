@@ -69,14 +69,14 @@ export const Footer: React.FC<FooterProps> = ({ onRoleChange, onOpenAddProperty 
             <h5 className="font-extrabold text-white uppercase tracking-wider mb-3 text-[11px]">
               Top Northeast Destinations
             </h5>
-            <ul className="space-y-2 text-slate-400">
-              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Kaziranga National Park (Assam)</li>
-              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Sohra & Cherrapunji (Meghalaya)</li>
-              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Tawang Monastery Stays (Arunachal)</li>
-              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Majuli Island Mishing Homestays (Assam)</li>
-              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Gangtok & Sikkim Eco Stays (Sikkim)</li>
-              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Dzukou Valley & Kohima (Nagaland)</li>
-              <li className="hover:text-emerald-400 cursor-pointer transition-colors">Shillong Pine Hills (Meghalaya)</li>
+            <ul className="space-y-2 text-slate-300">
+              <li><a href="/guwahati" className="inline-flex min-h-11 items-center hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Guwahati, Assam</a></li>
+              <li><a href="/shillong" className="inline-flex min-h-11 items-center hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Shillong, Meghalaya</a></li>
+              <li><a href="/dibrugarh" className="inline-flex min-h-11 items-center hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Dibrugarh, Assam</a></li>
+              <li><a href="/kaziranga" className="inline-flex min-h-11 items-center hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Kaziranga, Assam</a></li>
+              <li><a href="/tawang" className="inline-flex min-h-11 items-center hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Tawang, Arunachal Pradesh</a></li>
+              <li><a href="/gangtok" className="inline-flex min-h-11 items-center hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Gangtok, Sikkim</a></li>
+              <li><a href="/cherrapunji-sohra" className="inline-flex min-h-11 items-center hover:text-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">Sohra & Cherrapunji, Meghalaya</a></li>
             </ul>
           </div>
 

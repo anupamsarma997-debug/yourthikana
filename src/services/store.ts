@@ -289,6 +289,36 @@ class DataStore {
     };
 
     try {
+      // Public marketplace data must load for logged-out visitors too.
+      // Firestore rules explicitly allow public reads for properties and rooms.
+      onSnapshot(collection(db, 'properties'), (snapshot) => {
+        const remoteProps: Property[] = [];
+        snapshot.forEach((docSnap) => remoteProps.push(normalizeProperty({ id: docSnap.id, ...docSnap.data() })));
+        const propMap = new Map<string, Property>();
+        this.properties.forEach((p) => propMap.set(p.id, p));
+        remoteProps.forEach((p) => propMap.set(p.id, p));
+        this.properties = Array.from(propMap.values());
+        this.isFirebaseSynced = true;
+        this.firestoreError = null;
+        this.persist();
+        this.notify(false);
+      }, (err) => {
+        this.firestoreError = err?.message || String(err);
+        console.warn('Firestore properties sync notice:', this.firestoreError);
+        this.notify(false);
+      });
+
+      onSnapshot(collection(db, 'rooms'), (snapshot) => {
+        const remoteRooms: RoomType[] = [];
+        snapshot.forEach((docSnap) => remoteRooms.push({ id: docSnap.id, ...docSnap.data() } as RoomType));
+        const roomMap = new Map<string, RoomType>();
+        this.rooms.forEach((room) => roomMap.set(room.id, room));
+        remoteRooms.forEach((room) => roomMap.set(room.id, room));
+        this.rooms = Array.from(roomMap.values());
+        this.persist();
+        this.notify(false);
+      }, (err) => console.warn('Firestore rooms sync notice:', err?.message || err));
+
       onAuthStateChanged(auth, async (fbUser) => {
         clearPrivateListeners();
 
@@ -373,35 +403,6 @@ class DataStore {
           }
         }, (err) => console.warn('Own user profile sync notice:', err?.message || err));
         privateUnsubscribers.push(userUnsub);
-
-        const propertyUnsub = onSnapshot(collection(db, 'properties'), (snapshot) => {
-          const remoteProps: Property[] = [];
-          snapshot.forEach((docSnap) => remoteProps.push(normalizeProperty({ id: docSnap.id, ...docSnap.data() })));
-          const propMap = new Map<string, Property>();
-          this.properties.forEach((p) => propMap.set(p.id, p));
-          remoteProps.forEach((p) => propMap.set(p.id, p));
-          this.properties = Array.from(propMap.values());
-          this.isFirebaseSynced = true;
-          this.persist();
-          this.notify(false);
-        }, (err) => {
-          this.firestoreError = err?.message || String(err);
-          console.warn('Firestore properties sync notice:', this.firestoreError);
-          this.notify(false);
-        });
-        privateUnsubscribers.push(propertyUnsub);
-
-        const roomUnsub = onSnapshot(collection(db, 'rooms'), (snapshot) => {
-          const remoteRooms: RoomType[] = [];
-          snapshot.forEach((docSnap) => remoteRooms.push({ id: docSnap.id, ...docSnap.data() } as RoomType));
-          const roomMap = new Map<string, RoomType>();
-          this.rooms.forEach((r) => roomMap.set(r.id, r));
-          remoteRooms.forEach((r) => roomMap.set(r.id, r));
-          this.rooms = Array.from(roomMap.values());
-          this.persist();
-          this.notify(false);
-        }, (err) => console.warn('Firestore rooms sync notice:', err?.message || err));
-        privateUnsubscribers.push(roomUnsub);
 
 
       });

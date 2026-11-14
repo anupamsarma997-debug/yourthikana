@@ -112,6 +112,8 @@ export async function uploadPropertyPhoto(
       const firebaseUploadPromise = new Promise<string>((resolve) => {
         const uploadTask = uploadBytesResumable(storageRef, file, {
           contentType: file.type || 'image/jpeg',
+          // Unique filenames make long-lived immutable caching safe for each uploaded photo.
+          cacheControl: 'public, max-age=31536000, immutable',
           customMetadata: { ownerUid, propertyId, originalName: file.name }
         });
 
@@ -163,7 +165,7 @@ export async function uploadPropertyPhoto(
 
       const { data, error } = await supabase.storage
         .from('properties')
-        .upload(filePath, file, { cacheControl: '3600', upsert: true });
+        .upload(filePath, file, { cacheControl: '31536000', upsert: true });
 
       if (!error && data) {
         const { data: publicUrlData } = supabase.storage.from('properties').getPublicUrl(filePath);

@@ -445,74 +445,84 @@ class DataStore {
     this.notify();
   }
 
-  public loginOrRegisterWithGoogle(googleData: {
+  public async loginOrRegisterWithGoogle(googleData: {
     email: string;
     displayName?: string | null;
     photoURL?: string | null;
     uid?: string;
     desiredRole?: UserRole;
-  }): User {
-    const q = googleData.email.trim().toLowerCase();
-    let found = this.users.find(
-      (u) =>
-        (googleData.uid && (u.googleUid === googleData.uid || u.id === `google_${googleData.uid}`)) ||
-        (u.googleEmail && u.googleEmail.toLowerCase() === q) ||
-        (u.email && u.email.toLowerCase() === q)
+  }): Promise<User> {
+    if (!googleData.uid || !db) {
+      throw new Error('A valid Firebase account and database connection are required.');
+    }
+
+    const uid = googleData.uid;
+    const profileRef = doc(db, 'users', uid);
+    const profileSnapshot = await getDoc(profileRef);
+
+    if (profileSnapshot.exists()) {
+      const remote = { id: uid, ...profileSnapshot.data() } as User;
+      const existingIndex = this.users.findIndex((u) =>
+        u.id === uid || u.googleUid === uid ||
+        u.email?.toLowerCase() === googleData.email.toLowerCase()
+      );
+      const merged: User = {
+        ...(existingIndex >= 0 ? this.users[existingIndex] : {} as User),
+        ...remote,
+        id: uid,
+        googleUid: uid,
+        email: remote.email || googleData.email,
+        googleEmail: remote.googleEmail || googleData.email,
+        name: remote.name || googleData.displayName || googleData.email.split('@')[0],
+        avatar: googleData.photoURL || remote.avatar,
+      };
+      if (existingIndex >= 0) this.users[existingIndex] = merged;
+      else this.users.push(merged);
+      this.currentUserId = uid;
+      syncPublicProfile(merged);
+      this.notify();
+      return merged;
+    }
+
+    const existing = this.users.find((u) =>
+      u.googleUid === uid ||
+      u.id === `google_${uid}` ||
+      u.email?.toLowerCase() === googleData.email.toLowerCase() ||
+      u.googleEmail?.toLowerCase() === googleData.email.toLowerCase()
     );
 
-    if (found) {
-      if (!found.googleEmail) found.googleEmail = googleData.email;
-      if (!found.googleUid && googleData.uid) found.googleUid = googleData.uid;
-      if (googleData.photoURL) found.avatar = googleData.photoURL;
-      if (googleData.displayName && (!found.name || found.name === 'Host User')) found.name = googleData.displayName;
-      if (googleData.uid) { found.id = googleData.uid; found.googleUid = googleData.uid; }
-      this.currentUserId = found.id;
-      if (db) {
-        setDoc(doc(db, 'users', googleData.uid || found.id), sanitizeUserForFirestore({ ...found, id: googleData.uid || found.id, googleUid: googleData.uid || found.googleUid }), { merge: true }).catch((err) =>
-          console.warn('Firestore sync user error:', err)
-        );
-      }
-      syncPublicProfile(found);
-      this.notify();
-      return found;
-    }
+    const requestedRole = googleData.desiredRole || 'owner';
+    const safeRole: UserRole = requestedRole === 'admin' ? 'owner' : requestedRole;
+    const newUser: User = existing
+      ? {
+          ...existing,
+          id: uid,
+          googleUid: uid,
+          email: googleData.email,
+          googleEmail: googleData.email,
+          name: existing.name || googleData.displayName || googleData.email.split('@')[0],
+          avatar: googleData.photoURL || existing.avatar,
+        }
+      : {
+          id: uid,
+          name: googleData.displayName || googleData.email.split('@')[0],
+          username: googleData.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') || 'user',
+          email: googleData.email,
+          googleEmail: googleData.email,
+          googleUid: uid,
+          avatar: googleData.photoURL || undefined,
+          phone: '',
+          whatsapp: '',
+          role: safeRole,
+          status: 'active',
+          createdAt: new Date().toISOString(),
+        };
 
-    // Create new user from Google Login
-    const baseName = googleData.displayName || googleData.email.split('@')[0];
-    const baseUsername = googleData.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '');
-
-    // Never promote to admin via Google sign-in unless currentUser is admin
-    let targetRole: UserRole = googleData.desiredRole || 'owner';
-    if (targetRole === 'admin') {
-      const activeUser = this.getCurrentUser();
-      if (!activeUser || activeUser.role !== 'admin') {
-        targetRole = 'owner';
-      }
-    }
-
-    const newUser: User = {
-      id: googleData.uid || 'user_' + Date.now(),
-      name: baseName,
-      username: baseUsername || 'user_' + Math.floor(1000 + Math.random() * 9000),
-      email: googleData.email,
-      googleEmail: googleData.email,
-      googleUid: googleData.uid,
-      avatar: googleData.photoURL || undefined,
-      passwordHash: hashPassword('google_auth_user'),
-      phone: '',
-      whatsapp: '',
-      role: targetRole,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-    };
-
-    this.users.push(newUser);
-    this.currentUserId = newUser.id;
-    if (db) {
-      setDoc(doc(db, 'users', newUser.id), sanitizeUserForFirestore(newUser)).catch((err) =>
-        console.warn('Firestore register Google User error:', err)
-      );
-    }
+    await setDoc(profileRef, sanitizeUserForFirestore(newUser));
+    const existingIndex = this.users.findIndex((u) => u.id === existing?.id || u.googleUid === uid);
+    if (existingIndex >= 0) this.users[existingIndex] = newUser;
+    else this.users.push(newUser);
+    this.currentUserId = uid;
     syncPublicProfile(newUser);
     this.notify();
     return newUser;
@@ -523,6 +533,35 @@ class DataStore {
     return this.users.find(
       (u) => u.googleUid === uid || u.id === `google_${uid}`
     );
+  }
+
+  public async loadFirebaseUserProfile(uid: string): Promise<User | undefined> {
+    if (!db || !uid) return undefined;
+    const profileSnapshot = await getDoc(doc(db, 'users', uid));
+    if (profileSnapshot.exists()) {
+      const remote = { id: uid, ...profileSnapshot.data() } as User;
+      const index = this.users.findIndex((u) => u.id === uid || u.googleUid === uid);
+      if (index >= 0) this.users[index] = { ...this.users[index], ...remote, id: uid };
+      else this.users.push(remote);
+      this.currentUserId = uid;
+      this.notify();
+      return remote;
+    }
+
+    const legacy = this.users.find((u) =>
+      u.googleUid === uid || u.id === `google_${uid}` ||
+      u.email?.toLowerCase() === auth?.currentUser?.email?.toLowerCase()
+    );
+    if (legacy && legacy.role !== 'admin') {
+      legacy.id = uid;
+      legacy.googleUid = uid;
+      await setDoc(doc(db, 'users', uid), sanitizeUserForFirestore(legacy));
+      syncPublicProfile(legacy);
+      this.currentUserId = uid;
+      this.notify();
+      return legacy;
+    }
+    return undefined;
   }
 
   public getCurrentUser(): User | undefined {
@@ -539,7 +578,7 @@ class DataStore {
     this.notify();
   }
 
-  public registerUser(user: Omit<User, 'id' | 'createdAt' | 'status'> & { username?: string; password?: string; googleEmail?: string; googleUid?: string }): User {
+  public async registerUser(user: Omit<User, 'id' | 'createdAt' | 'status'> & { username?: string; password?: string; googleEmail?: string; googleUid?: string }): Promise<User> {
     // Prevent self-promotion to admin unless created by an existing logged-in admin
     let assignedRole: UserRole = user.role || 'owner';
     if (assignedRole === 'admin') {
@@ -565,11 +604,10 @@ class DataStore {
     };
     delete newUser.password; // Remove plaintext password
 
+    if (!user.googleUid || !db) throw new Error('Firebase UID and Firestore are required to register securely.');
+    await setDoc(doc(db, 'users', user.googleUid), sanitizeUserForFirestore(newUser));
     this.users.push(newUser);
     this.currentUserId = newUser.id;
-    if (db) {
-      setDoc(doc(db, 'users', newUser.id), sanitizeUserForFirestore(newUser)).catch((err) => console.warn('Firestore registerUser error:', err));
-    }
     syncPublicProfile(newUser);
     this.notify();
     return newUser;

@@ -171,7 +171,7 @@ function syncPublicProfile(user: User) {
 
 function makePropertyDuplicateKey(value: { title?: string; address?: string; city?: string; state?: string }): string {
   const parts = [value.title, value.address, value.city, value.state].map((part) =>
-    String(part || '').normalize('NFKC').toLowerCase().replace(/[^\\p{L}\\p{N}]+/gu, ' ').trim()
+    String(part || '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
   );
   return sha256(encodeURIComponent(parts.join('|')));
 }

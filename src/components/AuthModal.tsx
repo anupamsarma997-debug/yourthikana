@@ -71,11 +71,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Helper notice if editing specific property
   const targetPropertyOwner = requiredOwnerId ? store.getUsers().find(u => u.id === requiredOwnerId) : null;
 
-  // Direct Google Email Login State
-  const [showDirectGoogleInput, setShowDirectGoogleInput] = useState(true);
-  const [directGoogleEmailInput, setDirectGoogleEmailInput] = useState('rupaamsarma1234@gmail.com');
-  const [directGoogleNameInput, setDirectGoogleNameInput] = useState('Rupaam Sarma');
-
   // Check for redirect result on mount if redirect auth was used
   React.useEffect(() => {
     if (auth) {
@@ -151,71 +146,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
     }
 
-    // Direct Google Email Input Fallback if Popup/Auth is unavailable
-    setShowDirectGoogleInput(true);
-    setErrorMessage('Direct Google Auth: Please enter your Google Email address below to sign in directly.');
-  };
-
-  // Handle Direct Google Email Login
-  const handleDirectGoogleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    const emailToUse = directGoogleEmailInput.trim();
-    if (!emailToUse || !emailToUse.includes('@')) {
-      setErrorMessage('Please enter a valid Google Email Address (e.g. name@gmail.com).');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const nameToUse = directGoogleNameInput.trim() || emailToUse.split('@')[0];
-      const googleUid = 'google_direct_' + emailToUse.replace(/[^a-zA-Z0-9]/g, '_');
-
-      const loggedInUser = store.loginOrRegisterWithGoogle({
-        email: emailToUse,
-        displayName: nameToUse,
-        uid: googleUid,
-        desiredRole: role,
-      });
-
-      if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.role !== 'admin') {
-        setErrorMessage(`Permission Denied! Signed in as @${loggedInUser.username}, but this property belongs to @${targetPropertyOwner?.username || 'another host'}.`);
-        setIsLoading(false);
-        return;
-      }
-
-      if (onSuccessRole) onSuccessRole(loggedInUser.role);
-      alert(`🎉 Signed in as Google User!\n\nName: ${loggedInUser.name}\nGoogle Email: ${loggedInUser.email}\nUsername: @${loggedInUser.username}`);
-      onClose();
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Google email sign in failed.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Quick 1-Click Demo Login Helper
-  const handleQuickDemoLogin = (username: string) => {
-    setErrorMessage('');
-    setSuccessMessage('');
-    setIsLoading(true);
-    setTimeout(() => {
-      const res = store.loginWithUsernamePassword(username, '123456');
-      setIsLoading(false);
-      if (res.success && res.user) {
-        if (requiredOwnerId && res.user.id !== requiredOwnerId && res.user.role !== 'admin') {
-          setErrorMessage(`Permission Denied! Signed in as @${res.user.username}, but this listing belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`);
-          return;
-        }
-        if (onSuccessRole) onSuccessRole(res.user.role);
-        alert(`⚡ Quick Logged In as ${res.user.name} (@${res.user.username})!`);
-        onClose();
-      } else {
-        setErrorMessage(res.message || 'Quick login failed.');
-      }
-    }, 250);
   };
 
   // Register with Email & Password + Instant Verification & Login
@@ -244,23 +174,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setIsLoading(true);
 
     try {
-      let firebaseUid = `user_${Date.now()}`;
-      if (auth) {
-        try {
-          const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-          firebaseUid = userCredential.user.uid;
-          try {
-            await sendEmailVerification(userCredential.user);
-          } catch {
-            // Ignore verification error if email service is unconfigured
-          }
-        } catch (fbErr: any) {
-          if (fbErr.code === 'auth/email-already-in-use') {
-            setErrorMessage('This email is already registered. Please log in or use Forgot Password.');
-            setIsLoading(false);
-            return;
-          }
-        }
+      if (!auth) {
+        throw new Error('Secure sign-up is temporarily unavailable. Please try again later.');
+      }
+      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const firebaseUid = userCredential.user.uid;
+      try {
+        await sendEmailVerification(userCredential.user);
+      } catch (verificationError) {
+        console.warn('Email verification email could not be sent:', verificationError);
       }
 
       // Sync user to Store & log them in immediately
@@ -274,9 +196,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         whatsapp: whatsapp.trim() || phone.trim(),
         role,
       });
-
-      // Automatically log in the newly registered user
-      store.loginWithUsernamePassword(newUser.username, password);
 
       if (onSuccessRole) {
         onSuccessRole(newUser.role);
@@ -314,22 +233,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }
       }
 
-      if (auth && emailToTry.includes('@')) {
-        try {
-          await signInWithEmailAndPassword(auth, emailToTry, loginPassword);
-        } catch (fbErr) {
-          console.warn('Firebase signIn notice:', fbErr);
-        }
+      if (!auth) {
+        throw new Error('Secure sign-in is temporarily unavailable. Please try again later.');
       }
-
-      const res = store.loginWithUsernamePassword(loginIdentifier, loginPassword);
-      if (!res.success) {
-        setErrorMessage(res.message || 'Login failed. Invalid username/email or password.');
-        setIsLoading(false);
-        return;
+      if (!emailToTry.includes('@')) {
+        throw new Error('No account email was found for this username. Please sign in with your registered email address.');
       }
-
-      const loggedInUser = res.user!;
+      const credential = await signInWithEmailAndPassword(auth, emailToTry, loginPassword);
+      const matchedUser = store.getUsers().find((u) =>
+        u.email?.toLowerCase() === credential.user.email?.toLowerCase() ||
+        u.googleEmail?.toLowerCase() === credential.user.email?.toLowerCase() ||
+        u.googleUid === credential.user.uid
+      );
+      const loggedInUser = store.loginOrRegisterWithGoogle({
+        email: credential.user.email || emailToTry,
+        displayName: credential.user.displayName || matchedUser?.name || undefined,
+        photoURL: credential.user.photoURL || undefined,
+        uid: credential.user.uid,
+        desiredRole: matchedUser?.role || 'owner',
+      });
 
       if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.role !== 'admin') {
         setErrorMessage(`Permission Denied! You logged in as @${loggedInUser.username}, but this property belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`);
@@ -364,22 +286,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setIsLoading(true);
 
     try {
-      if (auth) {
-        sendPasswordResetEmail(auth, resetEmail.trim()).catch(() => {});
+      if (!auth) {
+        throw new Error('Password recovery is temporarily unavailable. Please try again later.');
       }
-
-      // Perform instant on-screen password reset in local store & Firestore
-      const newTempPassword = 'ThikanaPass' + Math.floor(100 + Math.random() * 900);
-      const res = store.resetPasswordWithGoogleEmail(resetEmail.trim(), newTempPassword);
-
-      if (res.success && res.user) {
-        setSuccessMessage(`🔑 Password Reset Successful!\nYour new login password for ${res.user.email} (@${res.user.username}) is: ${newTempPassword}\n\nYou are now automatically logged in!`);
-        alert(`🔑 Password Reset Successful!\n\nEmail: ${res.user.email}\nNew Password: ${newTempPassword}\n\nYou are now signed in.`);
-        if (onSuccessRole) onSuccessRole(res.user.role);
-        onClose();
-      } else {
-        setErrorMessage(`No account found registered with email "${resetEmail.trim()}". Please check your email or click "Sign Up" to create an account.`);
-      }
+      await sendPasswordResetEmail(auth, resetEmail.trim());
+      setSuccessMessage('If an account exists for this email, Firebase has sent a secure password-reset link. Open that email and follow the instructions.');
     } catch (err: any) {
       setErrorMessage(err?.message || 'Password reset request failed.');
     } finally {
@@ -500,44 +411,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <GoogleIcon />
               <span>Continue with Google</span>
             </button>
-
-            {/* Direct Google Email Sign-In Form (Shown if popup is unavailable) */}
-            {showDirectGoogleInput && (
-              <form onSubmit={handleDirectGoogleSubmit} className="p-3 bg-emerald-50/80 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200 dark:border-emerald-800 space-y-2">
-                <div className="flex items-center justify-between text-xs font-black text-emerald-800 dark:text-emerald-300">
-                  <span className="flex items-center gap-1.5">
-                    <GoogleIcon />
-                    <span>Google Email Sign In</span>
-                  </span>
-                </div>
-                <div className="space-y-1.5">
-                  <input
-                    type="email"
-                    required
-                    placeholder="Enter your Google Email (e.g. name@gmail.com)"
-                    value={directGoogleEmailInput}
-                    onChange={(e) => setDirectGoogleEmailInput(e.target.value)}
-                    className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                  <div className="flex gap-1.5">
-                    <input
-                      type="text"
-                      placeholder="Your Name (Optional)"
-                      value={directGoogleNameInput}
-                      onChange={(e) => setDirectGoogleNameInput(e.target.value)}
-                      className="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl shrink-0 cursor-pointer shadow-sm transition-transform active:scale-95 disabled:opacity-50"
-                    >
-                      Sign In
-                    </button>
-                  </div>
-                </div>
-              </form>
-            )}
 
             <div className="relative my-3 text-center">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-slate-800"></div></div>

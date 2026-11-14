@@ -50,32 +50,44 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
     });
   }, []);
 
+  // Major cities and destinations across all 8 Northeast states.
+  // These are search/filter options, not claims that THIKANA already has listings there.
   const CITIES = [
-    'All Locations', 
-    'Guwahati', 
-    'Kaziranga', 
-    'Shillong', 
-    'Cherrapunji', 
-    'Gangtok', 
-    'Tawang', 
-    'Kohima', 
-    'Majuli Island', 
-    'Dawki', 
-    'Ziro Valley', 
-    'Aizawl', 
-    'Imphal', 
-    'Agartala'
+    'All Locations',
+    // Assam
+    'Guwahati', 'Dibrugarh', 'Jorhat', 'Silchar', 'Tezpur', 'Tinsukia',
+    'Nagaon', 'Sivasagar', 'Dhubri', 'Diphu', 'North Lakhimpur', 'Bongaigaon',
+    'Kaziranga', 'Majuli Island',
+    // Arunachal Pradesh
+    'Itanagar', 'Naharlagun', 'Tawang', 'Ziro Valley', 'Pasighat', 'Bomdila',
+    'Tezu', 'Roing', 'Along (Aalo)', 'Changlang',
+    // Manipur
+    'Imphal', 'Thoubal', 'Bishnupur', 'Churachandpur', 'Ukhrul', 'Senapati',
+    // Meghalaya
+    'Shillong', 'Tura', 'Jowai', 'Nongpoh', 'Williamnagar', 'Baghmara',
+    'Cherrapunji (Sohra)', 'Dawki', 'Mawlynnong',
+    // Mizoram
+    'Aizawl', 'Lunglei', 'Champhai', 'Kolasib', 'Serchhip', 'Saiha',
+    // Nagaland
+    'Kohima', 'Dimapur', 'Mokokchung', 'Wokha', 'Tuensang', 'Mon',
+    'Phek', 'Zunheboto',
+    // Sikkim
+    'Gangtok', 'Namchi', 'Gyalshing', 'Mangan', 'Pakyong', 'Singtam',
+    'Pelling', 'Ravangla',
+    // Tripura
+    'Agartala', 'Udaipur', 'Dharmanagar', 'Kailashahar', 'Belonia',
+    'Ambassa', 'Khowai'
   ];
 
   const NORTHEAST_STATES = [
     'All States',
     'Assam',
-    'Meghalaya',
-    'Sikkim',
     'Arunachal Pradesh',
-    'Nagaland',
-    'Mizoram',
     'Manipur',
+    'Meghalaya',
+    'Mizoram',
+    'Nagaland',
+    'Sikkim',
     'Tripura'
   ];
 

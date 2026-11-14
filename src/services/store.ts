@@ -865,11 +865,29 @@ class DataStore {
     const ownerEmail = firebaseEmail || currentUser?.googleEmail || currentUser?.email || prop.ownerEmail || '';
     const ownerId = firebaseUid;
 
+    // Build a complete Firestore-safe document. Optional form fields can be
+    // undefined on mobile; JSON serialization would drop those keys and cause
+    // the secure Firestore create rule (keys().hasAll) to reject the listing.
+    const ownerName = String(prop.ownerName || currentUser?.name || auth?.currentUser?.displayName || firebaseEmail?.split('@')[0] || 'Host');
     const newProp: Property = {
       ...prop,
+      title: String(prop.title || '').trim(),
+      description: String(prop.description || ''),
+      propertyType: prop.propertyType || 'hotel',
+      address: String(prop.address || ''),
+      city: String(prop.city || ''),
+      state: String(prop.state || ''),
+      latitude: Number.isFinite(Number(prop.latitude)) && prop.latitude !== null && prop.latitude !== '' ? Number(prop.latitude) : null,
+      longitude: Number.isFinite(Number(prop.longitude)) && prop.longitude !== null && prop.longitude !== '' ? Number(prop.longitude) : null,
+      photos: Array.isArray(prop.photos) ? prop.photos : [],
+      checkInTime: String(prop.checkInTime || ''),
+      checkOutTime: String(prop.checkOutTime || ''),
       ownerId,
       ownerUid,
       ownerEmail,
+      ownerName,
+      ownerPhone: String(prop.ownerPhone || ''),
+      ownerWhatsApp: String(prop.ownerWhatsApp || ''),
       id: 'prop_' + Date.now(),
       rating: 0,
       reviewsCount: 0,

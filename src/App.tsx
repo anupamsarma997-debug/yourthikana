@@ -23,6 +23,42 @@ export function App() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [selectedCity, setSelectedCity] = useState<string>('All Locations');
 
+  // Resolve direct city URLs (for example /guwahati) into the existing city filter.
+  useEffect(() => {
+    const slug = window.location.pathname.replace(/^\\/+|\\/+$/g, '').toLowerCase();
+    if (!slug) return;
+    const cityNames = [
+      'Guwahati','Dibrugarh','Jorhat','Silchar','Tezpur','Tinsukia','Nagaon','Sivasagar','Dhubri','Diphu','North Lakhimpur','Bongaigaon','Kaziranga','Majuli Island',
+      'Itanagar','Naharlagun','Tawang','Ziro Valley','Pasighat','Bomdila','Tezu','Roing','Along (Aalo)','Changlang',
+      'Imphal','Thoubal','Bishnupur','Churachandpur','Ukhrul','Senapati',
+      'Shillong','Tura','Jowai','Nongpoh','Williamnagar','Baghmara','Cherrapunji (Sohra)','Dawki','Mawlynnong',
+      'Aizawl','Lunglei','Champhai','Kolasib','Serchhip','Saiha',
+      'Kohima','Dimapur','Mokokchung','Wokha','Tuensang','Mon','Phek','Zunheboto',
+      'Gangtok','Namchi','Gyalshing','Mangan','Pakyong','Singtam','Pelling','Ravangla',
+      'Agartala','Udaipur','Dharmanagar','Kailashahar','Belonia','Ambassa','Khowai'
+    ];
+    const normalize = (value: string) => value.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const matchedCity = cityNames.find((city) => normalize(city) === slug);
+    if (matchedCity) setSelectedCity(matchedCity);
+  }, []);
+
+  // Keep browser metadata aligned with a directly opened city page.
+  useEffect(() => {
+    const city = selectedCity !== 'All Locations' ? selectedCity : '';
+    document.title = city
+      ? `${city} Hotels, Homestays & Rooms | YourThikana`
+      : 'YourThikana | Find Hotels, Homestays, Hostels & Rooms';
+    let description = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
+    if (!description) {
+      description = document.createElement('meta');
+      description.name = 'description';
+      document.head.appendChild(description);
+    }
+    description.content = city
+      ? `Explore hotels, homestays, hostels, cottages and monthly rooms in ${city}. Contact local hosts directly on WhatsApp with YourThikana.`
+      : 'Discover hotels, homestays, hostels, cottages and monthly rooms. Contact local hosts directly on WhatsApp with YourThikana.';
+  }, [selectedCity]);
+
   // Modals
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [isAIOpen, setIsAIOpen] = useState<boolean>(false);

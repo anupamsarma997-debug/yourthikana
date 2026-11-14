@@ -61,11 +61,28 @@
           <span class="boot-kicker">Northeast India's Direct Stay Portal</span>
           <h1>Find Your Northeast THIKANA</h1>
           <p>Discover hotels, homestays, cottages, hostels, PGs and monthly rooms. Contact local hosts directly on WhatsApp with zero middleman fees.</p>
-          <div class="boot-search">⌕ &nbsp; Search by city, property name or state…</div>
+          <div class="boot-search" role="status">Loading live stays and search…</div>
         </section>
       </div>
     </div>
     <div id="root"></div>
+    <script>
+      // Remove the static shell as soon as React mounts real content into #root.
+      (function () {
+        var shell = document.getElementById('boot-shell');
+        var root = document.getElementById('root');
+        if (!shell || !root) return;
+        var removeShell = function () {
+          if (root.childElementCount > 0) {
+            shell.remove();
+            observer.disconnect();
+          }
+        };
+        var observer = new MutationObserver(removeShell);
+        observer.observe(root, { childList: true, subtree: true });
+        removeShell();
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -99,7 +99,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (auth) {
+    if (!auth) {
+      setErrorMessage('Secure Google sign-in is temporarily unavailable. Please try again later.');
+      return;
+    }
+
+    {
       setIsLoading(true);
       try {
         const res = await signInWithPopup(auth, googleProvider);
@@ -139,7 +144,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             return;
           } catch (redErr: any) {
             console.warn('Redirect auth failed:', redErr);
+            setErrorMessage(redErr?.message || 'Google sign-in could not be completed.');
           }
+        } else {
+          setErrorMessage(err?.message || 'Google sign-in could not be completed.');
         }
       } finally {
         setIsLoading(false);

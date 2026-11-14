@@ -893,7 +893,8 @@ class DataStore {
       reviewsCount: 0,
       isVerified: false,
       isFeatured: false,
-      status: 'pending',
+      // New owner-submitted listings are immediately visible on the public Home screen.
+      status: 'active',
       subscriptionPlan: 'none',
       subscriptionPrice: 0,
       subscriptionExpiresAt: '',
@@ -901,14 +902,16 @@ class DataStore {
       createdAt: now.toISOString(),
     };
 
-    // Save to Firestore if database is active
-    if (db) {
-      try {
-        await setDoc(doc(db, 'properties', newProp.id), sanitizeForFirestore(newProp));
-      } catch (err: any) {
-        this.firestoreError = err?.message || String(err);
-        throw new Error('Property could not be saved to the secure database. Please check your login and try again.');
-      }
+    // Never report success from local-only storage: a real Firestore write is required.
+    if (!db) {
+      throw new Error('Secure database is not configured. Property was not saved.');
+    }
+    try {
+      await setDoc(doc(db, 'properties', newProp.id), sanitizeForFirestore(newProp));
+    } catch (err: any) {
+      this.firestoreError = err?.message || String(err);
+      const code = err?.code ? ` (${err.code})` : '';
+      throw new Error(`Property could not be saved to the secure database${code}. Please check your login and try again.`);
     }
 
     const existingIdx = this.properties.findIndex((p) => p.id === newProp.id);

@@ -78,7 +78,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       getRedirectResult(auth).then((res) => {
         if (res && res.user && res.user.email) {
           const gUser = res.user;
-          const loggedInUser = store.loginOrRegisterWithGoogle({
+          const loggedInUser = await store.loginOrRegisterWithGoogle({
             email: gUser.email,
             displayName: gUser.displayName || undefined,
             photoURL: gUser.photoURL || undefined,
@@ -195,7 +195,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
 
       // Sync user to Store & log them in immediately
-      const newUser = store.registerUser({
+      const newUser = await store.registerUser({
         name: name.trim(),
         username: username.trim().toLowerCase().replace(/\s+/g, '_'),
         email: email.trim(),
@@ -248,7 +248,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         throw new Error('No account email was found for this username. Please sign in with your registered email address.');
       }
       const credential = await signInWithEmailAndPassword(auth, emailToTry, loginPassword);
-      const matchedUser = store.getUsers().find((u) =>
+      const firebaseProfile = await store.loadFirebaseUserProfile(credential.user.uid);
+      const matchedUser = firebaseProfile || store.getUsers().find((u) =>
         u.email?.toLowerCase() === credential.user.email?.toLowerCase() ||
         u.googleEmail?.toLowerCase() === credential.user.email?.toLowerCase() ||
         u.googleUid === credential.user.uid

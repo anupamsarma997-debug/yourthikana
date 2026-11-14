@@ -1,7 +1,7 @@
 import { Property, RoomType, BannerAd, User, UserRole, BookingEnquiry, SubscriptionTransaction, PropertyType, PropertyVisit, PropertyLead } from '../types';
 import { INITIAL_USERS, INITIAL_PROPERTIES, INITIAL_ROOMS, INITIAL_BANNERS, INITIAL_TRANSACTIONS } from '../data/initialData';
 import { db, auth, isFirebaseConfigured, firebaseConfigError } from '../lib/firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, query, where, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { deletePropertyPhoto } from './uploadPropertyImage';
 
@@ -281,7 +281,7 @@ class DataStore {
     };
 
     try {
-      onAuthStateChanged(auth, (fbUser) => {
+      onAuthStateChanged(auth, async (fbUser) => {
         clearPrivateListeners();
 
         if (!fbUser) {
@@ -305,9 +305,17 @@ class DataStore {
           localUser.id = fbUser.uid;
           localUser.googleUid = fbUser.uid;
           this.currentUserId = fbUser.uid;
-          setDoc(doc(db, 'users', fbUser.uid), sanitizeUserForFirestore(localUser), { merge: true })
-            .catch((err) => console.warn('User profile migration notice:', err));
-          syncPublicProfile(localUser);
+          // Migrate a legacy local profile only when no canonical UID document exists.
+          // Never overwrite an existing server-side role from stale browser storage.
+          try {
+            const canonicalProfile = await getDoc(doc(db, 'users', fbUser.uid));
+            if (!canonicalProfile.exists()) {
+              await setDoc(doc(db, 'users', fbUser.uid), sanitizeUserForFirestore(localUser));
+              syncPublicProfile(localUser);
+            }
+          } catch (err) {
+            console.warn('User profile migration notice:', err);
+          }
         }
 
         const userUnsub = onSnapshot(doc(db, 'users', fbUser.uid), (docSnap) => {

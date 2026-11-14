@@ -20,6 +20,10 @@ const OwnerDashboardView = lazy(() => import('./views/OwnerDashboardView').then(
 const AdminDashboardView = lazy(() => import('./views/AdminDashboardView').then((m) => ({ default: m.AdminDashboardView })));
 
 export function App() {
+  // Remove the static first-paint shell only after React has committed the real app.
+  useEffect(() => {
+    document.getElementById("boot-shell")?.remove();
+  }, []);
   const [currentRole, setCurrentRole] = useState<UserRole>('customer');
   const [currentView, setCurrentView] = useState<'home' | 'property-detail'>('home');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);

@@ -777,11 +777,7 @@ class DataStore {
     }
 
     const now = new Date();
-    const expires = new Date();
-    expires.setDate(now.getDate() + 30);
-
-    const price = planType === 'standard_1500' ? 1500 : 1000;
-
+    // Payment is not integrated yet; new listings remain pending and unbilled.
     if (!firebaseUid) throw new Error('A valid Firebase login is required to create a property.');
     const ownerUid = firebaseUid;
     const ownerEmail = firebaseEmail || currentUser?.googleEmail || currentUser?.email || prop.ownerEmail || '';
@@ -797,11 +793,11 @@ class DataStore {
       reviewsCount: 0,
       isVerified: false,
       isFeatured: false,
-      status: 'active',
-      subscriptionPlan: planType,
-      subscriptionPrice: price,
-      subscriptionExpiresAt: expires.toISOString(),
-      subscriptionExpiryDate: expires.toISOString(),
+      status: 'pending',
+      subscriptionPlan: 'none',
+      subscriptionPrice: 0,
+      subscriptionExpiresAt: '',
+      subscriptionExpiryDate: '',
       createdAt: now.toISOString(),
     };
 
@@ -822,16 +818,9 @@ class DataStore {
       this.properties[existingIdx] = newProp;
     }
 
-    this.addTransaction({
-      ownerId: newProp.ownerId,
-      ownerName: newProp.ownerName,
-      propertyId: newProp.id,
-      propertyName: newProp.title,
-      type: planType,
-      planName: `${planType === 'standard_1500' ? 'Prime Location' : 'Standard'} Listing Subscription (1 Month)`,
-      amount: price,
-      date: now.toISOString().split('T')[0],
-    });
+    // No transaction is recorded until a real payment provider confirms payment.
+
+
 
     this.persist();
     this.notify();
@@ -1049,7 +1038,10 @@ class DataStore {
     const prop = this.getPropertyById(room.propertyId);
     const firebaseUid = auth?.currentUser?.uid;
     const ownerId = room.ownerId || prop?.ownerId || (firebaseUid ? `google_${firebaseUid}` : 'owner-demo');
-    const ownerUid = room.ownerUid || prop?.ownerUid || firebaseUid || undefined;
+    if (!firebaseUid || !prop || prop.ownerUid !== firebaseUid) {
+      throw new Error('Only the authenticated owner of this property can add rooms.');
+    }
+    const ownerUid = firebaseUid;
 
     const newRoom: RoomType = {
       ...room,
@@ -1057,10 +1049,14 @@ class DataStore {
       ownerUid,
       id: 'room_' + Date.now(),
     };
-    this.rooms.push(newRoom);
     if (db) {
-      setDoc(doc(db, 'rooms', newRoom.id), sanitizeForFirestore(newRoom)).catch((err) => console.warn('Firestore addRoom error:', err));
+      setDoc(doc(db, 'rooms', newRoom.id), sanitizeForFirestore(newRoom)).catch((err) => {
+        this.firestoreError = err?.message || String(err);
+        console.error('Firestore addRoom rejected:', err);
+        this.notify();
+      });
     }
+    this.rooms.push(newRoom);
     this.notify();
     return newRoom;
   }

@@ -9,7 +9,8 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   sendEmailVerification, 
-  sendPasswordResetEmail 
+  sendPasswordResetEmail,
+  signOut
 } from 'firebase/auth';
 import { auth, googleProvider, checkFirebaseDiagnostics } from '../lib/firebase';
 
@@ -252,13 +253,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         u.googleEmail?.toLowerCase() === credential.user.email?.toLowerCase() ||
         u.googleUid === credential.user.uid
       );
-      const loggedInUser = store.loginOrRegisterWithGoogle({
-        email: credential.user.email || emailToTry,
-        displayName: credential.user.displayName || matchedUser?.name || undefined,
-        photoURL: credential.user.photoURL || undefined,
-        uid: credential.user.uid,
-        desiredRole: matchedUser?.role || 'owner',
-      });
+      if (!matchedUser) {
+        await signOut(auth);
+        throw new Error('Your Firebase account is valid, but its YourThikana profile is not available on this device. Please contact support before continuing.');
+      }
+      const loggedInUser = matchedUser;
+      store.setCurrentUserId(loggedInUser.id);
 
       if (requiredOwnerId && loggedInUser.id !== requiredOwnerId && loggedInUser.role !== 'admin') {
         setErrorMessage(`Permission Denied! You logged in as @${loggedInUser.username}, but this property belongs to @${targetPropertyOwner?.username || targetPropertyOwner?.name || 'another host'}.`);

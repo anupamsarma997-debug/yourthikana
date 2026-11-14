@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { UserRole, Property, RoomType } from './types';
 import { store } from './services/store';
+import { auth } from './lib/firebase';
 import { AlertTriangle, Sparkles } from 'lucide-react';
 
 // Components
@@ -137,22 +138,39 @@ export function App() {
   const [autoOpenAddProperty, setAutoOpenAddProperty] = useState<boolean>(false);
   const [pendingAddProperty, setPendingAddProperty] = useState<boolean>(false);
 
-  const handleOpenAddProperty = () => {
-    const user = store.getCurrentUser();
-    const isAuthenticHost = Boolean(
-      user && 
-      user.id !== 'customer_1' && 
-      (user.role === 'owner' || user.role === 'admin' || user.googleEmail || user.googleUid)
-    );
+  const handleOpenAddProperty = async () => {
+    const firebaseUser = auth?.currentUser;
+    let user = store.getCurrentUser();
 
-    if (!isAuthenticHost) {
+    // Restore the Firestore profile for an existing Firebase session instead of
+    // showing a second login prompt while the auth listener is still catching up.
+    if (firebaseUser && (!user || user.id !== firebaseUser.uid)) {
+      try {
+        user = await store.loadFirebaseUserProfile(firebaseUser.uid);
+      } catch (error: any) {
+        store.firestoreError = error?.message || 'Could not load your account profile.';
+      }
+    }
+
+    if (!firebaseUser) {
       setPendingAddProperty(true);
       setIsAuthOpen(true);
-    } else {
-      setCurrentRole('owner');
-      setCurrentView('home');
-      setAutoOpenAddProperty(true);
+      return;
     }
+
+    if (!user) {
+      store.firestoreError = 'You are signed in, but your YourThikana profile could not be loaded. Please refresh once or contact support; do not create another account.';
+      return;
+    }
+
+    if (user.role !== 'owner' && user.role !== 'admin') {
+      store.firestoreError = 'This account is not registered as a host account. Please contact support.';
+      return;
+    }
+
+    setCurrentRole('owner');
+    setCurrentView('home');
+    setAutoOpenAddProperty(true);
   };
 
   const handleSelectProperty = (prop: Property) => {

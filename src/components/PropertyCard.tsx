@@ -128,11 +128,14 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             <span className="truncate">{property.city}, {property.state}</span>
           </div>
 
-          <h3 
-            onClick={() => onSelect(property)}
-            className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white line-clamp-1 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer transition-colors"
-          >
-            {property.title}
+          <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white line-clamp-1">
+            <button
+              type="button"
+              onClick={() => onSelect(property)}
+              className="w-full min-h-11 text-left hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
+            >
+              {property.title}
+            </button>
           </h3>
 
           <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mt-1.5 leading-relaxed">

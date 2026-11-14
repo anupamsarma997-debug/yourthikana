@@ -270,7 +270,7 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
                   className="w-full text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-medium bg-transparent outline-none"
                 />
                 {searchQuery && (
-                  <button type="button" onClick={() => setSearchQuery('')} className="p-1 text-slate-400 hover:text-slate-600">
+                  <button type="button" onClick={() => setSearchQuery('')} aria-label="Clear search text" className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500">
                     <X className="w-4 h-4" />
                   </button>
                 )}
@@ -585,6 +585,21 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
 
       {/* Search Page Bottom Banner */}
       <BannerSlider position="search" />
+
+
+      {/* Crawlable internal links to the independently rendered destination guides. */}
+      <section aria-labelledby="popular-destinations-heading" className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 space-y-3">
+        <h2 id="popular-destinations-heading" className="text-lg font-extrabold text-slate-900 dark:text-white">Explore Northeast India destinations</h2>
+        <p className="text-sm text-slate-600 dark:text-slate-300">Read destination guides, then open YourThikana to explore available property listings and contact hosts directly.</p>
+        <nav aria-label="Popular destination guides" className="flex flex-wrap gap-2">
+          <a className="min-h-11 inline-flex items-center rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:border-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" href="/guwahati">Guwahati, Assam</a>
+          <a className="min-h-11 inline-flex items-center rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:border-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" href="/shillong">Shillong, Meghalaya</a>
+          <a className="min-h-11 inline-flex items-center rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:border-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" href="/dibrugarh">Dibrugarh, Assam</a>
+          <a className="min-h-11 inline-flex items-center rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:border-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" href="/kaziranga">Kaziranga, Assam</a>
+          <a className="min-h-11 inline-flex items-center rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:border-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" href="/tawang">Tawang, Arunachal Pradesh</a>
+          <a className="min-h-11 inline-flex items-center rounded-xl border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:border-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" href="/gangtok">Gangtok, Sikkim</a>
+        </nav>
+      </section>
 
     </div>
   );

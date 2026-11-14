@@ -197,7 +197,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const newUser = store.registerUser({
         name: name.trim(),
         username: username.trim().toLowerCase().replace(/\s+/g, '_'),
-        password,
         email: email.trim(),
         googleUid: firebaseUid,
         phone: phone.trim(),

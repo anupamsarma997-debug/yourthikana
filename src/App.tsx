@@ -49,7 +49,7 @@ export function App() {
 
   // Keep page metadata and canonical URL aligned with directly opened city routes.
   useEffect(() => {
-    const isCityRoute = window.location.pathname.replace(/\\/+$/, '') !== '';
+    const isCityRoute = window.location.pathname.replace(/\/+$/, '') !== '';
     const city = isCityRoute && selectedCity !== 'All Locations' ? selectedCity : '';
     const title = city
       ? `${city} Hotels, Homestays & Rooms | YourThikana`
@@ -75,7 +75,7 @@ export function App() {
     setMeta('meta[property="og:description"]', 'property', 'og:description', pageDescription);
 
     // City landing routes must not advertise the homepage as their canonical URL.
-    const path = window.location.pathname.replace(/\\/+$/, '') || '/';
+    const path = window.location.pathname.replace(/\/+$/, '') || '/';
     const canonicalUrl = `${window.location.origin}${path}`;
     let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
     if (!canonical) {

@@ -1,7 +1,7 @@
 import { Property, RoomType, BannerAd, User, UserRole, BookingEnquiry, SubscriptionTransaction, PropertyType, PropertyVisit, PropertyLead } from '../types';
 import { INITIAL_USERS, INITIAL_PROPERTIES, INITIAL_ROOMS, INITIAL_BANNERS, INITIAL_TRANSACTIONS } from '../data/initialData';
 import { db, auth, isFirebaseConfigured, firebaseConfigError } from '../lib/firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot, query, where, getDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, query, where, getDoc, getDocs, runTransaction } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { deletePropertyPhoto } from './uploadPropertyImage';
 
@@ -167,6 +167,13 @@ function syncPublicProfile(user: User) {
   } catch (err) {
     console.warn('syncPublicProfile error:', err);
   }
+}
+
+function makePropertyDuplicateKey(value: { title?: string; address?: string; city?: string; state?: string }): string {
+  const parts = [value.title, value.address, value.city, value.state].map((part) =>
+    String(part || '').normalize('NFKC').toLowerCase().replace(/[^\\p{L}\\p{N}]+/gu, ' ').trim()
+  );
+  return sha256(encodeURIComponent(parts.join('|')));
 }
 
 const normalizeProperty = (p: any): Property => ({
@@ -869,6 +876,10 @@ class DataStore {
     // undefined on mobile; JSON serialization would drop those keys and cause
     // the secure Firestore create rule (keys().hasAll) to reject the listing.
     const ownerName = String(prop.ownerName || currentUser?.name || auth?.currentUser?.displayName || firebaseEmail?.split('@')[0] || 'Host');
+    const duplicateKey = makePropertyDuplicateKey({ title: prop.title, address: prop.address, city: prop.city, state: prop.state });
+    if (!String(prop.title || '').trim() || !String(prop.address || '').trim() || !String(prop.city || '').trim() || !String(prop.state || '').trim()) {
+      throw new Error('Property name, full address, city and state are required for duplicate-listing protection.');
+    }
     const newProp: Property = {
       ...prop,
       title: String(prop.title || '').trim(),
@@ -886,6 +897,7 @@ class DataStore {
       ownerUid,
       ownerEmail,
       ownerName,
+      duplicateKeys: [duplicateKey],
       ownerPhone: String(prop.ownerPhone || ''),
       ownerWhatsApp: String(prop.ownerWhatsApp || ''),
       id: 'prop_' + Date.now(),
@@ -907,9 +919,45 @@ class DataStore {
       throw new Error('Secure database is not configured. Property was not saved.');
     }
     try {
-      await setDoc(doc(db, 'properties', newProp.id), sanitizeForFirestore(newProp));
+      // Check legacy listings created before the duplicate-lock rollout.
+      const existingSnapshot = await getDocs(collection(db, 'properties'));
+      const existingProperties = existingSnapshot.docs.map((item) => ({ id: item.id, ...item.data() } as any));
+      const alreadyListedByAccount = existingProperties.some((item) => item.ownerUid === ownerUid);
+      if (alreadyListedByAccount) {
+        throw new Error('ONE_PROPERTY_PER_ACCOUNT: This account already has a property listing. One account can publish only one property.');
+      }
+      const duplicateExists = existingProperties.some((item) =>
+        item.id !== newProp.id &&
+        (Array.isArray(item.duplicateKeys) && item.duplicateKeys.includes(duplicateKey) ||
+          makePropertyDuplicateKey({ title: item.title, address: item.address, city: item.city, state: item.state }) === duplicateKey)
+      );
+      if (duplicateExists) {
+        throw new Error('DUPLICATE_PROPERTY: This property already appears on THIKANA. Duplicate listings are not allowed.');
+      }
+
+      const ownerLimitRef = doc(db, 'owner_listing_limits', ownerUid);
+      const duplicateRef = doc(db, 'property_duplicate_keys', duplicateKey);
+      const propertyRef = doc(db, 'properties', newProp.id);
+      await runTransaction(db, async (transaction) => {
+        const [ownerLimitSnapshot, duplicateSnapshot] = await Promise.all([
+          transaction.get(ownerLimitRef),
+          transaction.get(duplicateRef),
+        ]);
+        if (ownerLimitSnapshot.exists()) {
+          throw new Error('ONE_PROPERTY_PER_ACCOUNT: This account already has a property listing. One account can publish only one property.');
+        }
+        if (duplicateSnapshot.exists()) {
+          throw new Error('DUPLICATE_PROPERTY: This property already appears on THIKANA. Duplicate listings are not allowed.');
+        }
+        transaction.set(ownerLimitRef, { ownerUid, propertyId: newProp.id, createdAt: now.toISOString() });
+        transaction.set(duplicateRef, { ownerUid, propertyId: newProp.id, createdAt: now.toISOString() });
+        transaction.set(propertyRef, sanitizeForFirestore(newProp));
+      });
     } catch (err: any) {
       this.firestoreError = err?.message || String(err);
+      if (err?.message?.startsWith('ONE_PROPERTY_PER_ACCOUNT:') || err?.message?.startsWith('DUPLICATE_PROPERTY:')) {
+        throw new Error(err.message);
+      }
       const code = err?.code || 'unknown';
       const detail = err?.message || String(err);
       throw new Error(`Firestore save failed [${code}]: ${detail}`);
@@ -1079,13 +1127,22 @@ class DataStore {
 
     if (db) {
       try {
-        await deleteDoc(doc(db, 'properties', id));
+        const ownerUid = prop.ownerUid || firebaseUid || '';
+        const duplicateKeys = Array.isArray((prop as any).duplicateKeys)
+          ? (prop as any).duplicateKeys as string[]
+          : [makePropertyDuplicateKey({ title: prop.title, address: prop.address, city: prop.city, state: prop.state })];
+        await runTransaction(db, async (transaction) => {
+          transaction.delete(doc(db, 'properties', id));
+          if (ownerUid) transaction.delete(doc(db, 'owner_listing_limits', ownerUid));
+          duplicateKeys.forEach((key) => transaction.delete(doc(db, 'property_duplicate_keys', key)));
+        });
         const deletedRooms = this.rooms.filter((r) => r.propertyId === id);
         for (const r of deletedRooms) {
           await deleteDoc(doc(db, 'rooms', r.id)).catch(() => {});
         }
       } catch (err: any) {
         console.warn('Firestore deleteProperty sync notice:', err);
+        return { success: false, status: 403, message: 'Property deletion was rejected by the secure database. No local success was recorded.' };
       }
     }
 

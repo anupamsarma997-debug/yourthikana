@@ -111,7 +111,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         const res = await signInWithPopup(auth, googleProvider);
         const gUser = res.user;
         if (gUser.email) {
-          const loggedInUser = store.loginOrRegisterWithGoogle({
+          const loggedInUser = await store.loginOrRegisterWithGoogle({
             email: gUser.email,
             displayName: gUser.displayName || undefined,
             photoURL: gUser.photoURL || undefined,

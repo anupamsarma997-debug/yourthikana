@@ -1,7 +1,275 @@
 {
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/guwahati",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/dibrugarh",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/jorhat",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/silchar",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/tezpur",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/tinsukia",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/nagaon",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/sivasagar",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/dhubri",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/diphu",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/north-lakhimpur",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/bongaigaon",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/kaziranga",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/majuli-island",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/itanagar",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/naharlagun",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/tawang",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/ziro-valley",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/pasighat",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/bomdila",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/tezu",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/roing",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/along-aalo",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/changlang",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/imphal",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/thoubal",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/bishnupur",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/churachandpur",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/ukhrul",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/senapati",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/shillong",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/tura",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/jowai",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/nongpoh",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/williamnagar",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/baghmara",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/cherrapunji-sohra",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/dawki",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/mawlynnong",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/aizawl",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/lunglei",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/champhai",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/kolasib",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/serchhip",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/saiha",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/kohima",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/dimapur",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/mokokchung",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/wokha",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/tuensang",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/mon",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/phek",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/zunheboto",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/gangtok",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/namchi",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/gyalshing",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/mangan",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/pakyong",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/singtam",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/pelling",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/ravangla",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/agartala",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/udaipur",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/dharmanagar",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/kailashahar",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/belonia",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/ambassa",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/khowai",
       "destination": "/index.html"
     }
   ]

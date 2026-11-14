@@ -1,8 +1,7 @@
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import { storage } from '../lib/firebase';
-import { supabase } from '../lib/supabase';
+import { storage, auth } from '../lib/firebase';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // Keep client limit aligned with Firebase Storage rules (5MB)
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'];
 
 export interface UploadProgressCallback {
@@ -75,7 +74,7 @@ function compressImageToDataUrl(file: File, maxDimension = 1200, quality = 0.82)
 }
 
 /**
- * Uploads a property image to Supabase Storage or returns an optimized Data URL.
+ * Uploads a property image to Firebase Storage using the authenticated owner account.
  */
 export async function uploadPropertyPhoto(
   file: File,
@@ -88,102 +87,74 @@ export async function uploadPropertyPhoto(
   }
 
   // Validate File Type
-  if (!ALLOWED_MIME_TYPES.includes(file.type) && !file.type.startsWith('image/')) {
+  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
     throw new Error(`Invalid file format (${file.type || 'unknown'}). Please upload a JPEG, PNG, WEBP, AVIF, or GIF image.`);
   }
 
   // Validate File Size
   if (file.size > MAX_FILE_SIZE) {
     const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
-    throw new Error(`File "${file.name}" (${sizeInMB} MB) exceeds the maximum allowed size of 10 MB.`);
+    throw new Error(`File "${file.name}" (${sizeInMB} MB) exceeds the maximum allowed size of 5 MB.`);
+  }
+
+  if (!storage) {
+    throw new Error('Firebase Storage is not configured.');
+  }
+
+  if (!auth?.currentUser || auth.currentUser.uid !== ownerUid) {
+    throw new Error('Please sign in with the account that owns this property before uploading photos.');
   }
 
   if (onProgress) onProgress(20);
 
-  // 1. Primary: Try Firebase Storage (with a 3-second timeout race guard)
-  if (storage) {
-    try {
-      if (onProgress) onProgress(35);
-      const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${cleanFileName}`;
-      const storagePath = `properties/${ownerUid}/${propertyId}/${uniqueName}`;
-      const storageRef = ref(storage, storagePath);
+  const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${cleanFileName}`;
+  const storagePath = `properties/${ownerUid}/${propertyId}/${uniqueName}`;
+  const storageRef = ref(storage, storagePath);
+  const uploadTask = uploadBytesResumable(storageRef, file, {
+    contentType: file.type,
+    customMetadata: { ownerUid, propertyId, originalName: file.name }
+  });
 
-      const firebaseUploadPromise = new Promise<string>((resolve) => {
-        const uploadTask = uploadBytesResumable(storageRef, file, {
-          contentType: file.type || 'image/jpeg',
-          customMetadata: { ownerUid, propertyId, originalName: file.name }
-        });
+  return new Promise<string>((resolve, reject) => {
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      uploadTask.cancel();
+      reject(new Error('Image upload timed out. Please check your internet connection and try again.'));
+    }, 30000);
 
-        uploadTask.on(
-          'state_changed',
-          (snapshot) => {
-            if (onProgress && snapshot.totalBytes > 0) {
-              const progress = Math.min(80, Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100));
-              onProgress(progress);
-            }
-          },
-          (error) => {
-            console.warn('Firebase Storage upload error:', error);
-            resolve('');
-          },
-          async () => {
-            try {
-              const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve(downloadUrl);
-            } catch {
-              resolve('');
-            }
-          }
-        );
-      });
-
-      const timeoutPromise = new Promise<string>((resolve) => {
-        setTimeout(() => resolve(''), 3000);
-      });
-
-      const fbResult = await Promise.race([firebaseUploadPromise, timeoutPromise]);
-      if (fbResult) {
-        if (onProgress) onProgress(100);
-        return fbResult;
-      }
-      console.warn('Firebase Storage attempt timed out or failed; falling back to Supabase Storage...');
-    } catch (fbErr) {
-      console.warn('Firebase Storage upload note:', fbErr);
-    }
-  }
-
-  // 2. Secondary Fallback: Try Supabase Storage
-  if (supabase) {
-    try {
-      if (onProgress) onProgress(60);
-      const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}_${cleanFileName}`;
-      const filePath = `properties/${ownerUid}/${propertyId}/${uniqueName}`;
-
-      const { data, error } = await supabase.storage
-        .from('properties')
-        .upload(filePath, file, { cacheControl: '3600', upsert: true });
-
-      if (!error && data) {
-        const { data: publicUrlData } = supabase.storage.from('properties').getPublicUrl(filePath);
-        if (publicUrlData?.publicUrl) {
-          if (onProgress) onProgress(100);
-          return publicUrlData.publicUrl;
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        if (onProgress && snapshot.totalBytes > 0) {
+          const progress = Math.min(95, Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100));
+          onProgress(progress);
         }
-      } else if (error) {
-        console.warn('Supabase storage upload error:', error.message);
+      },
+      (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        reject(error);
+      },
+      async () => {
+        if (settled) return;
+        try {
+          const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+          settled = true;
+          clearTimeout(timeout);
+          if (onProgress) onProgress(100);
+          resolve(downloadUrl);
+        } catch (error) {
+          settled = true;
+          clearTimeout(timeout);
+          reject(error);
+        }
       }
-    } catch (sErr) {
-      console.warn('Supabase Storage upload note:', sErr);
-    }
-  }
-
-  // 3. Final Fallback: Optimized Data URL
-  if (onProgress) onProgress(80);
-  const compressedDataUrl = await compressImageToDataUrl(file);
-  if (onProgress) onProgress(100);
-  return compressedDataUrl;
+    );
+  });
 }
 
 /**
@@ -201,16 +172,6 @@ export async function deletePropertyPhoto(downloadUrl: string): Promise<void> {
     }
   }
 
-  if (supabase && downloadUrl.includes('supabase.co')) {
-    try {
-      const parts = downloadUrl.split('/properties/');
-      if (parts[1]) {
-        await supabase.storage.from('properties').remove([`properties/${parts[1]}`]);
-      }
-    } catch (err: any) {
-      console.warn(`Could not delete Supabase storage object:`, err?.message || err);
-    }
-  }
 }
 
 

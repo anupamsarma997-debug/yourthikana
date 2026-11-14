@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Property, RoomType } from '../types';
 import { store } from '../services/store';
+import { getEffectiveRoomPrice, hasValidRoomDiscount } from '../utils/roomPricing';
 import { 
   BadgeCheck, 
   Star, 
@@ -28,21 +29,48 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 }) => {
   const rooms = store.getRoomsByProperty(property.id);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+  // Ignore accidental card activation when a finger is scrolling the page.
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const pointerMovedRef = useRef(false);
+
+  const handleCardPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    pointerStartRef.current = { x: event.clientX, y: event.clientY };
+    pointerMovedRef.current = false;
+  };
+
+  const handleCardPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const start = pointerStartRef.current;
+    if (!start) return;
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 10) {
+      pointerMovedRef.current = true;
+    }
+  };
+
+  const selectPropertyOnTap = () => {
+    if (pointerMovedRef.current) {
+      pointerMovedRef.current = false;
+      return;
+    }
+    onSelect(property);
+  };
 
   // Find lowest price room
   const lowestPriceRoom = rooms.length > 0
-    ? rooms.reduce((min, r) => (r.pricePerNight < min.pricePerNight ? r : min), rooms[0])
+    ? rooms.reduce((min, room) =>
+        getEffectiveRoomPrice(room) < getEffectiveRoomPrice(min) ? room : min, rooms[0])
     : null;
 
-  const currentPrice = lowestPriceRoom ? (lowestPriceRoom.discountPrice || lowestPriceRoom.pricePerNight) : 1500;
-  const originalPrice = lowestPriceRoom?.discountPrice ? lowestPriceRoom.pricePerNight : null;
+  const currentPrice = lowestPriceRoom ? getEffectiveRoomPrice(lowestPriceRoom) : 0;
+  const originalPrice = lowestPriceRoom && hasValidRoomDiscount(lowestPriceRoom)
+    ? Number(lowestPriceRoom.pricePerNight)
+    : null;
 
   const coverImage = property.photos && property.photos.length > 0
     ? property.photos[activePhotoIdx] || property.photos[0]
     : 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80';
 
   return (
-    <div className="bg-white dark:bg-slate-800/90 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group relative">
+    <div onPointerDownCapture={handleCardPointerDown} onPointerMoveCapture={handleCardPointerMove} className="bg-white dark:bg-slate-800/90 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group relative">
       
       {/* Top Media Banner */}
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-900">
@@ -86,11 +114,17 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           </div>
         )}
 
-        {/* Rating Badge */}
+        {/* Show only verified review data; never invent a default rating. */}
         <div className="absolute bottom-3 right-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-2.5 py-1 rounded-lg text-xs font-black shadow-md flex items-center gap-1">
-          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-          <span>{(typeof property?.rating === 'number' ? property.rating : 5.0).toFixed(1)}</span>
-          <span className="text-[10px] text-slate-400 font-normal">({property?.reviewsCount ?? 0})</span>
+          {Number(property?.reviewsCount) > 0 && Number(property?.rating) > 0 ? (
+            <>
+              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              <span>{property.rating.toFixed(1)}</span>
+              <span className="text-[10px] text-slate-400 font-normal">({property.reviewsCount})</span>
+            </>
+          ) : (
+            <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">New listing · No reviews</span>
+          )}
         </div>
 
         {/* Photo Switcher Dots */}
@@ -122,7 +156,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           </div>
 
           <h3 
-            onClick={() => onSelect(property)}
+            onClick={selectPropertyOnTap}
             className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white line-clamp-1 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer transition-colors"
           >
             {property.title}
@@ -137,7 +171,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1">
                 <Users className="w-3.5 h-3.5 text-slate-400" />
-                <span>Max {lowestPriceRoom?.maxGuests || 2} Guests</span>
+                {lowestPriceRoom?.maxGuests > 0 && <span>Max {lowestPriceRoom.maxGuests} Guests</span>}
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5 text-slate-400" />
@@ -156,7 +190,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           <div>
             <div className="flex items-baseline gap-1.5">
               <span className="text-lg font-black text-slate-900 dark:text-white">
-                ₹{currentPrice}
+                {currentPrice > 0 ? `₹${currentPrice}` : 'Ask for price'}
               </span>
               {originalPrice && (
                 <span className="text-xs text-slate-400 line-through font-medium">
@@ -174,7 +208,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => onSelect(property)}
+              onClick={selectPropertyOnTap}
               className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold px-3 py-2 rounded-xl transition-all"
             >
               Details

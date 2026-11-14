@@ -90,6 +90,7 @@ export interface BookingEnquiry {
   ownerId: string;
   ownerName: string;
   ownerWhatsApp: string;
+  ownerUid?: string;
   customerName: string;
   customerPhone: string;
   customerWhatsApp: string;
@@ -141,6 +142,7 @@ export interface PropertyVisit {
   refId: string;
   timestamp: string;
   source?: 'qr_referral' | 'direct' | 'search';
+  ownerUid?: string;
 }
 
 export interface PropertyLead {
@@ -150,5 +152,6 @@ export interface PropertyLead {
   customerName?: string;
   timestamp: string;
   source?: 'qr_referral' | 'direct' | 'whatsapp';
+  ownerUid?: string;
 }
 

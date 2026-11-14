@@ -25,7 +25,7 @@ export function App() {
 
   // Resolve direct city URLs (for example /guwahati) into the existing city filter.
   useEffect(() => {
-    const slug = window.location.pathname.replace(/^\\/+|\\/+$/g, '').toLowerCase();
+    const slug = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
     if (!slug) return;
     const cityNames = [
       'Guwahati','Dibrugarh','Jorhat','Silchar','Tezpur','Tinsukia','Nagaon','Sivasagar','Dhubri','Diphu','North Lakhimpur','Bongaigaon','Kaziranga','Majuli Island',
@@ -37,7 +37,7 @@ export function App() {
       'Gangtok','Namchi','Gyalshing','Mangan','Pakyong','Singtam','Pelling','Ravangla',
       'Agartala','Udaipur','Dharmanagar','Kailashahar','Belonia','Ambassa','Khowai'
     ];
-    const normalize = (value: string) => value.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const normalize = (value: string) => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const matchedCity = cityNames.find((city) => normalize(city) === slug);
     if (matchedCity) setSelectedCity(matchedCity);
   }, []);

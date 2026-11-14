@@ -198,9 +198,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               type="button"
               aria-label="Toggle mobile preview frame"
               aria-pressed={isMobileFrame}
-              type="button"
-              aria-label="Toggle mobile preview frame"
-              aria-pressed={isMobileFrame}
               title="Toggle Mobile App Mockup Frame View"
             >
               <Smartphone className="w-4 h-4" />
@@ -210,9 +207,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={handleToggleTheme}
               className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              type="button"
-              aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-              aria-pressed={isDark}
               type="button"
               aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
               aria-pressed={isDark}

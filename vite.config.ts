@@ -13,7 +13,8 @@ export default defineConfig(() => ({
   build: {
     // Lazy imports in App.tsx keep owner/admin screens and dialogs out of the first route chunk.
     chunkSizeWarningLimit: 700,
-    sourcemap: true,
+    // Do not publish source maps in the public production bundle.
+    sourcemap: false,
     cssCodeSplit: true,
     assetsInlineLimit: 4096,
     rollupOptions: {

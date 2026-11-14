@@ -48,7 +48,11 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-900">
         <img
           src={coverImage}
-          alt={property.title}
+          alt={property.title ? `Photo of ${property.title}` : 'Property accommodation photo'}
+          width={800}
+          height={500}
+          decoding="async"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
@@ -99,14 +103,17 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             {property.photos.slice(0, 5).map((_, idx) => (
               <button
                 key={idx}
+                type="button"
+                aria-label={`Show photo ${idx + 1} of ${property.title || 'this property'}`}
+                aria-pressed={activePhotoIdx === idx}
                 onClick={(e) => {
                   e.stopPropagation();
                   setActivePhotoIdx(idx);
                 }}
-                className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${
-                  activePhotoIdx === idx ? 'bg-white w-4' : 'bg-white/50 hover:bg-white/80'
-                }`}
-              />
+                className="w-11 h-11 inline-flex items-center justify-center rounded-full cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+              >
+                <span aria-hidden="true" className={`h-1.5 rounded-full transition-all ${activePhotoIdx === idx ? 'bg-white w-4' : 'bg-white/60 w-1.5'}`} />
+              </button>
             ))}
           </div>
         )}

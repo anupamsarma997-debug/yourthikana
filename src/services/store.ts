@@ -3,7 +3,6 @@ import { INITIAL_USERS, INITIAL_PROPERTIES, INITIAL_ROOMS, INITIAL_BANNERS, INIT
 import { db, auth, isFirebaseConfigured, firebaseConfigError } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, where, getDoc, getDocs, runTransaction } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { deletePropertyPhoto } from './uploadPropertyImage';
 
 const STORAGE_KEYS = {
   USERS: 'thikana_users_v1',
@@ -1118,10 +1117,16 @@ class DataStore {
       };
     }
 
-    // Delete associated property photos from Firebase Storage (best-effort)
-    if (prop.photos && Array.isArray(prop.photos)) {
-      for (const photoUrl of prop.photos) {
-        deletePropertyPhoto(photoUrl).catch(() => {});
+    // Load the photo cleanup code only when a property is actually deleted.
+    // This keeps Firebase Storage/Supabase upload helpers out of the initial store path.
+    if (prop.photos && Array.isArray(prop.photos) && prop.photos.length > 0) {
+      try {
+        const { deletePropertyPhoto } = await import('./uploadPropertyImage');
+        for (const photoUrl of prop.photos) {
+          deletePropertyPhoto(photoUrl).catch(() => {});
+        }
+      } catch (err) {
+        console.warn('Property photo cleanup module could not be loaded:', err);
       }
     }
 

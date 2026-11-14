@@ -910,8 +910,9 @@ class DataStore {
       await setDoc(doc(db, 'properties', newProp.id), sanitizeForFirestore(newProp));
     } catch (err: any) {
       this.firestoreError = err?.message || String(err);
-      const code = err?.code ? ` (${err.code})` : '';
-      throw new Error(`Property could not be saved to the secure database${code}. Please check your login and try again.`);
+      const code = err?.code || 'unknown';
+      const detail = err?.message || String(err);
+      throw new Error(`Firestore save failed [${code}]: ${detail}`);
     }
 
     const existingIdx = this.properties.findIndex((p) => p.id === newProp.id);

@@ -265,7 +265,15 @@ class DataStore {
     }
 
     let privateUnsubscribers: Array<() => void> = [];
+    let dataUnsubscribers: Array<() => void> = [];
+    const clearDataListeners = () => {
+      dataUnsubscribers.forEach((unsubscribe) => {
+        try { unsubscribe(); } catch {}
+      });
+      dataUnsubscribers = [];
+    };
     const clearPrivateListeners = () => {
+      clearDataListeners();
       privateUnsubscribers.forEach((unsubscribe) => {
         try { unsubscribe(); } catch {}
       });
@@ -311,6 +319,41 @@ class DataStore {
             this.currentUserId = fbUser.uid;
             this.persist();
             this.notify(false);
+
+            // Admins may load the full private collections; owners only receive
+            // documents explicitly scoped to their Firebase UID.
+            clearDataListeners();
+            const admin = uData.role === 'admin';
+            const privateCollections = [
+              { name: 'enquiries', apply: (items: BookingEnquiry[]) => { this.enquiries = items; } },
+              { name: 'visits', apply: (items: PropertyVisit[]) => { this.visits = items; } },
+              { name: 'leads', apply: (items: PropertyLead[]) => { this.leads = items; } },
+            ];
+            privateCollections.forEach(({ name, apply }) => {
+              const source = admin
+                ? collection(db, name)
+                : query(collection(db, name), where('ownerUid', '==', fbUser.uid));
+              const unsubscribe = onSnapshot(source, (snapshot) => {
+                const items = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+                apply(items as any);
+                this.persist();
+                this.notify(false);
+              }, (err) => console.warn(`Firestore ${name} private query notice:`, err?.message || err));
+              dataUnsubscribers.push(unsubscribe);
+            });
+
+            if (admin) {
+              const usersUnsub = onSnapshot(collection(db, 'users'), (snapshot) => {
+                const remoteUsers = snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as User));
+                const byId = new Map<string, User>();
+                this.users.forEach((user) => byId.set(user.id, user));
+                remoteUsers.forEach((user) => byId.set(user.id, user));
+                this.users = Array.from(byId.values());
+                this.persist();
+                this.notify(false);
+              }, (err) => console.warn('Admin users sync notice:', err?.message || err));
+              dataUnsubscribers.push(usersUnsub);
+            }
           }
         }, (err) => console.warn('Own user profile sync notice:', err?.message || err));
         privateUnsubscribers.push(userUnsub);
@@ -344,23 +387,7 @@ class DataStore {
         }, (err) => console.warn('Firestore rooms sync notice:', err?.message || err));
         privateUnsubscribers.push(roomUnsub);
 
-        // Private collections are queried only for the authenticated owner UID.
-        const ownerQueries = [
-          { name: 'enquiries', apply: (items: BookingEnquiry[]) => { this.enquiries = items; } },
-          { name: 'visits', apply: (items: PropertyVisit[]) => { this.visits = items; } },
-          { name: 'leads', apply: (items: PropertyLead[]) => { this.leads = items; } },
-        ];
 
-        ownerQueries.forEach(({ name, apply }) => {
-          const q = query(collection(db, name), where('ownerUid', '==', fbUser.uid));
-          const unsubscribe = onSnapshot(q, (snapshot) => {
-            const items = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-            apply(items as any);
-            this.persist();
-            this.notify(false);
-          }, (err) => console.warn(`Firestore ${name} owner query notice:`, err?.message || err));
-          privateUnsubscribers.push(unsubscribe);
-        });
       });
     } catch (err: any) {
       console.error('Firebase listeners setup error:', err);

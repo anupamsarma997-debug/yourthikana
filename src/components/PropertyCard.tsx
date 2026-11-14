@@ -42,7 +42,10 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
     : 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80';
 
   return (
-    <div className="bg-white dark:bg-slate-800/90 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group relative">
+    <div
+      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 420px" }}
+      className="bg-white dark:bg-slate-800/90 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group relative"
+    >
       
       {/* Top Media Banner */}
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-900">

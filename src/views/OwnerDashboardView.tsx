@@ -273,6 +273,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
   const [ownerWhatsAppInput, setOwnerWhatsAppInput] = useState<string>('919876543210');
   const [ownerPhoneInput, setOwnerPhoneInput] = useState<string>('+91 9876543210');
   const [formError, setFormError] = useState<string>('');
+  const [isSavingProperty, setIsSavingProperty] = useState(false);
 
   // Helper to count words
   const countWords = (text: string): number => {
@@ -687,6 +688,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     const finalPhone = ownerPhoneInput.trim() || '+91 9876543210';
     const finalWhatsApp = ownerWhatsAppInput.trim() || '919876543210';
 
+    setIsSavingProperty(true);
+    setFormError('');
     try {
       if (editingPropertyId) {
         // Update
@@ -762,7 +765,14 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       setIsFormOpen(false);
     } catch (err: any) {
       console.error('Error saving property:', err);
-      setFormError(`⚠️ Error saving property: ${err?.message || 'Unable to save property. Please try again.'}`);
+      const code = String(err?.code || 'unknown');
+      const detail = String(err?.message || 'No additional Firebase message was returned.');
+      const friendly = code.includes('permission-denied')
+        ? 'Firebase Security Rules ne is property ko reject kiya. Data save nahi hua. Neeche Firebase ka exact reason diya hai.'
+        : 'Property save nahi hui. Neeche exact error diya hai.';
+      setFormError(`${friendly} Error code: ${code}. Details: ${detail}`);
+    } finally {
+      setIsSavingProperty(false);
     }
   };
 
@@ -1947,14 +1957,14 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={isUploadingPhotos}
+                  disabled={isUploadingPhotos || isSavingProperty}
                   className={`font-extrabold text-xs px-6 py-2.5 rounded-xl shadow-md transition-all ${
                     isUploadingPhotos
                       ? 'bg-slate-400 text-white cursor-not-allowed opacity-70'
                       : 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer'
                   }`}
                 >
-                  {isUploadingPhotos ? 'Uploading Photos...' : 'Save Property Listing'}
+                  {isUploadingPhotos ? 'Uploading Photos...' : isSavingProperty ? 'Saving Property...' : 'Save Property Listing'}
                 </button>
               </div>
 

@@ -75,7 +75,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Check for redirect result on mount if redirect auth was used
   React.useEffect(() => {
     if (auth) {
-      getRedirectResult(auth).then((res) => {
+      getRedirectResult(auth).then(async (res) => {
         if (res && res.user && res.user.email) {
           const gUser = res.user;
           const loggedInUser = await store.loginOrRegisterWithGoogle({

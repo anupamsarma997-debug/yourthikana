@@ -49,7 +49,8 @@ export function App() {
 
   // Keep page metadata and canonical URL aligned with directly opened city routes.
   useEffect(() => {
-    const city = selectedCity !== 'All Locations' ? selectedCity : '';
+    const isCityRoute = window.location.pathname.replace(/\\/+$/, '') !== '';
+    const city = isCityRoute && selectedCity !== 'All Locations' ? selectedCity : '';
     const title = city
       ? `${city} Hotels, Homestays & Rooms | YourThikana`
       : 'YourThikana | Find Hotels, Homestays, Hostels & Rooms';

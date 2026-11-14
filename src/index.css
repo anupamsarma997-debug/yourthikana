@@ -1,1 +1,19 @@
 @import "tailwindcss";
+
+
+/* Consistent keyboard focus and minimum touch height for mobile controls. */
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 3px solid #0d9488;
+  outline-offset: 3px;
+}
+button {
+  min-height: 44px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

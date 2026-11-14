@@ -1,21 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { UserRole, Property, RoomType } from './types';
 import { store } from './services/store';
+import { auth } from './lib/firebase';
 import { AlertTriangle, Sparkles } from 'lucide-react';
 
 // Components
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
-import { WhatsAppEnquiryModal } from './components/WhatsAppEnquiryModal';
-import { PropertyGalleryModal } from './components/PropertyGalleryModal';
-import { AIAssistantModal } from './components/AIAssistantModal';
-import { AuthModal } from './components/AuthModal';
+// Load secondary views and dialogs only when a user needs them.
+const WhatsAppEnquiryModal = lazy(() => import('./components/WhatsAppEnquiryModal').then((m) => ({ default: m.WhatsAppEnquiryModal })));
+const PropertyGalleryModal = lazy(() => import('./components/PropertyGalleryModal').then((m) => ({ default: m.PropertyGalleryModal })));
+const AIAssistantModal = lazy(() => import('./components/AIAssistantModal').then((m) => ({ default: m.AIAssistantModal })));
+const AuthModal = lazy(() => import('./components/AuthModal').then((m) => ({ default: m.AuthModal })));
 
-// Views
-import { CustomerHomeView } from './views/CustomerHomeView';
-import { PropertyDetailView } from './views/PropertyDetailView';
-import { OwnerDashboardView } from './views/OwnerDashboardView';
-import { AdminDashboardView } from './views/AdminDashboardView';
+// Dashboard and detail views are split into separate network chunks.
+const CustomerHomeView = lazy(() => import('./views/CustomerHomeView').then((m) => ({ default: m.CustomerHomeView })));
+const PropertyDetailView = lazy(() => import('./views/PropertyDetailView').then((m) => ({ default: m.PropertyDetailView })));
+const OwnerDashboardView = lazy(() => import('./views/OwnerDashboardView').then((m) => ({ default: m.OwnerDashboardView })));
+const AdminDashboardView = lazy(() => import('./views/AdminDashboardView').then((m) => ({ default: m.AdminDashboardView })));
 
 export function App() {
   const [currentRole, setCurrentRole] = useState<UserRole>('customer');
@@ -26,7 +28,8 @@ export function App() {
   // Resolve direct city URLs (for example /guwahati) into the existing city filter.
   useEffect(() => {
     const slug = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
-    if (!slug) return;
+    const params = new URLSearchParams(window.location.search);
+    const requestedCity = params.get('city');
     const cityNames = [
       'Guwahati','Dibrugarh','Jorhat','Silchar','Tezpur','Tinsukia','Nagaon','Sivasagar','Dhubri','Diphu','North Lakhimpur','Bongaigaon','Kaziranga','Majuli Island',
       'Itanagar','Naharlagun','Tawang','Ziro Valley','Pasighat','Bomdila','Tezu','Roing','Along (Aalo)','Changlang',
@@ -39,7 +42,9 @@ export function App() {
     ];
     const normalize = (value: string) => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const matchedCity = cityNames.find((city) => normalize(city) === slug);
+    const queryCity = cityNames.find((city) => normalize(city) === normalize(requestedCity || ''));
     if (matchedCity) setSelectedCity(matchedCity);
+    else if (queryCity) setSelectedCity(queryCity);
   }, []);
 
   // Keep browser metadata aligned with a directly opened city page.
@@ -133,22 +138,39 @@ export function App() {
   const [autoOpenAddProperty, setAutoOpenAddProperty] = useState<boolean>(false);
   const [pendingAddProperty, setPendingAddProperty] = useState<boolean>(false);
 
-  const handleOpenAddProperty = () => {
-    const user = store.getCurrentUser();
-    const isAuthenticHost = Boolean(
-      user && 
-      user.id !== 'customer_1' && 
-      (user.role === 'owner' || user.role === 'admin' || user.googleEmail || user.googleUid)
-    );
+  const handleOpenAddProperty = async () => {
+    const firebaseUser = auth?.currentUser;
+    let user = store.getCurrentUser();
 
-    if (!isAuthenticHost) {
+    // Restore the Firestore profile for an existing Firebase session instead of
+    // showing a second login prompt while the auth listener is still catching up.
+    if (firebaseUser && (!user || user.id !== firebaseUser.uid)) {
+      try {
+        user = await store.loadFirebaseUserProfile(firebaseUser.uid);
+      } catch (error: any) {
+        store.firestoreError = error?.message || 'Could not load your account profile.';
+      }
+    }
+
+    if (!firebaseUser) {
       setPendingAddProperty(true);
       setIsAuthOpen(true);
-    } else {
-      setCurrentRole('owner');
-      setCurrentView('home');
-      setAutoOpenAddProperty(true);
+      return;
     }
+
+    if (!user) {
+      store.firestoreError = 'You are signed in, but your YourThikana profile could not be loaded. Please refresh once or contact support; do not create another account.';
+      return;
+    }
+
+    if (user.role !== 'owner' && user.role !== 'admin') {
+      store.firestoreError = 'This account is not registered as a host account. Please contact support.';
+      return;
+    }
+
+    setCurrentRole('owner');
+    setCurrentView('home');
+    setAutoOpenAddProperty(true);
   };
 
   const handleSelectProperty = (prop: Property) => {
@@ -212,7 +234,8 @@ export function App() {
         )}
 
         {/* Main Content Area */}
-        <main className="flex-1">
+        <main id="stays" className="flex-1">
+          <Suspense fallback={<div className="min-h-40 flex items-center justify-center text-sm text-slate-600 dark:text-slate-300" role="status">Loading YourThikana…</div>}>
           {currentRole === 'customer' && (
             currentView === 'home' || !selectedProperty ? (
               <CustomerHomeView
@@ -242,6 +265,7 @@ export function App() {
           {currentRole === 'admin' && (
             <AdminDashboardView />
           )}
+          </Suspense>
         </main>
 
         {/* Footer */}
@@ -270,46 +294,50 @@ export function App() {
         </span>
       </button>
 
-      {/* WhatsApp Booking Enquiry Form Modal */}
-      <WhatsAppEnquiryModal
-        property={selectedProperty}
-        initialRoom={selectedRoomForWhatsApp}
-        isOpen={isWhatsAppOpen}
-        onClose={() => setIsWhatsAppOpen(false)}
-      />
-
-      {/* Property Photo & Video Gallery Modal */}
-      <PropertyGalleryModal
-        property={selectedProperty}
-        isOpen={isGalleryOpen}
-        onClose={() => setIsGalleryOpen(false)}
-      />
-
-      {/* AI Assistant Modal (THIKANA AI Mitra) */}
-      <AIAssistantModal
-        isOpen={isAIOpen}
-        onClose={() => setIsAIOpen(false)}
-        onSelectProperty={handleSelectProperty}
-        onOpenWhatsApp={handleOpenWhatsApp}
-      />
-
-      {/* Authentication & Registration Modal */}
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => {
-          setIsAuthOpen(false);
-          setPendingAddProperty(false);
-        }}
-        onSuccessRole={(role) => {
-          setIsAuthOpen(false);
-          setCurrentRole('owner');
-          setCurrentView('home');
-          if (pendingAddProperty) {
-            setPendingAddProperty(false);
-            setAutoOpenAddProperty(true);
-          }
-        }}
-      />
+      {/* Dialog chunks are downloaded only after the corresponding action. */}
+      <Suspense fallback={null}>
+        {isWhatsAppOpen && (
+          <WhatsAppEnquiryModal
+            property={selectedProperty}
+            initialRoom={selectedRoomForWhatsApp}
+            isOpen={true}
+            onClose={() => setIsWhatsAppOpen(false)}
+          />
+        )}
+        {isGalleryOpen && (
+          <PropertyGalleryModal
+            property={selectedProperty}
+            isOpen={true}
+            onClose={() => setIsGalleryOpen(false)}
+          />
+        )}
+        {isAIOpen && (
+          <AIAssistantModal
+            isOpen={true}
+            onClose={() => setIsAIOpen(false)}
+            onSelectProperty={handleSelectProperty}
+            onOpenWhatsApp={handleOpenWhatsApp}
+          />
+        )}
+        {isAuthOpen && (
+          <AuthModal
+            isOpen={true}
+            onClose={() => {
+              setIsAuthOpen(false);
+              setPendingAddProperty(false);
+            }}
+            onSuccessRole={(role) => {
+              setIsAuthOpen(false);
+              setCurrentRole('owner');
+              setCurrentView('home');
+              if (pendingAddProperty) {
+                setPendingAddProperty(false);
+                setAutoOpenAddProperty(true);
+              }
+            }}
+          />
+        )}
+      </Suspense>
 
     </div>
   );

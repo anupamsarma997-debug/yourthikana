@@ -273,6 +273,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
   const [ownerWhatsAppInput, setOwnerWhatsAppInput] = useState<string>('919876543210');
   const [ownerPhoneInput, setOwnerPhoneInput] = useState<string>('+91 9876543210');
   const [formError, setFormError] = useState<string>('');
+  const [isSavingProperty, setIsSavingProperty] = useState(false);
 
   // Helper to count words
   const countWords = (text: string): number => {
@@ -416,15 +417,34 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
   }, [filterMode]);
 
   // Open Form to Add New Property
-  const handleOpenAdd = () => {
-    const user = store.getCurrentUser();
+  const handleOpenAdd = async () => {
     const fbUser = auth?.currentUser;
+    let user = store.getCurrentUser();
 
-    if (!user && !fbUser) {
+    if (fbUser && (!user || user.id !== fbUser.uid)) {
+      try {
+        user = await store.loadFirebaseUserProfile(fbUser.uid);
+      } catch (error: any) {
+        setFormError(error?.message || 'Could not load your signed-in account profile.');
+        return;
+      }
+    }
+
+    if (!fbUser) {
       setAuthRequiredOwnerId(undefined);
       setAuthTargetTitle("Listing New Property");
       setPendingAction(() => () => handleOpenAdd());
       setAuthModalOpen(true);
+      return;
+    }
+
+    if (!user) {
+      setFormError('You are signed in, but your host profile is not available. Please refresh once; do not sign up again.');
+      return;
+    }
+
+    if (user.role !== 'owner' && user.role !== 'admin') {
+      setFormError('This account is not registered as a host account. Please contact support.');
       return;
     }
 
@@ -444,8 +464,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     setCheckOutTime('11:00 AM');
     setPhotoUrlsInput('');
     setVideoUrl('');
-    setOwnerPhoneInput(user?.phone || '+91 9876543210');
-    setOwnerWhatsAppInput(user?.whatsapp || '919876543210');
+    setOwnerPhoneInput(user.phone || '');
+    setOwnerWhatsAppInput(user.whatsapp || user.phone || '');
 
     // Pre-fill initial room setup
     setRoomName('Standard Deluxe Room');
@@ -640,28 +660,36 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
-    const user = store.getCurrentUser();
-    const isAuthenticHost = Boolean(
-      user && 
-      user.id !== 'customer_1' && 
-      (user.role === 'owner' || user.role === 'admin' || user.googleEmail || user.googleUid)
-    );
+    const fbUser = auth?.currentUser;
+    let user = store.getCurrentUser();
+    if (fbUser && (!user || user.id !== fbUser.uid)) {
+      try {
+        user = await store.loadFirebaseUserProfile(fbUser.uid);
+      } catch (error: any) {
+        setFormError(error?.message || 'Could not verify your signed-in host account.');
+        return;
+      }
+    }
 
-    if (!isAuthenticHost) {
-      setFormError('🔒 Please sign in with Google or your Host account to list your property.');
-      setPendingAction(() => () => {
-        const fakeEvt = { preventDefault: () => {} } as React.FormEvent;
-        handleSaveProperty(fakeEvt);
-      });
+    if (!fbUser) {
+      setFormError('Your session has expired. Please sign in once to continue.');
+      setAuthTargetTitle('Listing New Property');
       setAuthModalOpen(true);
       return;
     }
 
-    const ownerId = user.id;
+    if (!user || (user.role !== 'owner' && user.role !== 'admin')) {
+      setFormError('Your host profile could not be verified. Please refresh once or contact support. Do not create another account.');
+      return;
+    }
+
+    const ownerId = fbUser.uid;
     const ownerName = user.name;
     const finalPhone = ownerPhoneInput.trim() || '+91 9876543210';
     const finalWhatsApp = ownerWhatsAppInput.trim() || '919876543210';
 
+    setIsSavingProperty(true);
+    setFormError('');
     try {
       if (editingPropertyId) {
         // Update
@@ -737,7 +765,14 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       setIsFormOpen(false);
     } catch (err: any) {
       console.error('Error saving property:', err);
-      setFormError(`⚠️ Error saving property: ${err?.message || 'Unable to save property. Please try again.'}`);
+      const code = String(err?.code || 'unknown');
+      const detail = String(err?.message || 'No additional Firebase message was returned.');
+      const friendly = code.includes('permission-denied')
+        ? 'Firebase Security Rules ne is property ko reject kiya. Data save nahi hua. Neeche Firebase ka exact reason diya hai.'
+        : 'Property save nahi hui. Neeche exact error diya hai.';
+      setFormError(`${friendly} Error code: ${code}. Details: ${detail}`);
+    } finally {
+      setIsSavingProperty(false);
     }
   };
 
@@ -1922,14 +1957,14 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={isUploadingPhotos}
+                  disabled={isUploadingPhotos || isSavingProperty}
                   className={`font-extrabold text-xs px-6 py-2.5 rounded-xl shadow-md transition-all ${
                     isUploadingPhotos
                       ? 'bg-slate-400 text-white cursor-not-allowed opacity-70'
                       : 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer'
                   }`}
                 >
-                  {isUploadingPhotos ? 'Uploading Photos...' : 'Save Property Listing'}
+                  {isUploadingPhotos ? 'Uploading Photos...' : isSavingProperty ? 'Saving Property...' : 'Save Property Listing'}
                 </button>
               </div>
 

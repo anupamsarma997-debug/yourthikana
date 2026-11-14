@@ -48,7 +48,11 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-900">
         <img
           src={coverImage}
-          alt={property.title}
+          alt={property.title ? `Photo of ${property.title}` : 'Property accommodation photo'}
+          width={800}
+          height={500}
+          decoding="async"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
@@ -99,14 +103,17 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             {property.photos.slice(0, 5).map((_, idx) => (
               <button
                 key={idx}
+                type="button"
+                aria-label={`Show photo ${idx + 1} of ${property.title || 'this property'}`}
+                aria-pressed={activePhotoIdx === idx}
                 onClick={(e) => {
                   e.stopPropagation();
                   setActivePhotoIdx(idx);
                 }}
-                className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${
-                  activePhotoIdx === idx ? 'bg-white w-4' : 'bg-white/50 hover:bg-white/80'
-                }`}
-              />
+                className="w-11 h-11 inline-flex items-center justify-center rounded-full cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+              >
+                <span aria-hidden="true" className={`h-1.5 rounded-full transition-all ${activePhotoIdx === idx ? 'bg-white w-4' : 'bg-white/60 w-1.5'}`} />
+              </button>
             ))}
           </div>
         )}
@@ -121,11 +128,14 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             <span className="truncate">{property.city}, {property.state}</span>
           </div>
 
-          <h3 
-            onClick={() => onSelect(property)}
-            className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white line-clamp-1 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer transition-colors"
-          >
-            {property.title}
+          <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white line-clamp-1">
+            <button
+              type="button"
+              onClick={() => onSelect(property)}
+              className="w-full min-h-11 text-left hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
+            >
+              {property.title}
+            </button>
           </h3>
 
           <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mt-1.5 leading-relaxed">
@@ -175,13 +185,13 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => onSelect(property)}
-              className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold px-3 py-2 rounded-xl transition-all"
+              className="min-h-11 min-w-11 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold px-3 py-2 rounded-xl transition-all"
             >
               Details
             </button>
             <button
               onClick={() => onOpenWhatsApp(property, lowestPriceRoom || undefined)}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl shadow-md transition-transform active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              className="min-h-11 min-w-11 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl shadow-md transition-transform active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <MessageCircle className="w-3.5 h-3.5 fill-white text-emerald-600" />
               <span>Book on WhatsApp</span>

@@ -2,11 +2,27 @@
   "rewrites": [
     {
       "source": "/guwahati",
-      "destination": "/index.html"
+      "destination": "/seo-pages/guwahati.html"
+    },
+    {
+      "source": "/shillong",
+      "destination": "/seo-pages/shillong.html"
     },
     {
       "source": "/dibrugarh",
-      "destination": "/index.html"
+      "destination": "/seo-pages/dibrugarh.html"
+    },
+    {
+      "source": "/kaziranga",
+      "destination": "/seo-pages/kaziranga.html"
+    },
+    {
+      "source": "/tawang",
+      "destination": "/seo-pages/tawang.html"
+    },
+    {
+      "source": "/gangtok",
+      "destination": "/seo-pages/gangtok.html"
     },
     {
       "source": "/jorhat",
@@ -49,10 +65,6 @@
       "destination": "/index.html"
     },
     {
-      "source": "/kaziranga",
-      "destination": "/index.html"
-    },
-    {
       "source": "/majuli-island",
       "destination": "/index.html"
     },
@@ -62,10 +74,6 @@
     },
     {
       "source": "/naharlagun",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/tawang",
       "destination": "/index.html"
     },
     {
@@ -118,10 +126,6 @@
     },
     {
       "source": "/senapati",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/shillong",
       "destination": "/index.html"
     },
     {
@@ -213,10 +217,6 @@
       "destination": "/index.html"
     },
     {
-      "source": "/gangtok",
-      "destination": "/index.html"
-    },
-    {
       "source": "/namchi",
       "destination": "/index.html"
     },
@@ -271,6 +271,56 @@
     {
       "source": "/khowai",
       "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/seo-pages/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        }
+      ]
     }
   ]
 }

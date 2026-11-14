@@ -195,6 +195,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               className={`p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${
                 isMobileFrame ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50' : ''
               }`}
+              type="button"
+              aria-label="Toggle mobile preview frame"
+              aria-pressed={isMobileFrame}
               title="Toggle Mobile App Mockup Frame View"
             >
               <Smartphone className="w-4 h-4" />
@@ -204,6 +207,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={handleToggleTheme}
               className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              type="button"
+              aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+              aria-pressed={isDark}
               title="Toggle Dark/Light Mode"
             >
               {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
@@ -223,7 +229,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                   <button
                     onClick={onOpenAuth}
-                    className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs hover:ring-2 hover:ring-emerald-500 transition-all overflow-hidden"
+                    aria-label="Open account settings"
+                    className="min-w-11 min-h-11 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs hover:ring-2 hover:ring-emerald-500 transition-all overflow-hidden"
                   >
                     {user.avatar ? (
                       <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -245,6 +252,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              type="button"
+              aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={mobileMenuOpen}
               className="md:hidden p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}

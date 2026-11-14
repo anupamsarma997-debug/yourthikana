@@ -53,6 +53,7 @@ export interface Property {
   ownerId: string;
   ownerUid?: string;
   ownerEmail?: string;
+  duplicateKeys?: string[];
   ownerName: string;
   ownerPhone: string;
   ownerWhatsApp: string;

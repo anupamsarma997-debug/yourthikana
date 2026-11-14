@@ -31,7 +31,7 @@ service cloud.firestore {
         'ownerWhatsApp', 'description', 'propertyType', 'address', 'state',
         'latitude', 'longitude', 'checkInTime', 'checkOutTime', 'photos',
         'rating', 'reviewsCount', 'isVerified', 'isFeatured', 'status',
-        'subscriptionPlan', 'subscriptionPrice', 'subscriptionExpiresAt', 'createdAt'
+        'subscriptionPlan', 'subscriptionPrice', 'subscriptionExpiresAt', 'createdAt', 'duplicateKeys'
       ]) &&
       request.resource.data.title is string &&
       request.resource.data.city is string &&
@@ -44,7 +44,13 @@ service cloud.firestore {
       request.resource.data.status in ['active', 'pending'] &&
       request.resource.data.subscriptionPlan == 'none' &&
       request.resource.data.subscriptionPrice == 0 &&
-      request.resource.data.subscriptionExpiresAt == '';
+      request.resource.data.subscriptionExpiresAt == '' &&
+      request.resource.data.duplicateKeys is list &&
+      request.resource.data.duplicateKeys.size() == 1 &&
+      existsAfter(/databases/$(database)/documents/owner_listing_limits/$(request.auth.uid)) &&
+      getAfter(/databases/$(database)/documents/owner_listing_limits/$(request.auth.uid)).data.get('propertyId', '') == request.resource.data.id &&
+      existsAfter(/databases/$(database)/documents/property_duplicate_keys/$(request.resource.data.duplicateKeys[0])) &&
+      getAfter(/databases/$(database)/documents/property_duplicate_keys/$(request.resource.data.duplicateKeys[0])).data.get('propertyId', '') == request.resource.data.id;
     }
 
     function validRoomCreate() {
@@ -77,6 +83,34 @@ service cloud.firestore {
 
     match /{document=**} {
       allow read, write: if false;
+    }
+
+    // Atomic one-listing-per-account reservation. The reservation is created
+    // in the same transaction as the property and released only when that property is deleted.
+    match /owner_listing_limits/{ownerUid} {
+      allow read: if isSelf(ownerUid) || isAdmin();
+      allow create: if isSelf(ownerUid) &&
+        request.resource.data.ownerUid == request.auth.uid &&
+        existsAfter(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
+        getAfter(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '') == request.auth.uid;
+      allow update: if false;
+      allow delete: if isAdmin() ||
+        (isSelf(ownerUid) && !existsAfter(/databases/$(database)/documents/properties/$(resource.data.propertyId)));
+    }
+
+    // Global property fingerprint lock prevents the same property being reposted
+    // from another account. Only a matching atomic property create can claim it.
+    match /property_duplicate_keys/{duplicateKey} {
+      allow read: if signedIn();
+      allow create: if signedIn() &&
+        request.resource.data.ownerUid == request.auth.uid &&
+        existsAfter(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
+        getAfter(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '') == request.auth.uid &&
+        getAfter(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('duplicateKeys', []).hasAny([duplicateKey]);
+      allow update: if false;
+      allow delete: if isAdmin() ||
+        (signedIn() && resource.data.ownerUid == request.auth.uid &&
+         !existsAfter(/databases/$(database)/documents/properties/$(resource.data.propertyId)));
     }
 
     match /properties/{propertyId} {

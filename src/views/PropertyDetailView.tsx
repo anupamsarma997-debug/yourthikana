@@ -70,7 +70,8 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={handleShare}
-            className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors border border-slate-200 dark:border-slate-700"
+            className="p-2 min-w-11 min-h-11 inline-flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors border border-slate-200 dark:border-slate-700"
+            aria-label="Share property"
             title="Share Property"
           >
             <Share2 className="w-4 h-4" />

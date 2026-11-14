@@ -209,9 +209,11 @@ class DataStore {
           userObj.passwordHash = hashPasswordWithSalt((userObj as any).password, salt);
           delete (userObj as any).password;
         } else if (!userObj.passwordHash) {
-          const salt = userObj.passwordSalt || generateSalt();
-          userObj.passwordSalt = salt;
-          userObj.passwordHash = hashPasswordWithSalt('123456', salt);
+          // Seed/demo accounts historically receive the default password 123456.
+          // Do not spend 10,000 synchronous SHA-256 rounds for every account at startup.
+          // Verify and generate this legacy demo hash only if that account actually logs in.
+          userObj.passwordSalt = userObj.passwordSalt || generateSalt();
+          (userObj as any)._needsDefaultPasswordHash = true;
         }
         return userObj;
       });
@@ -643,7 +645,14 @@ class DataStore {
 
     // Verify password via user-specific salt hash or legacy hash fallback
     let isValidPassword = false;
-    if (found.passwordSalt && found.passwordHash) {
+    if ((found as any)._needsDefaultPasswordHash) {
+      // Preserve the existing demo-account password without blocking every visitor on page load.
+      if (passwordInput === '123456') {
+        found.passwordHash = hashPasswordWithSalt(passwordInput, found.passwordSalt || generateSalt());
+        (found as any)._needsDefaultPasswordHash = false;
+        isValidPassword = true;
+      }
+    } else if (found.passwordSalt && found.passwordHash) {
       const computedHash = hashPasswordWithSalt(passwordInput, found.passwordSalt);
       isValidPassword = found.passwordHash === computedHash;
     } else if (found.passwordHash) {

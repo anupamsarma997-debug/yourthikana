@@ -47,21 +47,44 @@ export function App() {
     else if (queryCity) setSelectedCity(queryCity);
   }, []);
 
-  // Keep browser metadata aligned with a directly opened city page.
+  // Keep page metadata and canonical URL aligned with directly opened city routes.
   useEffect(() => {
-    const city = selectedCity !== 'All Locations' ? selectedCity : '';
-    document.title = city
+    const isCityRoute = window.location.pathname.replace(/\/+$/, '') !== '';
+    const city = isCityRoute && selectedCity !== 'All Locations' ? selectedCity : '';
+    const title = city
       ? `${city} Hotels, Homestays & Rooms | YourThikana`
       : 'YourThikana | Find Hotels, Homestays, Hostels & Rooms';
-    let description = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
-    if (!description) {
-      description = document.createElement('meta');
-      description.name = 'description';
-      document.head.appendChild(description);
-    }
-    description.content = city
+    const pageDescription = city
       ? `Explore hotels, homestays, hostels, cottages and monthly rooms in ${city}. Contact local hosts directly on WhatsApp with YourThikana.`
       : 'Discover hotels, homestays, hostels, cottages and monthly rooms. Contact local hosts directly on WhatsApp with YourThikana.';
+
+    document.title = title;
+
+    const setMeta = (selector: string, attribute: 'name' | 'property', key: string, content: string) => {
+      let element = document.querySelector(selector) as HTMLMetaElement | null;
+      if (!element) {
+        element = document.createElement('meta');
+        element.setAttribute(attribute, key);
+        document.head.appendChild(element);
+      }
+      element.content = content;
+    };
+
+    setMeta('meta[name="description"]', 'name', 'description', pageDescription);
+    setMeta('meta[property="og:title"]', 'property', 'og:title', title);
+    setMeta('meta[property="og:description"]', 'property', 'og:description', pageDescription);
+
+    // City landing routes must not advertise the homepage as their canonical URL.
+    const path = window.location.pathname.replace(/\/+$/, '') || '/';
+    const canonicalUrl = `${window.location.origin}${path}`;
+    let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.rel = 'canonical';
+      document.head.appendChild(canonical);
+    }
+    canonical.href = canonicalUrl;
+    setMeta('meta[property="og:url"]', 'property', 'og:url', canonicalUrl);
   }, [selectedCity]);
 
   // Modals

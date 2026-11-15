@@ -52,11 +52,11 @@ export function App() {
     const isCityRoute = window.location.pathname.replace(/\/+$/, '') !== '';
     const city = isCityRoute && selectedCity !== 'All Locations' ? selectedCity : '';
     const title = city
-      ? `${city} Hotels, Homestays & Rooms | YourThikana`
-      : 'YourThikana | Find Hotels, Homestays, Hostels & Rooms';
+      ? `${city} Hotels, Homestays, Hostels, PGs & Monthly Rooms | YourThikana`
+      : 'YourThikana | Hotels, Homestays, Hostels, PG & Monthly Rooms Across India';
     const pageDescription = city
-      ? `Explore hotels, homestays, hostels, cottages and monthly rooms in ${city}. Contact local hosts directly on WhatsApp with YourThikana.`
-      : 'Discover hotels, homestays, hostels, cottages and monthly rooms. Contact local hosts directly on WhatsApp with YourThikana.';
+      ? `Find hotels, homestays, hostels, PG accommodation, monthly rental rooms and cottages in ${city}. Explore available stays and contact hosts directly on WhatsApp with YourThikana.`
+      : 'Discover hotels, homestays, hostels, PG accommodation, monthly rental rooms and cottages across India. Contact property hosts directly on WhatsApp with YourThikana.';
 
     document.title = title;
 

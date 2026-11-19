@@ -275,6 +275,8 @@ class DataStore {
     let privateUnsubscribers: Array<() => void> = [];
     let dataUnsubscribers: Array<() => void> = [];
     let propertyUnsubscribers: Array<() => void> = [];
+    const roomUnsubscribers = new Map<string, () => void>();
+    const remoteRooms = new Map<string, RoomType>();
     const clearDataListeners = () => {
       dataUnsubscribers.forEach((unsubscribe) => {
         try { unsubscribe(); } catch {}
@@ -296,22 +298,56 @@ class DataStore {
       privateUnsubscribers = [];
     };
 
-    try {
-      // Public visitors receive only active listings. Signed-in owners receive
-      // their own listings separately; verified admins receive the full set.
-      onSnapshot(collection(db, 'rooms'), (snapshot) => {
-        const remoteRooms: RoomType[] = [];
-        snapshot.forEach((docSnap) => remoteRooms.push({ id: docSnap.id, ...docSnap.data() } as RoomType));
-        const roomMap = new Map<string, RoomType>();
-        this.rooms.forEach((room) => roomMap.set(room.id, room));
-        remoteRooms.forEach((room) => roomMap.set(room.id, room));
-        this.rooms = Array.from(roomMap.values());
-        this.persist();
-        this.notify(false);
-      }, (err) => console.warn('Firestore rooms sync notice:', err?.message || err));
+    const clearRoomListeners = () => {
+      roomUnsubscribers.forEach((unsubscribe) => {
+        try { unsubscribe(); } catch {}
+      });
+      roomUnsubscribers.clear();
+      remoteRooms.clear();
+    };
 
+    const syncRoomListeners = (visibleProperties: Property[]) => {
+      const propertyIds = new Set(visibleProperties.map((property) => property.id).filter(Boolean));
+      for (const [propertyId, unsubscribe] of roomUnsubscribers.entries()) {
+        if (!propertyIds.has(propertyId)) {
+          try { unsubscribe(); } catch {}
+          roomUnsubscribers.delete(propertyId);
+          Array.from(remoteRooms.values()).filter((room) => room.propertyId === propertyId).forEach((room) => remoteRooms.delete(room.id));
+        }
+      }
+      propertyIds.forEach((propertyId) => {
+        if (roomUnsubscribers.has(propertyId)) return;
+        const unsubscribe = onSnapshot(
+          query(collection(db, 'rooms'), where('propertyId', '==', propertyId)),
+          (snapshot) => {
+            Array.from(remoteRooms.values()).filter((room) => room.propertyId === propertyId).forEach((room) => remoteRooms.delete(room.id));
+            snapshot.forEach((docSnap) => remoteRooms.set(docSnap.id, { id: docSnap.id, ...docSnap.data() } as RoomType));
+            const allowedLocalRooms = this.rooms.filter((room) => propertyIds.has(room.propertyId));
+            const merged = new Map<string, RoomType>();
+            allowedLocalRooms.forEach((room) => merged.set(room.id, room));
+            remoteRooms.forEach((room) => merged.set(room.id, room));
+            this.rooms = Array.from(merged.values());
+            this.persist();
+            this.notify(false);
+          },
+          (err) => console.warn(`Firestore rooms sync notice for property ${propertyId}:`, err?.message || err)
+        );
+        roomUnsubscribers.set(propertyId, unsubscribe);
+      });
+      const allowedLocalRooms = this.rooms.filter((room) => propertyIds.has(room.propertyId));
+      const merged = new Map<string, RoomType>();
+      allowedLocalRooms.forEach((room) => merged.set(room.id, room));
+      remoteRooms.forEach((room) => merged.set(room.id, room));
+      this.rooms = Array.from(merged.values());
+      this.persist();
+    };
+
+    try {
+      // Room listeners are scoped to individually visible properties. Firestore
+      // rules can then verify the parent property's active status or ownership.
       onAuthStateChanged(auth, async (fbUser) => {
         clearPrivateListeners();
+        clearRoomListeners();
         let activeProperties: Property[] = [];
         let ownedProperties: Property[] = [];
         let allAdminProperties: Property[] | null = null;
@@ -319,6 +355,7 @@ class DataStore {
           const combined = new Map<string, Property>();
           (allAdminProperties || [...activeProperties, ...ownedProperties]).forEach((p) => combined.set(p.id, p));
           this.properties = Array.from(combined.values());
+          syncRoomListeners(this.properties);
           this.isFirebaseSynced = true;
           this.firestoreError = null;
           this.persist();
@@ -397,10 +434,19 @@ class DataStore {
             // Admins may load the full private collections; owners only receive
             // documents explicitly scoped to their Firebase UID.
             clearDataListeners();
-            const verifiedPlatformOwner =
-              fbUser.emailVerified &&
-              (fbUser.email || '').toLowerCase() === 'anupamsarma997@gmail.com';
-            const admin = uData.role === 'admin' || verifiedPlatformOwner;
+            let verifiedPlatformOwner = false;
+            try {
+              const tokenResult = await fbUser.getIdTokenResult(true);
+              verifiedPlatformOwner =
+                fbUser.emailVerified &&
+                (fbUser.email || '').trim().toLowerCase() === 'anupamsarma997@gmail.com' &&
+                tokenResult.signInProvider === 'google.com' &&
+                tokenResult.claims.email_verified === true;
+            } catch (tokenError) {
+              console.warn('Admin identity verification failed:', tokenError);
+            }
+            // Never trust the editable Firestore profile role for admin access.
+            const admin = verifiedPlatformOwner;
             if (admin) {
               const allPropertiesUnsub = onSnapshot(collection(db, 'properties'), (snapshot) => {
                 allAdminProperties = snapshot.docs.map((item) => normalizeProperty({ id: item.id, ...item.data() }));

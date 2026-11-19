@@ -311,6 +311,10 @@
     {
       "source": "/tripura",
       "destination": "/seo-pages/tripura.html"
+    },
+    {
+      "source": "/northeast-india",
+      "destination": "/seo-pages/northeast-india.html"
     }
   ],
   "headers": [

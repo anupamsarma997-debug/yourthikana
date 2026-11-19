@@ -48,7 +48,7 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
   React.useEffect(() => {
     return store.subscribe(() => {
       setProperties(store.getProperties());
-      setRooms(store.getRooms());
+      setRooms([...store.getRooms()]);
     });
   }, []);
 

@@ -13,12 +13,10 @@ export const PropertyGalleryModal: React.FC<PropertyGalleryModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  if (!isOpen || !property) return null;
-
   const [activeTab, setActiveTab] = useState<'photos' | 'video'>('photos');
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
 
-  const photos = property.photos || [];
+  const photos = property?.photos || [];
 
   const handleNext = () => {
     setActivePhotoIdx((prev) => (prev + 1) % photos.length);
@@ -27,6 +25,8 @@ export const PropertyGalleryModal: React.FC<PropertyGalleryModalProps> = ({
   const handlePrev = () => {
     setActivePhotoIdx((prev) => (prev - 1 + photos.length) % photos.length);
   };
+
+  if (!isOpen || !property) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
@@ -81,6 +81,7 @@ export const PropertyGalleryModal: React.FC<PropertyGalleryModalProps> = ({
               <img
                 src={photos[activePhotoIdx] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80'}
                 alt={`Property Photo ${activePhotoIdx + 1}`}
+                decoding="async"
                 className="max-h-[500px] w-auto max-w-full object-contain rounded-xl shadow-lg"
               />
 
@@ -131,7 +132,7 @@ export const PropertyGalleryModal: React.FC<PropertyGalleryModalProps> = ({
                   activePhotoIdx === idx ? 'border-emerald-500 scale-105 shadow-md' : 'border-transparent opacity-60 hover:opacity-100'
                 }`}
               >
-                <img src={photo} alt="" className="w-full h-full object-cover" />
+                <img src={photo} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
               </button>
             ))}
           </div>

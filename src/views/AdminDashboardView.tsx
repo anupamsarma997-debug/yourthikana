@@ -176,6 +176,9 @@ export const AdminDashboardView: React.FC = () => {
               <ShieldCheck className="w-3.5 h-3.5" />
               THIKANA Master Admin
             </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
+              <BadgeCheck className="w-3.5 h-3.5" /> Verified Platform Owner
+            </span>
             {claimDetails && (
               <span className="bg-slate-800 text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded-full">
                 {claimDetails}

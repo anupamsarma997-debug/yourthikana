@@ -14,7 +14,7 @@ const AIAssistantModal = lazy(() => import('./components/AIAssistantModal').then
 const AuthModal = lazy(() => import('./components/AuthModal').then((m) => ({ default: m.AuthModal })));
 
 // Dashboard and detail views are split into separate network chunks.
-const CustomerHomeView = lazy(() => import('./views/CustomerHomeView').then((m) => ({ default: m.CustomerHomeView })));
+import { CustomerHomeView } from './views/CustomerHomeView';
 const PropertyDetailView = lazy(() => import('./views/PropertyDetailView').then((m) => ({ default: m.PropertyDetailView })));
 const OwnerDashboardView = lazy(() => import('./views/OwnerDashboardView').then((m) => ({ default: m.OwnerDashboardView })));
 const AdminDashboardView = lazy(() => import('./views/AdminDashboardView').then((m) => ({ default: m.AdminDashboardView })));

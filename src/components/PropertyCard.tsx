@@ -17,12 +17,14 @@ import {
 
 interface PropertyCardProps {
   property: Property;
+  isPriority?: boolean;
   onSelect: (property: Property) => void;
   onOpenWhatsApp: (property: Property, room?: RoomType) => void;
 }
 
 export const PropertyCard: React.FC<PropertyCardProps> = ({
   property,
+  isPriority = false,
   onSelect,
   onOpenWhatsApp,
 }) => {
@@ -55,7 +57,9 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           width={800}
           height={500}
           decoding="async"
+          fetchPriority={isPriority ? "high" : "auto"}
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          loading={isPriority ? "eager" : "lazy"}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />

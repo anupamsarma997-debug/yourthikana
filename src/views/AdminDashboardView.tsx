@@ -30,63 +30,49 @@ export const AdminDashboardView: React.FC = () => {
   const [banners, setBanners] = useState<BannerAd[]>(store.getAllBanners());
   const [transactions, setTransactions] = useState(store.getTransactions());
 
-  // Strict Server-Side Claim Verification States
+  // Only the founder's verified Firebase account may enter the admin dashboard.
   const [isVerifying, setIsVerifying] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [claimDetails, setClaimDetails] = useState<string>('');
 
-  const [activeTab, setActiveTab] = useState<'properties' | 'users' | 'banners' | 'revenue'>('properties');
-
   useEffect(() => {
     let isMounted = true;
 
-    async function verifyAdminCustomClaims() {
+    async function verifyPlatformOwner() {
       setIsVerifying(true);
+      setIsAuthorized(false);
       const fbUser = auth?.currentUser;
 
-      // Only the verified platform-owner email can enter the master admin area.
-      // Firestore Rules independently enforce the same identity on every write.
-      const isVerifiedPlatformOwner = Boolean(
-        fbUser?.emailVerified &&
-        fbUser.email?.trim().toLowerCase() === 'anupamsarma997@gmail.com'
-      );
-
-      if (!isVerifiedPlatformOwner) {
+      if (!fbUser || fbUser.email !== 'anupamsarma997@gmail.com' || !fbUser.emailVerified) {
         if (isMounted) {
-          setIsAuthorized(false);
-          setClaimDetails('Verified platform-owner account required');
+          setClaimDetails('Only the verified platform-owner Google account is allowed.');
           setIsVerifying(false);
         }
         return;
       }
 
-      // Refresh the Firebase ID token before showing privileged controls.
-      if (fbUser) {
-        try {
-          const idTokenResult = await fbUser.getIdTokenResult(true);
-          const hasAdminClaim =
-            isVerifiedPlatformOwner ||
-            idTokenResult.claims.admin === true ||
-            idTokenResult.claims.role === 'admin' ||
-            fbUser.uid === 'user_admin';
+      try {
+        const tokenResult = await fbUser.getIdTokenResult(true);
+        const isOwnerToken =
+          tokenResult.claims.email === 'anupamsarma997@gmail.com' &&
+          tokenResult.claims.email_verified === true &&
+          tokenResult.signInProvider === 'google.com';
 
-          if (isMounted) {
-            setIsAuthorized(hasAdminClaim);
-            setClaimDetails(hasAdminClaim ? 'Verified platform-owner email' : 'Admin verification failed');
-            setIsVerifying(false);
-          }
-        } catch (err) {
-          console.warn('Firebase Custom Claim verification failed:', err);
-          if (isMounted) {
-            setIsAuthorized(false);
-            setIsVerifying(false);
-          }
+        if (isMounted) {
+          setIsAuthorized(isOwnerToken);
+          setClaimDetails(isOwnerToken ? 'Verified platform owner account' : 'Owner email verification missing from Firebase token');
+          setIsVerifying(false);
+        }
+      } catch (error) {
+        console.warn('Platform owner verification failed:', error);
+        if (isMounted) {
+          setClaimDetails('Could not verify the platform-owner Firebase token.');
+          setIsVerifying(false);
         }
       }
     }
 
-    verifyAdminCustomClaims();
-
+    verifyPlatformOwner();
     return () => {
       isMounted = false;
     };

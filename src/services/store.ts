@@ -421,7 +421,7 @@ class DataStore {
           }
         }
 
-        const userUnsub = onSnapshot(doc(db, 'users', fbUser.uid), (docSnap) => {
+        const userUnsub = onSnapshot(doc(db, 'users', fbUser.uid), async (docSnap) => {
           if (docSnap.exists()) {
             const uData = { id: docSnap.id, ...docSnap.data() } as User;
             const idx = this.users.findIndex((u) => u.id === fbUser.uid || u.googleUid === fbUser.uid);

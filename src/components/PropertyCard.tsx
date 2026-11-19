@@ -17,6 +17,7 @@ import {
 
 interface PropertyCardProps {
   property: Property;
+  rooms?: RoomType[];
   isPriority?: boolean;
   onSelect: (property: Property) => void;
   onOpenWhatsApp: (property: Property, room?: RoomType) => void;
@@ -24,11 +25,13 @@ interface PropertyCardProps {
 
 export const PropertyCard: React.FC<PropertyCardProps> = ({
   property,
+  rooms: suppliedRooms,
   isPriority = false,
   onSelect,
   onOpenWhatsApp,
 }) => {
-  const rooms = store.getRoomsByProperty(property.id);
+  // Reuse the homepage's pre-indexed rooms to avoid rescanning all rooms per card.
+  const rooms = suppliedRooms ?? store.getRoomsByProperty(property.id);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
 
   // Find lowest price room

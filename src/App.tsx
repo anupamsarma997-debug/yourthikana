@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { UserRole, Property, RoomType } from './types';
 import { store } from './services/store';
 import { auth } from './lib/firebase';
@@ -8,16 +8,16 @@ import { AlertTriangle, Sparkles } from 'lucide-react';
 // Components
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
-import { WhatsAppEnquiryModal } from './components/WhatsAppEnquiryModal';
-import { PropertyGalleryModal } from './components/PropertyGalleryModal';
-import { AIAssistantModal } from './components/AIAssistantModal';
-import { AuthModal } from './components/AuthModal';
+const WhatsAppEnquiryModal = lazy(() => import('./components/WhatsAppEnquiryModal').then((m) => ({ default: m.WhatsAppEnquiryModal })));
+const PropertyGalleryModal = lazy(() => import('./components/PropertyGalleryModal').then((m) => ({ default: m.PropertyGalleryModal })));
+const AIAssistantModal = lazy(() => import('./components/AIAssistantModal').then((m) => ({ default: m.AIAssistantModal })));
+const AuthModal = lazy(() => import('./components/AuthModal').then((m) => ({ default: m.AuthModal })));
 
-// Views
-import { CustomerHomeView } from './views/CustomerHomeView';
-import { PropertyDetailView } from './views/PropertyDetailView';
-import { OwnerDashboardView } from './views/OwnerDashboardView';
-import { AdminDashboardView } from './views/AdminDashboardView';
+// Views are loaded only when their role/view is active.
+const CustomerHomeView = lazy(() => import('./views/CustomerHomeView').then((m) => ({ default: m.CustomerHomeView })));
+const PropertyDetailView = lazy(() => import('./views/PropertyDetailView').then((m) => ({ default: m.PropertyDetailView })));
+const OwnerDashboardView = lazy(() => import('./views/OwnerDashboardView').then((m) => ({ default: m.OwnerDashboardView })));
+const AdminDashboardView = lazy(() => import('./views/AdminDashboardView').then((m) => ({ default: m.AdminDashboardView })));
 
 export function App() {
   const [currentRole, setCurrentRole] = useState<UserRole>('customer');
@@ -231,6 +231,7 @@ export function App() {
 
         {/* Main Content Area */}
         <main className="flex-1">
+          <Suspense fallback={<div className="min-h-[40vh] flex items-center justify-center text-sm text-slate-500">Loading…</div>}>
           {currentRole === 'customer' && (
             currentView === 'home' || !selectedProperty ? (
               <CustomerHomeView
@@ -260,6 +261,7 @@ export function App() {
           {currentRole === 'admin' && (
             <AdminDashboardView />
           )}
+          </Suspense>
         </main>
 
         {/* Footer */}
@@ -286,29 +288,36 @@ export function App() {
       </button>
 
       {/* WhatsApp Booking Enquiry Form Modal */}
+      <Suspense fallback={null}>
       <WhatsAppEnquiryModal
         property={selectedProperty}
         initialRoom={selectedRoomForWhatsApp}
         isOpen={isWhatsAppOpen}
         onClose={() => setIsWhatsAppOpen(false)}
       />
+      </Suspense>
 
       {/* Property Photo & Video Gallery Modal */}
+      <Suspense fallback={null}>
       <PropertyGalleryModal
         property={selectedProperty}
         isOpen={isGalleryOpen}
         onClose={() => setIsGalleryOpen(false)}
       />
+      </Suspense>
 
       {/* AI Assistant Modal (THIKANA AI Mitra) */}
+      <Suspense fallback={null}>
       <AIAssistantModal
         isOpen={isAIOpen}
         onClose={() => setIsAIOpen(false)}
         onSelectProperty={handleSelectProperty}
         onOpenWhatsApp={handleOpenWhatsApp}
       />
+      </Suspense>
 
       {/* Authentication & Registration Modal */}
+      <Suspense fallback={null}>
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => {
@@ -329,6 +338,7 @@ export function App() {
           }
         }}
       />
+      </Suspense>
 
     </div>
   );

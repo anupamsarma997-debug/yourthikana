@@ -14,7 +14,8 @@ service cloud.firestore {
     function isAdmin() {
       return signedIn() &&
         request.auth.token.get('email_verified', false) == true &&
-        request.auth.token.get('email', '') == 'anupamsarma997@gmail.com';
+        request.auth.token.get('email', '') == 'anupamsarma997@gmail.com' &&
+        request.auth.token.get('firebase', {}).get('sign_in_provider', '') == 'google.com';
     }
 
     function ownsProperty(propertyId) {

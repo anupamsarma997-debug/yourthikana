@@ -61,6 +61,8 @@ export const BannerSlider: React.FC<BannerSliderProps> = ({ position, onOwnerCli
             <img
               src={b.imageUrl}
               alt={b.title}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover opacity-35 group-hover:scale-105 transition-transform duration-500"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-900/90 to-transparent" />

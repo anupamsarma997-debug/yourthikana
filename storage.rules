@@ -12,8 +12,9 @@ service firebase.storage {
 
     function isAdmin() {
       return isSignedIn() &&
-        request.auth.token.email_verified == true &&
-        request.auth.token.email == 'anupamsarma997@gmail.com';
+        request.auth.token.get('email_verified', false) == true &&
+        request.auth.token.get('email', '') == 'anupamsarma997@gmail.com' &&
+        request.auth.token.get('firebase', {}).get('sign_in_provider', '') == 'google.com';
     }
 
     // Property photos: public read, but only the owning user (matched by UID in the

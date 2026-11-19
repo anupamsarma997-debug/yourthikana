@@ -18,16 +18,18 @@ import {
 
 interface PropertyCardProps {
   property: Property;
+  rooms?: RoomType[];
   onSelect: (property: Property) => void;
   onOpenWhatsApp: (property: Property, room?: RoomType) => void;
 }
 
 export const PropertyCard: React.FC<PropertyCardProps> = ({
   property,
+  rooms: suppliedRooms,
   onSelect,
   onOpenWhatsApp,
 }) => {
-  const rooms = store.getRoomsByProperty(property.id);
+  const rooms = suppliedRooms ?? store.getRoomsByProperty(property.id);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   // Ignore accidental card activation when a finger is scrolling the page.
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -79,6 +81,8 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           alt={property.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
+          decoding="async"
+          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
 
         {/* Gradient Overlay */}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { store } from '../services/store';
+import { auth } from '../lib/firebase';
 import { User, UserRole } from '../types';
 import { 
   Building2, 
@@ -38,6 +39,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   selectedCity,
 }) => {
   const [user, setUser] = useState<User | undefined>(store.getCurrentUser());
+  const isVerifiedPlatformOwner = Boolean(
+    auth?.currentUser?.emailVerified &&
+    auth.currentUser.email?.trim().toLowerCase() === 'anupamsarma997@gmail.com'
+  );
   const [isDark, setIsDark] = useState<boolean>(store.getTheme());
   const [isMobileFrame, setIsMobileFrame] = useState<boolean>(store.getMobileFrame());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -151,7 +156,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Building2 className="w-3.5 h-3.5" />
               Owner Panel
             </button>
-            {user?.role === 'admin' && (
+            {(user?.role === 'admin' || isVerifiedPlatformOwner) && (
               <button
                 onClick={() => onRoleChange('admin')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
@@ -282,7 +287,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 Owner
               </button>
-              {user?.role === 'admin' && (
+              {(user?.role === 'admin' || isVerifiedPlatformOwner) && (
                 <button
                   onClick={() => { onRoleChange('admin'); setMobileMenuOpen(false); }}
                   className={`px-2 py-1.5 text-center text-xs font-medium rounded-lg ${currentRole === 'admin' ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-800'}`}

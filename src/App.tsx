@@ -225,6 +225,15 @@ export function App() {
         <Navbar
           currentRole={currentRole}
           onRoleChange={(role) => {
+            if (role === 'admin') {
+              const owner = auth?.currentUser;
+              if (!owner || owner.email !== 'anupamsarma997@gmail.com' || !owner.emailVerified) {
+                store.firestoreError = 'Admin Panel sirf verified owner Google account se accessible hai.';
+                setCurrentRole('customer');
+                setCurrentView('home');
+                return;
+              }
+            }
             setCurrentRole(role);
             setCurrentView('home');
           }}
@@ -294,6 +303,15 @@ export function App() {
         {/* Footer */}
         <Footer
           onRoleChange={(role) => {
+            if (role === 'admin') {
+              const owner = auth?.currentUser;
+              if (!owner || owner.email !== 'anupamsarma997@gmail.com' || !owner.emailVerified) {
+                store.firestoreError = 'Admin Panel sirf verified owner Google account se accessible hai.';
+                setCurrentRole('customer');
+                setCurrentView('home');
+                return;
+              }
+            }
             setCurrentRole(role);
             setCurrentView('home');
           }}

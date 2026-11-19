@@ -77,8 +77,6 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({
   onSelectProperty,
   onOpenWhatsApp
 }) => {
-  if (!isOpen) return null;
-
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [currentCriteria, setCurrentCriteria] = useState<MitraSearchCriteria>({});
@@ -318,6 +316,8 @@ Tell me where you want to travel, your budget, or who is travelling with you! *(
       onClose();
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/75 backdrop-blur-sm">

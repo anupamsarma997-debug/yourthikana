@@ -10,6 +10,12 @@ service firebase.storage {
       return isSignedIn() && request.auth.uid == ownerUid;
     }
 
+    function isAdmin() {
+      return isSignedIn() &&
+        request.auth.token.email_verified == true &&
+        request.auth.token.email == 'anupamsarma997@gmail.com';
+    }
+
     // Property photos: public read, but only the owning user (matched by UID in the
     // path) can upload/delete their own property's images.
     match /properties/{ownerUid}/{propertyId}/{fileName} {
@@ -17,7 +23,7 @@ service firebase.storage {
       allow write: if isOwner(ownerUid)
                    && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
-      allow delete: if isOwner(ownerUid);
+      allow delete: if isOwner(ownerUid) || isAdmin();
     }
 
     // Deny everything else by default

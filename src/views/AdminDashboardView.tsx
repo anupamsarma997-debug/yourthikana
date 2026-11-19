@@ -72,25 +72,11 @@ export const AdminDashboardView: React.FC = () => {
 
           if (isMounted) {
             setIsAuthorized(hasAdminClaim);
-            setClaimDetails(hasAdminClaim ? 'Firebase Custom Claim Verified (admin: true)' : 'Missing Admin Custom Claim');
+            setClaimDetails(hasAdminClaim ? 'Verified platform-owner email' : 'Admin verification failed');
             setIsVerifying(false);
           }
         } catch (err) {
           console.warn('Firebase Custom Claim verification failed:', err);
-          if (isMounted) {
-            setIsAuthorized(false);
-            setIsVerifying(false);
-          }
-        }
-      } else {
-        // Fallback for local master admin session
-        if (currentUser.id === 'user_admin' || currentUser.email === 'admin@thikana-ne.in') {
-          if (isMounted) {
-            setIsAuthorized(true);
-            setClaimDetails('Master Admin Session Verified');
-            setIsVerifying(false);
-          }
-        } else {
           if (isMounted) {
             setIsAuthorized(false);
             setIsVerifying(false);

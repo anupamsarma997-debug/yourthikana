@@ -136,7 +136,12 @@ service cloud.firestore {
     }
 
     match /rooms/{roomId} {
-      allow read: if true;
+      // Rooms are readable only when their parent listing is public and active,
+      // by that listing's owner, or by the verified platform-owner admin.
+      allow read: if isAdmin() ||
+        (exists(/databases/$(database)/documents/properties/$(resource.data.propertyId)) &&
+         get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.get('status', '') == 'active') ||
+        ownsProperty(resource.data.propertyId);
       allow create: if signedIn() && validRoomCreate();
       allow update: if isAdmin() ||
         (
@@ -145,7 +150,9 @@ service cloud.firestore {
           request.resource.data.propertyId == resource.data.propertyId &&
           request.resource.data.get('ownerUid', request.auth.uid) == request.auth.uid
         );
-      allow delete: if isAdmin() || ownsProperty(resource.data.propertyId);
+      allow delete: if isAdmin() ||
+        ownsProperty(resource.data.propertyId) ||
+        (signedIn() && resource.data.get('ownerUid', '') == request.auth.uid);
     }
 
     match /enquiries/{enquiryId} {

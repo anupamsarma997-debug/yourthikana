@@ -909,8 +909,8 @@ class DataStore {
       reviewsCount: 0,
       isVerified: false,
       isFeatured: false,
-      // New owner-submitted listings are immediately visible on the public Home screen.
-      status: 'active',
+      // Every new listing stays private until the verified platform owner approves it.
+      status: 'pending',
       subscriptionPlan: 'none',
       subscriptionPrice: 0,
       subscriptionExpiresAt: '',
@@ -993,7 +993,12 @@ class DataStore {
     const currentUser = this.getCurrentUser();
     const firebaseUid = auth?.currentUser?.uid;
 
+    const isVerifiedPlatformOwner = Boolean(
+      auth?.currentUser?.emailVerified &&
+      auth.currentUser.email?.trim().toLowerCase() === 'anupamsarma997@gmail.com'
+    );
     const isOwner =
+      isVerifiedPlatformOwner ||
       currentUser?.role === 'admin' ||
       (!!firebaseUid && prop.ownerUid === firebaseUid) ||
       this.isOwnerOfProperty(currentUser?.id, id);
@@ -1028,6 +1033,35 @@ class DataStore {
     this.persist();
     this.notify();
     return { success: true, message: 'Property updated successfully.' };
+  }
+
+  public async setPropertyStatus(
+    id: string,
+    status: Property['status']
+  ): Promise<{ success: boolean; message: string }> {
+    const fbUser = auth?.currentUser;
+    const isVerifiedPlatformOwner = Boolean(
+      fbUser?.emailVerified &&
+      fbUser.email?.trim().toLowerCase() === 'anupamsarma997@gmail.com'
+    );
+    if (!isVerifiedPlatformOwner) {
+      return { success: false, message: 'Permission denied: verified platform-owner account required.' };
+    }
+
+    const prop = this.getPropertyById(id);
+    if (!prop) return { success: false, message: 'Property not found.' };
+    if (!db) return { success: false, message: 'Secure database is unavailable. No change was made.' };
+
+    try {
+      await setDoc(doc(db, 'properties', id), { status }, { merge: true });
+      prop.status = status;
+      this.notify();
+      return { success: true, message: `"${prop.title}" status changed to ${status}.` };
+    } catch (err: any) {
+      this.firestoreError = err?.message || String(err);
+      this.notify();
+      return { success: false, message: 'Database rejected this change. The listing was not updated.' };
+    }
   }
 
   public togglePropertyStatus(id: string) {
@@ -1108,7 +1142,12 @@ class DataStore {
     const currentUser = this.getCurrentUser();
     const firebaseUid = auth?.currentUser?.uid;
 
+    const isVerifiedPlatformOwner = Boolean(
+      auth?.currentUser?.emailVerified &&
+      auth.currentUser.email?.trim().toLowerCase() === 'anupamsarma997@gmail.com'
+    );
     const isOwner =
+      isVerifiedPlatformOwner ||
       currentUser?.role === 'admin' ||
       (!!firebaseUid && prop.ownerUid === firebaseUid) ||
       this.isOwnerOfProperty(currentUser?.id, id);

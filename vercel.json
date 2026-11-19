@@ -26,19 +26,19 @@
     },
     {
       "source": "/jorhat",
-      "destination": "/index.html"
+      "destination": "/seo-pages/jorhat.html"
     },
     {
       "source": "/silchar",
-      "destination": "/index.html"
+      "destination": "/seo-pages/silchar.html"
     },
     {
       "source": "/tezpur",
-      "destination": "/index.html"
+      "destination": "/seo-pages/tezpur.html"
     },
     {
       "source": "/tinsukia",
-      "destination": "/index.html"
+      "destination": "/seo-pages/tinsukia.html"
     },
     {
       "source": "/nagaon",
@@ -70,7 +70,7 @@
     },
     {
       "source": "/itanagar",
-      "destination": "/index.html"
+      "destination": "/seo-pages/itanagar.html"
     },
     {
       "source": "/naharlagun",
@@ -78,11 +78,11 @@
     },
     {
       "source": "/ziro-valley",
-      "destination": "/index.html"
+      "destination": "/seo-pages/ziro.html"
     },
     {
       "source": "/pasighat",
-      "destination": "/index.html"
+      "destination": "/seo-pages/pasighat.html"
     },
     {
       "source": "/bomdila",
@@ -106,7 +106,7 @@
     },
     {
       "source": "/imphal",
-      "destination": "/index.html"
+      "destination": "/seo-pages/imphal.html"
     },
     {
       "source": "/thoubal",
@@ -130,11 +130,11 @@
     },
     {
       "source": "/tura",
-      "destination": "/index.html"
+      "destination": "/seo-pages/tura.html"
     },
     {
       "source": "/jowai",
-      "destination": "/index.html"
+      "destination": "/seo-pages/jowai.html"
     },
     {
       "source": "/nongpoh",
@@ -150,7 +150,7 @@
     },
     {
       "source": "/cherrapunji-sohra",
-      "destination": "/index.html"
+      "destination": "/seo-pages/sohra.html"
     },
     {
       "source": "/dawki",
@@ -162,11 +162,11 @@
     },
     {
       "source": "/aizawl",
-      "destination": "/index.html"
+      "destination": "/seo-pages/aizawl.html"
     },
     {
       "source": "/lunglei",
-      "destination": "/index.html"
+      "destination": "/seo-pages/lunglei.html"
     },
     {
       "source": "/champhai",
@@ -186,11 +186,11 @@
     },
     {
       "source": "/kohima",
-      "destination": "/index.html"
+      "destination": "/seo-pages/kohima.html"
     },
     {
       "source": "/dimapur",
-      "destination": "/index.html"
+      "destination": "/seo-pages/dimapur.html"
     },
     {
       "source": "/mokokchung",
@@ -218,7 +218,7 @@
     },
     {
       "source": "/namchi",
-      "destination": "/index.html"
+      "destination": "/seo-pages/namchi.html"
     },
     {
       "source": "/gyalshing",
@@ -238,7 +238,7 @@
     },
     {
       "source": "/pelling",
-      "destination": "/index.html"
+      "destination": "/seo-pages/pelling.html"
     },
     {
       "source": "/ravangla",
@@ -246,11 +246,11 @@
     },
     {
       "source": "/agartala",
-      "destination": "/index.html"
+      "destination": "/seo-pages/agartala.html"
     },
     {
       "source": "/udaipur",
-      "destination": "/index.html"
+      "destination": "/seo-pages/udaipur.html"
     },
     {
       "source": "/dharmanagar",
@@ -271,6 +271,46 @@
     {
       "source": "/khowai",
       "destination": "/index.html"
+    },
+    {
+      "source": "/ziro",
+      "destination": "/seo-pages/ziro.html"
+    },
+    {
+      "source": "/sohra",
+      "destination": "/seo-pages/sohra.html"
+    },
+    {
+      "source": "/assam",
+      "destination": "/seo-pages/assam.html"
+    },
+    {
+      "source": "/arunachal-pradesh",
+      "destination": "/seo-pages/arunachal-pradesh.html"
+    },
+    {
+      "source": "/manipur",
+      "destination": "/seo-pages/manipur.html"
+    },
+    {
+      "source": "/meghalaya",
+      "destination": "/seo-pages/meghalaya.html"
+    },
+    {
+      "source": "/mizoram",
+      "destination": "/seo-pages/mizoram.html"
+    },
+    {
+      "source": "/nagaland",
+      "destination": "/seo-pages/nagaland.html"
+    },
+    {
+      "source": "/sikkim",
+      "destination": "/seo-pages/sikkim.html"
+    },
+    {
+      "source": "/tripura",
+      "destination": "/seo-pages/tripura.html"
     }
   ],
   "headers": [

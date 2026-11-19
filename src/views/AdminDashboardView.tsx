@@ -55,7 +55,8 @@ export const AdminDashboardView: React.FC = () => {
         const tokenResult = await fbUser.getIdTokenResult(true);
         const isOwnerToken =
           tokenResult.claims.email === 'anupamsarma997@gmail.com' &&
-          tokenResult.claims.email_verified === true;
+          tokenResult.claims.email_verified === true &&
+          tokenResult.signInProvider === 'google.com';
 
         if (isMounted) {
           setIsAuthorized(isOwnerToken);

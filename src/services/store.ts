@@ -1161,19 +1161,6 @@ class DataStore {
       };
     }
 
-    // Load the photo cleanup code only when a property is actually deleted.
-    // This keeps Firebase Storage/Supabase upload helpers out of the initial store path.
-    if (prop.photos && Array.isArray(prop.photos) && prop.photos.length > 0) {
-      try {
-        const { deletePropertyPhoto } = await import('./uploadPropertyImage');
-        for (const photoUrl of prop.photos) {
-          deletePropertyPhoto(photoUrl).catch(() => {});
-        }
-      } catch (err) {
-        console.warn('Property photo cleanup module could not be loaded:', err);
-      }
-    }
-
     if (db) {
       try {
         const ownerUid = prop.ownerUid || firebaseUid || '';
@@ -1192,6 +1179,17 @@ class DataStore {
       } catch (err: any) {
         console.warn('Firestore deleteProperty sync notice:', err);
         return { success: false, status: 403, message: 'Property deletion was rejected by the secure database. No local success was recorded.' };
+      }
+    }
+
+    // Only begin best-effort photo cleanup after the Firestore transaction succeeds.
+    // A failed database delete must never leave an existing listing with missing photos.
+    if (prop.photos && Array.isArray(prop.photos) && prop.photos.length > 0) {
+      try {
+        const { deletePropertyPhoto } = await import('./uploadPropertyImage');
+        await Promise.allSettled(prop.photos.map((photoUrl) => deletePropertyPhoto(photoUrl)));
+      } catch (err) {
+        console.warn('Property photo cleanup could not be completed:', err);
       }
     }
 

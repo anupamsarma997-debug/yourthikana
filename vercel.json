@@ -154,7 +154,7 @@
     },
     {
       "source": "/dawki",
-      "destination": "/index.html"
+      "destination": "/seo-pages/dawki.html"
     },
     {
       "source": "/mawlynnong",
@@ -194,7 +194,7 @@
     },
     {
       "source": "/mokokchung",
-      "destination": "/index.html"
+      "destination": "/seo-pages/mokokchung.html"
     },
     {
       "source": "/wokha",

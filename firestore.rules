@@ -118,7 +118,11 @@ service cloud.firestore {
     }
 
     match /properties/{propertyId} {
-      allow read: if true;
+      // Public marketplace queries must constrain status to active.
+      // Owners may separately query their own documents; admins may review all.
+      allow read: if isAdmin() ||
+        resource.data.get('status', '') == 'active' ||
+        (signedIn() && resource.data.get('ownerUid', '') == request.auth.uid);
       allow create: if signedIn() && validPropertyCreate();
       allow update: if isAdmin() ||
         (

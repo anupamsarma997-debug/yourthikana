@@ -838,6 +838,10 @@ class DataStore {
     return this.properties;
   }
 
+  public getRooms(): RoomType[] {
+    return this.rooms;
+  }
+
   public getPropertyById(id: string): Property | undefined {
     return this.properties.find((p) => p.id === id);
   }

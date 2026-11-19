@@ -34,6 +34,7 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
   selectedCity,
 }) => {
   const [properties, setProperties] = useState<Property[]>(store.getProperties());
+  const [rooms, setRooms] = useState<RoomType[]>(store.getRooms());
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('All');
   const [selectedPriceRange, setSelectedPriceRange] = useState<string>('all');
@@ -47,6 +48,7 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
   React.useEffect(() => {
     return store.subscribe(() => {
       setProperties(store.getProperties());
+      setRooms([...store.getRooms()]);
     });
   }, []);
 
@@ -110,14 +112,25 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
     'Cottage'
   ];
 
-  // Cache minimum prices for properties
+  // Index rooms once per store update instead of rescanning all rooms for each property.
+  const roomsByProperty = useMemo(() => {
+    const index = new Map<string, RoomType[]>();
+    rooms.forEach((room) => {
+      const propertyRooms = index.get(room.propertyId) || [];
+      propertyRooms.push(room);
+      index.set(room.propertyId, propertyRooms);
+    });
+    return index;
+  }, [rooms]);
+
+  // Cache minimum prices using the shared room index.
   const propertyPrices = useMemo(() => {
     const priceMap: Record<string, number> = {};
     (properties || []).forEach((p) => {
       if (!p || !p.id) return;
-      const rooms = store.getRoomsByProperty(p.id) || [];
-      if (rooms.length > 0) {
-        const validPrices = rooms
+      const propertyRooms = roomsByProperty.get(p.id) || [];
+      if (propertyRooms.length > 0) {
+        const validPrices = propertyRooms
           .map((r) => r.discountPrice || r.pricePerNight)
           .filter((price): price is number => typeof price === 'number' && !isNaN(price) && price > 0);
         priceMap[p.id] = validPrices.length > 0 ? Math.min(...validPrices) : 1500;
@@ -126,7 +139,7 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
       }
     });
     return priceMap;
-  }, [properties]);
+  }, [properties, roomsByProperty]);
 
   // Filter properties logic safely
   const filteredProperties = useMemo(() => {
@@ -561,6 +574,7 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
             <PropertyCard
               key={property.id}
               property={property}
+              rooms={roomsByProperty.get(property.id) || []}
               onSelect={onSelectProperty}
               onOpenWhatsApp={onOpenWhatsApp}
             />

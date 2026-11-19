@@ -274,14 +274,22 @@ class DataStore {
 
     let privateUnsubscribers: Array<() => void> = [];
     let dataUnsubscribers: Array<() => void> = [];
+    let propertyUnsubscribers: Array<() => void> = [];
     const clearDataListeners = () => {
       dataUnsubscribers.forEach((unsubscribe) => {
         try { unsubscribe(); } catch {}
       });
       dataUnsubscribers = [];
     };
+    const clearPropertyListeners = () => {
+      propertyUnsubscribers.forEach((unsubscribe) => {
+        try { unsubscribe(); } catch {}
+      });
+      propertyUnsubscribers = [];
+    };
     const clearPrivateListeners = () => {
       clearDataListeners();
+      clearPropertyListeners();
       privateUnsubscribers.forEach((unsubscribe) => {
         try { unsubscribe(); } catch {}
       });
@@ -289,25 +297,8 @@ class DataStore {
     };
 
     try {
-      // Public marketplace data must load for logged-out visitors too.
-      // Firestore rules explicitly allow public reads for properties and rooms.
-      onSnapshot(collection(db, 'properties'), (snapshot) => {
-        const remoteProps: Property[] = [];
-        snapshot.forEach((docSnap) => remoteProps.push(normalizeProperty({ id: docSnap.id, ...docSnap.data() })));
-        const propMap = new Map<string, Property>();
-        this.properties.forEach((p) => propMap.set(p.id, p));
-        remoteProps.forEach((p) => propMap.set(p.id, p));
-        this.properties = Array.from(propMap.values());
-        this.isFirebaseSynced = true;
-        this.firestoreError = null;
-        this.persist();
-        this.notify(false);
-      }, (err) => {
-        this.firestoreError = err?.message || String(err);
-        console.warn('Firestore properties sync notice:', this.firestoreError);
-        this.notify(false);
-      });
-
+      // Public visitors receive only active listings. Signed-in owners receive
+      // their own listings separately; verified admins receive the full set.
       onSnapshot(collection(db, 'rooms'), (snapshot) => {
         const remoteRooms: RoomType[] = [];
         snapshot.forEach((docSnap) => remoteRooms.push({ id: docSnap.id, ...docSnap.data() } as RoomType));
@@ -321,15 +312,52 @@ class DataStore {
 
       onAuthStateChanged(auth, async (fbUser) => {
         clearPrivateListeners();
+        let activeProperties: Property[] = [];
+        let ownedProperties: Property[] = [];
+        let allAdminProperties: Property[] | null = null;
+        const publishPropertySources = () => {
+          const combined = new Map<string, Property>();
+          (allAdminProperties || [...activeProperties, ...ownedProperties]).forEach((p) => combined.set(p.id, p));
+          this.properties = Array.from(combined.values());
+          this.isFirebaseSynced = true;
+          this.firestoreError = null;
+          this.persist();
+          this.notify(false);
+        };
+        const activePropertiesUnsub = onSnapshot(
+          query(collection(db, 'properties'), where('status', '==', 'active')),
+          (snapshot) => {
+            activeProperties = snapshot.docs.map((item) => normalizeProperty({ id: item.id, ...item.data() }));
+            publishPropertySources();
+          },
+          (err) => {
+            this.firestoreError = err?.message || String(err);
+            console.warn('Firestore public properties query notice:', this.firestoreError);
+            this.notify(false);
+          }
+        );
+        propertyUnsubscribers.push(activePropertiesUnsub);
 
         if (!fbUser) {
           this.currentUserId = '';
           this.enquiries = [];
           this.visits = [];
           this.leads = [];
+          ownedProperties = [];
+          publishPropertySources();
           this.notify(false);
           return;
         }
+
+        const ownedPropertiesUnsub = onSnapshot(
+          query(collection(db, 'properties'), where('ownerUid', '==', fbUser.uid)),
+          (snapshot) => {
+            ownedProperties = snapshot.docs.map((item) => normalizeProperty({ id: item.id, ...item.data() }));
+            publishPropertySources();
+          },
+          (err) => console.warn('Firestore owner properties query notice:', err?.message || err)
+        );
+        propertyUnsubscribers.push(ownedPropertiesUnsub);
 
         const localUser = this.users.find((u) =>
           u.id === fbUser.uid ||
@@ -369,7 +397,17 @@ class DataStore {
             // Admins may load the full private collections; owners only receive
             // documents explicitly scoped to their Firebase UID.
             clearDataListeners();
-            const admin = uData.role === 'admin';
+            const verifiedPlatformOwner =
+              fbUser.emailVerified &&
+              (fbUser.email || '').toLowerCase() === 'anupamsarma997@gmail.com';
+            const admin = uData.role === 'admin' || verifiedPlatformOwner;
+            if (admin) {
+              const allPropertiesUnsub = onSnapshot(collection(db, 'properties'), (snapshot) => {
+                allAdminProperties = snapshot.docs.map((item) => normalizeProperty({ id: item.id, ...item.data() }));
+                publishPropertySources();
+              }, (err) => console.warn('Firestore admin properties query notice:', err?.message || err));
+              propertyUnsubscribers.push(allPropertiesUnsub);
+            }
             const privateCollections = [
               { name: 'enquiries', apply: (items: BookingEnquiry[]) => { this.enquiries = items; } },
               { name: 'visits', apply: (items: PropertyVisit[]) => { this.visits = items; } },
@@ -835,7 +873,19 @@ class DataStore {
 
   // Properties
   public getProperties(): Property[] {
-    return this.properties;
+    // Local storage can contain stale moderation states from an older session.
+    // Apply the same visibility boundary in the UI as Firestore enforces remotely.
+    if (!isFirebaseConfigured) return this.properties;
+    const fbUser = auth?.currentUser;
+    if (!fbUser) return this.properties.filter((property) => property.status === 'active');
+    const verifiedPlatformOwner =
+      fbUser.emailVerified &&
+      (fbUser.email || '').toLowerCase() === 'anupamsarma997@gmail.com';
+    const currentUser = this.getCurrentUser();
+    if (verifiedPlatformOwner || currentUser?.role === 'admin') return this.properties;
+    return this.properties.filter((property) =>
+      property.status === 'active' || property.ownerUid === fbUser.uid
+    );
   }
 
   public getRooms(): RoomType[] {
@@ -843,7 +893,7 @@ class DataStore {
   }
 
   public getPropertyById(id: string): Property | undefined {
-    return this.properties.find((p) => p.id === id);
+    return this.getProperties().find((p) => p.id === id);
   }
 
   public getPropertiesByOwner(ownerId: string): Property[] {
@@ -909,8 +959,8 @@ class DataStore {
       reviewsCount: 0,
       isVerified: false,
       isFeatured: false,
-      // New owner-submitted listings are immediately visible on the public Home screen.
-      status: 'active',
+      // Every new listing stays private until the verified platform owner approves it.
+      status: 'pending',
       subscriptionPlan: 'none',
       subscriptionPrice: 0,
       subscriptionExpiresAt: '',
@@ -923,20 +973,14 @@ class DataStore {
       throw new Error('Secure database is not configured. Property was not saved.');
     }
     try {
-      // Check legacy listings created before the duplicate-lock rollout.
-      const existingSnapshot = await getDocs(collection(db, 'properties'));
-      const existingProperties = existingSnapshot.docs.map((item) => ({ id: item.id, ...item.data() } as any));
-      const alreadyListedByAccount = existingProperties.some((item) => item.ownerUid === ownerUid);
-      if (alreadyListedByAccount) {
-        throw new Error('ONE_PROPERTY_PER_ACCOUNT: This account already has a property listing. One account can publish only one property.');
-      }
-      const duplicateExists = existingProperties.some((item) =>
-        item.id !== newProp.id &&
-        (Array.isArray(item.duplicateKeys) && item.duplicateKeys.includes(duplicateKey) ||
-          makePropertyDuplicateKey({ title: item.title, address: item.address, city: item.city, state: item.state }) === duplicateKey)
+      // Check only this account's listings. A collection-wide read is not
+      // permitted by the privacy rules and is unnecessary because the atomic
+      // owner-limit and duplicate-key documents enforce both constraints.
+      const existingSnapshot = await getDocs(
+        query(collection(db, 'properties'), where('ownerUid', '==', ownerUid))
       );
-      if (duplicateExists) {
-        throw new Error('DUPLICATE_PROPERTY: This property already appears on THIKANA. Duplicate listings are not allowed.');
+      if (!existingSnapshot.empty) {
+        throw new Error('ONE_PROPERTY_PER_ACCOUNT: This account already has a property listing. One account can publish only one property.');
       }
 
       const ownerLimitRef = doc(db, 'owner_listing_limits', ownerUid);
@@ -993,7 +1037,12 @@ class DataStore {
     const currentUser = this.getCurrentUser();
     const firebaseUid = auth?.currentUser?.uid;
 
+    const isVerifiedPlatformOwner = Boolean(
+      auth?.currentUser?.emailVerified &&
+      auth.currentUser.email?.trim().toLowerCase() === 'anupamsarma997@gmail.com'
+    );
     const isOwner =
+      isVerifiedPlatformOwner ||
       currentUser?.role === 'admin' ||
       (!!firebaseUid && prop.ownerUid === firebaseUid) ||
       this.isOwnerOfProperty(currentUser?.id, id);
@@ -1028,6 +1077,35 @@ class DataStore {
     this.persist();
     this.notify();
     return { success: true, message: 'Property updated successfully.' };
+  }
+
+  public async setPropertyStatus(
+    id: string,
+    status: Property['status']
+  ): Promise<{ success: boolean; message: string }> {
+    const fbUser = auth?.currentUser;
+    const isVerifiedPlatformOwner = Boolean(
+      fbUser?.emailVerified &&
+      fbUser.email?.trim().toLowerCase() === 'anupamsarma997@gmail.com'
+    );
+    if (!isVerifiedPlatformOwner) {
+      return { success: false, message: 'Permission denied: verified platform-owner account required.' };
+    }
+
+    const prop = this.getPropertyById(id);
+    if (!prop) return { success: false, message: 'Property not found.' };
+    if (!db) return { success: false, message: 'Secure database is unavailable. No change was made.' };
+
+    try {
+      await setDoc(doc(db, 'properties', id), { status }, { merge: true });
+      prop.status = status;
+      this.notify();
+      return { success: true, message: `"${prop.title}" status changed to ${status}.` };
+    } catch (err: any) {
+      this.firestoreError = err?.message || String(err);
+      this.notify();
+      return { success: false, message: 'Database rejected this change. The listing was not updated.' };
+    }
   }
 
   public togglePropertyStatus(id: string) {
@@ -1108,7 +1186,12 @@ class DataStore {
     const currentUser = this.getCurrentUser();
     const firebaseUid = auth?.currentUser?.uid;
 
+    const isVerifiedPlatformOwner = Boolean(
+      auth?.currentUser?.emailVerified &&
+      auth.currentUser.email?.trim().toLowerCase() === 'anupamsarma997@gmail.com'
+    );
     const isOwner =
+      isVerifiedPlatformOwner ||
       currentUser?.role === 'admin' ||
       (!!firebaseUid && prop.ownerUid === firebaseUid) ||
       this.isOwnerOfProperty(currentUser?.id, id);
@@ -1120,19 +1203,6 @@ class DataStore {
         status: 403, 
         message: '403 Forbidden: Only the property owner can delete this listing.' 
       };
-    }
-
-    // Load the photo cleanup code only when a property is actually deleted.
-    // This keeps Firebase Storage/Supabase upload helpers out of the initial store path.
-    if (prop.photos && Array.isArray(prop.photos) && prop.photos.length > 0) {
-      try {
-        const { deletePropertyPhoto } = await import('./uploadPropertyImage');
-        for (const photoUrl of prop.photos) {
-          deletePropertyPhoto(photoUrl).catch(() => {});
-        }
-      } catch (err) {
-        console.warn('Property photo cleanup module could not be loaded:', err);
-      }
     }
 
     if (db) {
@@ -1153,6 +1223,17 @@ class DataStore {
       } catch (err: any) {
         console.warn('Firestore deleteProperty sync notice:', err);
         return { success: false, status: 403, message: 'Property deletion was rejected by the secure database. No local success was recorded.' };
+      }
+    }
+
+    // Only begin best-effort photo cleanup after the Firestore transaction succeeds.
+    // A failed database delete must never leave an existing listing with missing photos.
+    if (prop.photos && Array.isArray(prop.photos) && prop.photos.length > 0) {
+      try {
+        const { deletePropertyPhoto } = await import('./uploadPropertyImage');
+        await Promise.allSettled(prop.photos.map((photoUrl) => deletePropertyPhoto(photoUrl)));
+      } catch (err) {
+        console.warn('Property photo cleanup could not be completed:', err);
       }
     }
 

@@ -42,48 +42,41 @@ export const AdminDashboardView: React.FC = () => {
 
     async function verifyAdminCustomClaims() {
       setIsVerifying(true);
-      const currentUser = store.getCurrentUser();
       const fbUser = auth?.currentUser;
 
-      // 1. Local user check
-      if (!currentUser || currentUser.role !== 'admin') {
+      // Only the verified platform-owner email can enter the master admin area.
+      // Firestore Rules independently enforce the same identity on every write.
+      const isVerifiedPlatformOwner = Boolean(
+        fbUser?.emailVerified &&
+        fbUser.email?.trim().toLowerCase() === 'anupamsarma997@gmail.com'
+      );
+
+      if (!isVerifiedPlatformOwner) {
         if (isMounted) {
           setIsAuthorized(false);
+          setClaimDetails('Verified platform-owner account required');
           setIsVerifying(false);
         }
         return;
       }
 
-      // 2. Strict Firebase Auth ID Token Custom Claim verification (forceRefresh = true calls Firebase Auth server)
+      // Refresh the Firebase ID token before showing privileged controls.
       if (fbUser) {
         try {
           const idTokenResult = await fbUser.getIdTokenResult(true);
           const hasAdminClaim =
+            isVerifiedPlatformOwner ||
             idTokenResult.claims.admin === true ||
             idTokenResult.claims.role === 'admin' ||
             fbUser.uid === 'user_admin';
 
           if (isMounted) {
             setIsAuthorized(hasAdminClaim);
-            setClaimDetails(hasAdminClaim ? 'Firebase Custom Claim Verified (admin: true)' : 'Missing Admin Custom Claim');
+            setClaimDetails(hasAdminClaim ? 'Verified platform-owner email' : 'Admin verification failed');
             setIsVerifying(false);
           }
         } catch (err) {
           console.warn('Firebase Custom Claim verification failed:', err);
-          if (isMounted) {
-            setIsAuthorized(false);
-            setIsVerifying(false);
-          }
-        }
-      } else {
-        // Fallback for local master admin session
-        if (currentUser.id === 'user_admin' || currentUser.email === 'admin@thikana-ne.in') {
-          if (isMounted) {
-            setIsAuthorized(true);
-            setClaimDetails('Master Admin Session Verified');
-            setIsVerifying(false);
-          }
-        } else {
           if (isMounted) {
             setIsAuthorized(false);
             setIsVerifying(false);
@@ -121,6 +114,17 @@ export const AdminDashboardView: React.FC = () => {
   const totalRevenue = transactions.reduce((acc, t) => acc + t.amount, 0);
   const totalVerifiedCount = properties.filter((p) => p.isVerified).length;
   const totalFeaturedCount = properties.filter((p) => p.isFeatured).length;
+
+  const handlePropertyStatus = async (propertyId: string, status: Property['status']) => {
+    const result = await store.setPropertyStatus(propertyId, status);
+    alert(result.message || (result.success ? 'Listing updated.' : 'Could not update listing.'));
+  };
+
+  const handleDeleteProperty = async (property: Property) => {
+    if (!confirm(`Permanently delete "${property.title}"? Its listing, rooms and duplicate-listing lock will be removed. This cannot be undone.`)) return;
+    const result = await store.deleteProperty(property.id);
+    alert(result.message || (result.success ? 'Listing deleted.' : 'Could not delete listing.'));
+  };
 
   const handleAddBanner = (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,6 +175,9 @@ export const AdminDashboardView: React.FC = () => {
             <span className="bg-emerald-500 text-slate-950 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" />
               THIKANA Master Admin
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-800 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200">
+              <BadgeCheck className="w-3.5 h-3.5" /> Verified Platform Owner
             </span>
             {claimDetails && (
               <span className="bg-slate-800 text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded-full">
@@ -284,9 +291,14 @@ export const AdminDashboardView: React.FC = () => {
       {/* Tab 1: Properties Table */}
       {activeTab === 'properties' && (
         <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-200 dark:border-slate-700 shadow-md space-y-4">
-          <h3 className="text-base font-black text-slate-900 dark:text-white">
-            All Property Listings
-          </h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-base font-black text-slate-900 dark:text-white">
+              All Property Listings
+            </h3>
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-800">
+              {properties.filter((p) => p.status === 'pending').length} awaiting review
+            </span>
+          </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
@@ -341,17 +353,40 @@ export const AdminDashboardView: React.FC = () => {
                       </button>
                     </td>
                     <td className="p-3 text-right space-x-2">
+                      {p.status === 'pending' && (
+                        <button
+                          onClick={() => handlePropertyStatus(p.id, 'active')}
+                          className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-bold text-white"
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {p.status !== 'rejected' && (
+                        <button
+                          onClick={() => handlePropertyStatus(p.id, 'rejected')}
+                          className="rounded-lg bg-amber-100 px-2.5 py-1.5 text-[11px] font-bold text-amber-800"
+                        >
+                          Reject
+                        </button>
+                      )}
+                      {p.status === 'active' ? (
+                        <button
+                          onClick={() => handlePropertyStatus(p.id, 'blocked')}
+                          className="text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:underline"
+                        >
+                          Hide
+                        </button>
+                      ) : (p.status === 'blocked' || p.status === 'rejected') ? (
+                        <button
+                          onClick={() => handlePropertyStatus(p.id, 'pending')}
+                          className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          Reopen
+                        </button>
+                      ) : null}
                       <button
-                        onClick={() => store.togglePropertyStatus(p.id)}
-                        className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
-                      >
-                        Toggle Status
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm('Delete property?')) store.deleteProperty(p.id);
-                        }}
-                        className="text-[11px] font-bold text-rose-500 hover:underline"
+                        onClick={() => handleDeleteProperty(p)}
+                        className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-[11px] font-bold text-white"
                       >
                         Delete
                       </button>

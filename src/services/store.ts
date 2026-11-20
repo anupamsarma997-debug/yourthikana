@@ -866,8 +866,9 @@ class DataStore {
       reviewsCount: 0,
       isVerified: false,
       isFeatured: false,
-      status: 'active',
-      // A listing request is not proof of payment. Admin activates paid plans separately.
+      status: 'pending',
+      // New listings stay hidden from public discovery until an admin approves them.
+      // Listing approval is separate from optional Blue Tick verification and payments.
       subscriptionPlan: 'none',
       subscriptionPrice: 0,
       subscriptionExpiresAt: '',
@@ -984,6 +985,15 @@ class DataStore {
     if (!prop) return false;
     const nextStatus = prop.status === 'active' ? 'blocked' : 'active';
     return this.updateAdminPropertyFields(id, { status: nextStatus });
+  }
+
+  // Property approval is independent of optional Blue Tick verification.
+  // Only a Firebase Auth admin custom claim can approve, reject, or block a listing.
+  public async setAdminPropertyStatus(
+    id: string,
+    status: 'active' | 'pending' | 'rejected' | 'blocked'
+  ): Promise<boolean> {
+    return this.updateAdminPropertyFields(id, { status });
   }
 
   // Legacy direct toggle is intentionally disabled. Blue Tick activation and

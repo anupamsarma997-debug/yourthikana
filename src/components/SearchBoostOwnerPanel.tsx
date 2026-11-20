@@ -118,7 +118,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ pr
               <div className="text-right text-xs font-bold"><span className={application.status === 'approved' ? 'text-emerald-600' : application.status === 'rejected' ? 'text-rose-600' : 'text-amber-600'}>{application.status === 'approved' ? 'Boost active' : application.status === 'rejected' ? 'Rejected' : 'Admin review pending'}</span>{application.featuredUntil && <p className="text-[10px] text-slate-500"><Clock3 className="inline w-3 h-3 mr-1" />Until {dateLabel(application.featuredUntil)}</p>}</div>
             </div>
             {application.status === 'pending' && (
-              <PaymentProofShare amount={500} title="Search Boost" applicationId={application.id} propertyTitle={application.propertyTitle} onShared={(utrValue) => markPaymentSubmitted(application, utrValue)} disabled={busy} />
+              <PaymentProofShare amount={500} title="Search Boost" applicationId={application.id} propertyTitle={application.propertyTitle} onShared={(utrValue) => markPaymentSubmitted(application, utrValue)} initialUtr={application.paymentUtr || ''} disabled={busy} />
             )}
           </article>
         ))}

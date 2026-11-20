@@ -91,7 +91,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
         {/* Top Badges Row */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 pointer-events-none">
           <div className="flex items-center gap-1.5 flex-wrap">
-            {property.isFeatured && (
+            {property.isFeatured && property.featuredUntil && Date.parse(property.featuredUntil) > Date.now() && (
               <span className="bg-amber-400 text-slate-950 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
                 <Sparkles className="w-3 h-3 fill-slate-950" />
                 Featured ⭐

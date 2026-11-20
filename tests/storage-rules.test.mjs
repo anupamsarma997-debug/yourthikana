@@ -6,6 +6,7 @@ import {
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import { ref, uploadBytes, deleteObject } from 'firebase/storage';
+import { doc, setDoc } from 'firebase/firestore';
 
 let testEnv;
 
@@ -13,11 +14,35 @@ before(async () => {
   testEnv = await initializeTestEnvironment({
     projectId: 'demo-thikana',
     storage: { rules: readFileSync('storage.rules', 'utf8') },
+    firestore: { rules: readFileSync('firestore.rules', 'utf8') },
   });
 });
 
 after(async () => {
   await testEnv.cleanup();
+});
+
+test('private verification proofs require an existing pending application and are admin-readable only', async () => {
+  const ownerStorage = testEnv.authenticatedContext('proof-owner').storage();
+  const strangerStorage = testEnv.authenticatedContext('proof-stranger').storage();
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'verificationApplications', 'proof-app'), {
+      ownerUid: 'proof-owner',
+      status: 'pending',
+    });
+  });
+  const proof = ref(ownerStorage, 'verification-documents/proof-owner/proof-app/proof.pdf');
+  await assertSucceeds(uploadBytes(proof, new Uint8Array([1, 2, 3]), { contentType: 'application/pdf' }));
+  await assertFails(uploadBytes(
+    ref(strangerStorage, 'verification-documents/proof-owner/proof-app/attack.pdf'),
+    new Uint8Array([1, 2, 3]),
+    { contentType: 'application/pdf' }
+  ));
+  await assertFails(uploadBytes(
+    ref(ownerStorage, 'verification-documents/proof-owner/missing-app/proof.pdf'),
+    new Uint8Array([1, 2, 3]),
+    { contentType: 'application/pdf' }
+  ));
 });
 
 test('only the matching authenticated owner can upload allowed images', async () => {

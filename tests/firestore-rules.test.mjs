@@ -45,6 +45,57 @@ async function createOwnedProperty(uid = 'owner-1', propertyId = 'property-1') {
   return ownerDb;
 }
 
+test('owners can apply for Blue Tick only for their own property and cannot self-approve', async () => {
+  const ownerDb = await createOwnedProperty('blue-owner', 'blue-property');
+  const application = {
+    ownerUid: 'blue-owner',
+    propertyId: 'blue-property',
+    propertyTitle: 'Test Homestay',
+    status: 'pending',
+    paymentStatus: 'not_submitted',
+    documentCount: 1,
+    documentPaths: ['verification-documents/blue-owner/app-1/0-proof.pdf'],
+    submittedAt: new Date(),
+  };
+  await assertSucceeds(setDoc(doc(ownerDb, 'verificationApplications', 'app-1'), application));
+  await assertFails(updateDoc(doc(ownerDb, 'verificationApplications', 'app-1'), {
+    status: 'approved',
+    approvedAt: new Date().toISOString(),
+    freeTrialEndsAt: '2099-01-01T00:00:00.000Z',
+  }));
+  await assertFails(setDoc(doc(ownerDb, 'verificationApplications', 'fake-app'), {
+    ...application,
+    ownerUid: 'someone-else',
+  }));
+});
+
+test('owner can submit only a payment UTR after admin approval; cannot extend validity', async () => {
+  const ownerDb = await createOwnedProperty('payment-owner', 'payment-property');
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'verificationApplications', 'payment-app'), {
+      ownerUid: 'payment-owner',
+      propertyId: 'payment-property',
+      propertyTitle: 'Test Homestay',
+      status: 'approved',
+      paymentStatus: 'not_submitted',
+      documentCount: 1,
+      documentPaths: ['verification-documents/payment-owner/payment-app/0-proof.pdf'],
+      submittedAt: new Date(),
+      approvedAt: new Date().toISOString(),
+      freeTrialEndsAt: '2026-01-01T00:00:00.000Z',
+      verifiedUntil: '2026-01-01T00:00:00.000Z',
+    });
+  });
+  await assertSucceeds(updateDoc(doc(ownerDb, 'verificationApplications', 'payment-app'), {
+    paymentUtr: 'ABCD12345678',
+    paymentSubmittedAt: new Date(),
+    paymentStatus: 'pending',
+  }));
+  await assertFails(updateDoc(doc(ownerDb, 'verificationApplications', 'payment-app'), {
+    verifiedUntil: '2099-01-01T00:00:00.000Z',
+  }));
+});
+
 test('public visitors can read published property listings', async () => {
   const ownerDb = await createOwnedProperty();
   const publicDb = testEnv.unauthenticatedContext().firestore();

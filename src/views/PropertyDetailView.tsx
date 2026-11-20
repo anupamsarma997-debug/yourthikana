@@ -341,7 +341,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
                     <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">
                       {property.ownerName}
                     </h4>
-                    {property.isVerified && (
+                    {isBlueTickActive(property) && (
                       <BadgeCheck className="w-4 h-4 text-blue-600 fill-white" />
                     )}
                   </div>

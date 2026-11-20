@@ -986,25 +986,11 @@ class DataStore {
     return this.updateAdminPropertyFields(id, { status: nextStatus });
   }
 
-  public async togglePropertyVerified(id: string, verified?: boolean): Promise<boolean> {
-    const prop = this.getPropertyById(id);
-    if (!prop) return false;
-    const nextValue = verified !== undefined ? verified : !prop.isVerified;
-    const saved = await this.updateAdminPropertyFields(id, { isVerified: nextValue });
-    if (saved && nextValue) {
-      this.addTransaction({
-        ownerId: prop.ownerId,
-        ownerName: prop.ownerName,
-        propertyId: prop.id,
-        propertyName: prop.title,
-        type: 'verified_badge',
-        planName: 'Blue Verified Badge (₹500/month)',
-        amount: 500,
-        date: new Date().toISOString().split('T')[0],
-      });
-      this.notify();
-    }
-    return saved;
+  // Legacy direct toggle is intentionally disabled. Blue Tick activation and
+  // renewal now happen only through the application review workflow.
+  public async togglePropertyVerified(_id: string, _verified?: boolean): Promise<boolean> {
+    console.warn('Direct Blue Tick toggling is disabled; use the verification review workflow.');
+    return false;
   }
 
   public async togglePropertyFeatured(id: string, featured?: boolean): Promise<boolean> {

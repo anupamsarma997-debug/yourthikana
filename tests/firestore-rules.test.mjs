@@ -119,7 +119,7 @@ test('owners cannot self-assign verification, featured status, ratings, or paid 
     city: 'Guwahati',
     ownerUid: 'owner-create',
     ownerId: 'owner-create',
-    status: 'active',
+    status: 'pending',
     isVerified: false,
     isFeatured: false,
     rating: 0,

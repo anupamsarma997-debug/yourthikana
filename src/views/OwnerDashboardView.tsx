@@ -890,6 +890,17 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
         </button>
       </div>
 
+      {/* Always-visible owner payment and verification panels.
+          Keep these outside navigation tabs so Pay Now is never hidden behind another button. */}
+      <section aria-label="Payments and verification" className="space-y-6">
+        <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/70 dark:bg-emerald-950/20 p-4">
+          <h2 className="text-base font-black text-slate-900 dark:text-white">Payments & Verification</h2>
+          <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Your payment and verification options are shown directly here. Pay Now buttons are visible without opening another tab or menu.</p>
+        </div>
+        <BlueTickOwnerPanel properties={properties} />
+        <SearchBoostOwnerPanel properties={properties} />
+      </section>
+
       {/* Navigation Tabs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
         <button
@@ -919,7 +930,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
           }`}
         >
           <Calendar className="w-4 h-4" />
-          <span>Subscriptions & Badges</span>
+          <span>Plans & Pricing</span>
         </button>
 
         <button
@@ -1247,11 +1258,9 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
         </div>
       )}
 
-      {/* Tab 3: Subscription Plans & Badges */}
+      {/* Tab 3: Listing Plans & Pricing */}
       {activeTab === 'subscriptions' && (
         <div className="space-y-6">
-          <BlueTickOwnerPanel properties={properties} />
-          <SearchBoostOwnerPanel properties={properties} />
           <div className="text-center max-w-xl mx-auto space-y-2">
             <h3 className="text-xl font-black text-slate-900 dark:text-white">
               Listing Subscriptions & Add-on Plans

@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
-import { ref as storageRef, uploadBytes } from 'firebase/storage';
-import { BadgePercent, Clock3, Wallet } from 'lucide-react';
-import { auth, db, storage } from '../lib/firebase';
+import { collection, doc, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import { BadgePercent, Clock3, MessageCircle, Wallet } from 'lucide-react';
+import { auth, db } from '../lib/firebase';
 import { Property } from '../types';
 
 type SearchBoostApplication = {
@@ -26,7 +25,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ pr
   const [applications, setApplications] = useState<SearchBoostApplication[]>([]);
   const [propertyId, setPropertyId] = useState('');
   const [utr, setUtr] = useState('');
-  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [whatsappUrl, setWhatsappUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -53,16 +52,8 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ pr
     const user = auth?.currentUser;
     const property = eligibleProperties.find((item) => item.id === propertyId);
     const cleanUtr = utr.trim();
-    if (!db || !storage || !user || !property) {
+    if (!db || !user || !property) {
       setMessage('Sirf apni approved/published property select karein.');
-      return;
-    }
-    if (!proofFile) {
-      setMessage('Property proof document upload karna mandatory hai.');
-      return;
-    }
-    if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(proofFile.type) || proofFile.size > 8 * 1024 * 1024) {
-      setMessage('PDF/JPG/PNG/WEBP file upload karein. Maximum size 8 MB hai.');
       return;
     }
     if (!/^[A-Za-z0-9-]{8,30}$/.test(cleanUtr)) {
@@ -78,26 +69,15 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ pr
     try {
       const applicationRef = doc(collection(db, 'searchBoostApplications'));
       await setDoc(applicationRef, {
-        ownerUid: user.uid,
-        propertyId: property.id,
-        propertyTitle: property.title,
-        status: 'pending',
-        paymentStatus: 'pending',
-        paymentUtr: cleanUtr,
+        ownerUid: user.uid, propertyId: property.id, propertyTitle: property.title,
+        status: 'pending', paymentStatus: 'pending', paymentUtr: cleanUtr,
+        proofSubmissionMethod: 'whatsapp', proofStatus: 'awaiting_whatsapp',
         submittedAt: serverTimestamp(),
       });
-      try {
-        await uploadBytes(storageRef(storage, `search-boost-documents/${user.uid}/${applicationRef.id}/proof`), proofFile, {
-          contentType: proofFile.type,
-          customMetadata: { originalName: proofFile.name },
-        });
-      } catch (uploadError) {
-        await deleteDoc(applicationRef).catch(() => {});
-        throw uploadError;
-      }
+      const proofMessage = `Hello YourThikana Admin, Search Boost proof for application ${applicationRef.id}. Property: ${property.title}. Owner UID: ${user.uid}. UTR: ${cleanUtr}. I am sending property proof documents for manual review. Please activate only after proof and bank credit confirmation.`;
+      setWhatsappUrl(`https://wa.me/919101280465?text=${encodeURIComponent(proofMessage)}`);
       setUtr('');
-      setProofFile(null);
-      setMessage('Search Boost request submit ho gayi. Admin bank/UPI credit confirm karne ke baad hi boost active karega.');
+      setMessage('Search Boost request submit ho gayi. WhatsApp par property proof bhejein. UTR aur documents dono verify hone ke baad hi boost active hoga.');
     } catch (error: any) {
       console.error('Search Boost request failed:', error);
       setMessage(error?.message || 'Request submit nahi ho payi.');
@@ -114,7 +94,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ pr
       </div>
       <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 space-y-1">
         <p className="text-xs font-bold text-amber-900 dark:text-amber-200"><Wallet className="inline w-4 h-4 mr-1" />UPI ID: {UPI_ID}</p>
-        <p className="text-[11px] text-slate-600 dark:text-slate-300">₹500 payment ke baad UTR aur property proof document upload karein. Admin document aur bank credit dono verify karega; UTR se boost automatic active nahi hoga.</p>
+        <p className="text-[11px] text-slate-600 dark:text-slate-300">₹500 payment ke baad UTR enter karein aur property proof WhatsApp par bhejein. Admin documents aur bank credit dono verify karega.</p>
       </div>
       <form onSubmit={submitRequest} className="grid sm:grid-cols-[1fr_1fr_auto] gap-2">
         <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Approved property
@@ -126,12 +106,10 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ pr
         <label className="text-xs font-bold text-slate-700 dark:text-slate-200">UPI UTR / Transaction ID
           <input value={utr} onChange={(event) => setUtr(event.target.value)} required minLength={8} maxLength={30} className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm" placeholder="Enter UTR" />
         </label>
-        <label className="text-xs font-bold text-slate-700 dark:text-slate-200 sm:col-span-2">Property proof document (required)
-          <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" required onChange={(event) => setProofFile(event.target.files?.[0] || null)} className="mt-1 block w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-xs" />
-          <span className="mt-1 block text-[10px] font-normal text-slate-500">Trade licence, property-tax/electricity bill, lease/authorisation letter, etc. PDF/JPG/PNG/WEBP · max 8 MB. Private; admin only.</span>
-        </label>
-        <button disabled={busy || !eligibleProperties.length || !proofFile} className="self-end rounded-xl bg-amber-500 px-4 py-3 text-xs font-extrabold text-slate-950 disabled:opacity-50">{busy ? 'Submitting…' : 'Submit ₹500 request'}</button>
+        <p className="sm:col-span-2 text-[11px] text-slate-500">Trade licence, property-tax/electricity bill, lease/authorisation letter jaise proof WhatsApp par bhejein. Sensitive numbers hide karein.</p>
+        <button disabled={busy || !eligibleProperties.length} className="self-end rounded-xl bg-amber-500 px-4 py-3 text-xs font-extrabold text-slate-950 disabled:opacity-50">{busy ? 'Submitting…' : 'Submit ₹500 request'}</button>
       </form>
+      {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-xs font-extrabold text-white"><MessageCircle className="w-4 h-4" />Send proof documents on WhatsApp</a>}
       {message && <p role="status" className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 text-xs">{message}</p>}
       <div className="space-y-2">
         <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">Your Search Boost requests</h4>

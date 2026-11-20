@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, doc, getDoc, onSnapshot, writeBatch } from 'firebase/firestore';
-import { getBlob, ref } from 'firebase/storage';
-import { BadgeCheck, CheckCircle2, Download, FileText, RefreshCw, XCircle } from 'lucide-react';
-import { auth, db, storage } from '../lib/firebase';
+import { BadgeCheck, CheckCircle2, MessageCircle, RefreshCw, XCircle } from 'lucide-react';
+import { auth, db } from '../lib/firebase';
 
 type VerificationApplication = {
   id: string;
@@ -36,6 +35,7 @@ export const BlueTickAdminPanel: React.FC = () => {
   const [applications, setApplications] = useState<VerificationApplication[]>([]);
   const [busyId, setBusyId] = useState('');
   const [message, setMessage] = useState('');
+  const [proofChecked, setProofChecked] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!db) return;
@@ -140,25 +140,6 @@ export const BlueTickAdminPanel: React.FC = () => {
     }
   };
 
-  const openPrivateDocument = async (path: string) => {
-    if (!storage) return;
-    try {
-      const blob = await getBlob(ref(storage, path));
-      const url = URL.createObjectURL(blob);
-      const opened = window.open(url, '_blank', 'noopener,noreferrer');
-      if (!opened) {
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = path.split('/').pop() || 'verification-document';
-        link.click();
-      }
-      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (error: any) {
-      console.error('Private document retrieval failed:', error);
-      setMessage('Private document open nahi hua. Storage rules / bucket CORS check karein.');
-    }
-  };
-
   const pending = applications.filter((item) => item.status === 'pending');
   const paymentPending = applications.filter((item) => item.status === 'approved' && item.paymentStatus === 'pending');
 
@@ -177,13 +158,11 @@ export const BlueTickAdminPanel: React.FC = () => {
             <span className="rounded-lg bg-slate-100 dark:bg-slate-700 px-2 py-1 text-[10px] font-black uppercase">{application.status}{application.paymentStatus === 'pending' ? ' · PAYMENT PENDING' : ''}</span>
           </div>
           <div className="flex flex-wrap gap-2">
-            {(application.documentPaths || []).map((path) => (
-              <button key={path} type="button" onClick={() => openPrivateDocument(path)} className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-xs font-bold"><FileText className="w-4 h-4" /><Download className="w-3 h-3" />Private proof {((application.documentPaths || []).indexOf(path)) + 1}</button>
-            ))}
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 space-y-2"><p className="text-xs font-bold">Manual proof review — WhatsApp</p><p className="text-[11px] text-slate-600 dark:text-slate-300">Application ID: <strong>{application.id}</strong>. Owner se WhatsApp par documents receive karke property details se match karein.</p><a href={`https://wa.me/919101280465?text=${encodeURIComponent('Please check Blue Tick proof for application '+application.id)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-green-700"><MessageCircle className="w-4 h-4" />Open WhatsApp</a>{application.status === 'pending' && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={!!proofChecked[application.id]} onChange={(event) => setProofChecked((old) => ({...old,[application.id]:event.target.checked}))} />I received and checked the property proof documents.</label>}</div>
           </div>
           {application.status === 'pending' && (
             <div className="flex gap-2">
-              <button type="button" disabled={busyId === application.id} onClick={() => review(application, 'approve')} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><CheckCircle2 className="w-4 h-4" />Approve — start 3-month free trial</button>
+              <button type="button" disabled={busyId === application.id || !proofChecked[application.id]} onClick={() => review(application, 'approve')} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><CheckCircle2 className="w-4 h-4" />Approve — start 3-month free trial</button>
               <button type="button" disabled={busyId === application.id} onClick={() => review(application, 'reject')} className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><XCircle className="w-4 h-4" />Reject</button>
             </div>
           )}

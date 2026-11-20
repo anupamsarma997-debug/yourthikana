@@ -374,14 +374,11 @@ export const AdminDashboardView: React.FC = () => {
                         {p.isVerified && p.verifiedUntil && new Date(p.verifiedUntil).getTime() > Date.now() ? 'Blue Tick active' : 'No active Blue Tick'}
                       </span>
 
-                      <button
-                        onClick={() => store.togglePropertyFeatured(p.id, !p.isFeatured)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          p.isFeatured ? 'bg-amber-400 text-slate-950' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                        }`}
-                      >
-                        {p.isFeatured ? '⭐ Boosted' : '+ Boost'}
-                      </button>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                        {p.isFeatured && p.featuredUntil && Date.parse(p.featuredUntil) > Date.now()
+                          ? '⭐ Boost active until ' + new Date(p.featuredUntil).toLocaleDateString()
+                          : 'Search Boost: payment review required'}
+                      </span>
                     </td>
                     <td className="p-3 text-right">
                       <div className="flex flex-wrap justify-end gap-2">

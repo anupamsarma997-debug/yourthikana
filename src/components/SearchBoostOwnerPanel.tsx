@@ -10,7 +10,7 @@ type SearchBoostApplication = {
   ownerUid: string;
   propertyId: string;
   propertyTitle: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'awaiting_payment' | 'pending' | 'approved' | 'rejected';
   paymentStatus: 'pending' | 'verified' | 'rejected';
   paymentUtr: string;
   submittedAt?: any;
@@ -53,8 +53,8 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ pr
       setMessage('Sirf apni approved/published property select karein.');
       return;
     }
-    if (applications.some((item) => item.propertyId === propertyId && item.status === 'pending')) {
-      setMessage('Is property ka Search Boost request pehle se review mein hai.');
+    if (applications.some((item) => item.propertyId === propertyId)) {
+      setMessage('Is property ka Search Boost request pehle se bana hua hai. Rejected request ke card se payment karke dobara submit karein.');
       return;
     }
     setBusy(true);
@@ -63,12 +63,12 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ pr
       const applicationRef = doc(collection(db, 'searchBoostApplications'));
       await setDoc(applicationRef, {
         ownerUid: user.uid, propertyId: property.id, propertyTitle: property.title,
-        status: 'pending', paymentStatus: 'pending', paymentUtr: '',
-        proofSubmissionMethod: 'whatsapp', proofStatus: 'awaiting_whatsapp',
+        status: 'awaiting_payment', paymentStatus: 'pending', paymentUtr: '',
+        proofSubmissionMethod: 'whatsapp', proofStatus: 'awaiting_payment',
         submittedAt: serverTimestamp(),
       });
       setPropertyId('');
-      setMessage('Request create ho gayi. Ab neeche Pay Now karke screenshot aur asli UTR WhatsApp par bhejein.');
+      setMessage('Payment step ready hai. ₹500 pay karke screenshot aur asli UTR share karein; uske baad hi request admin review mein jayegi.');
     } catch (error: any) {
       console.error('Search Boost request failed:', error);
       setMessage(error?.message || 'Request submit nahi ho payi.');
@@ -82,6 +82,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ pr
     await updateDoc(doc(db, 'searchBoostApplications', application.id), {
       paymentUtr: utrValue,
       paymentSubmittedAt: serverTimestamp(),
+      status: 'pending',
       paymentStatus: 'pending',
       proofSubmissionMethod: 'whatsapp',
       proofStatus: 'share_sheet_opened',
@@ -117,7 +118,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ pr
               <div><p className="text-sm font-bold text-slate-900 dark:text-white">{application.propertyTitle}</p><p className="text-[11px] text-slate-500">{application.paymentUtr ? `UTR submitted: ${application.paymentUtr}` : 'Payment not submitted yet'}</p></div>
               <div className="text-right text-xs font-bold"><span className={application.status === 'approved' ? 'text-emerald-600' : application.status === 'rejected' ? 'text-rose-600' : 'text-amber-600'}>{application.status === 'approved' ? 'Boost active' : application.status === 'rejected' ? 'Rejected' : 'Admin review pending'}</span>{application.featuredUntil && <p className="text-[10px] text-slate-500"><Clock3 className="inline w-3 h-3 mr-1" />Until {dateLabel(application.featuredUntil)}</p>}</div>
             </div>
-            {application.status === 'pending' && (
+            {(application.status === 'awaiting_payment' || application.status === 'pending' || application.status === 'rejected') && (
               <PaymentProofShare amount={500} title="Search Boost" applicationId={application.id} propertyTitle={application.propertyTitle} onShared={(utrValue) => markPaymentSubmitted(application, utrValue)} initialUtr={application.paymentUtr || ''} disabled={busy} />
             )}
           </article>

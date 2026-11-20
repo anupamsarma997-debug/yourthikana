@@ -3,6 +3,7 @@ import { collection, deleteDoc, onSnapshot, query, serverTimestamp, setDoc, upda
 import { BadgeCheck, Clock3, FileCheck2, MessageCircle, Upload, Wallet } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
 import { Property } from '../types';
+import { PaymentProofShare } from './PaymentProofShare';
 
 type Application = {
   id: string;
@@ -20,7 +21,6 @@ type Application = {
   reviewNote?: string;
 };
 
-const UPI_ID = 'anupamsarma997-1@okhdfcbank';
 const formatDate = (value?: string) => value ? new Date(value).toLocaleDateString('en-IN') : '—';
 
 export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ properties }) => {
@@ -28,7 +28,6 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
   const [applications, setApplications] = useState<Application[]>([]);
   const [propertyId, setPropertyId] = useState('');
   const [whatsappUrl, setWhatsappUrl] = useState('');
-  const [utrById, setUtrById] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -91,29 +90,15 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
     }
   };
 
-  const submitPayment = async (application: Application) => {
-    if (!db || !auth?.currentUser || auth.currentUser.uid !== uid) return;
-    const utr = (utrById[application.id] || '').trim();
-    if (!/^[A-Za-z0-9-]{8,30}$/.test(utr)) {
-      setMessage('Valid UTR / transaction ID enter karein (8–30 characters).');
-      return;
-    }
-    setBusy(true);
-    setMessage('');
-    try {
-      await updateDoc(doc(db, 'verificationApplications', application.id), {
-        paymentUtr: utr,
-        paymentSubmittedAt: serverTimestamp(),
-        paymentStatus: 'pending',
-      });
-      setUtrById((current) => ({ ...current, [application.id]: '' }));
-      setMessage('Payment details admin ko bhej di gayi hain. Admin confirm karega tabhi Blue Tick renew hoga.');
-    } catch (error: any) {
-      console.error('Blue Tick payment submission failed:', error);
-      setMessage(error?.message || 'Payment details submit nahi ho payi.');
-    } finally {
-      setBusy(false);
-    }
+  const markPaymentSubmitted = async (application: Application, utr: string) => {
+    if (!db || !auth?.currentUser || auth.currentUser.uid !== uid) throw new Error('Please sign in again.');
+    await updateDoc(doc(db, 'verificationApplications', application.id), {
+      paymentUtr: utr,
+      paymentSubmittedAt: serverTimestamp(),
+      paymentStatus: 'pending',
+      proofSubmissionMethod: 'whatsapp',
+      proofStatus: 'share_sheet_opened',
+    });
   };
 
   return (
@@ -156,13 +141,17 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
             </div>
             {application.status === 'approved' && <p className="text-xs text-slate-600 dark:text-slate-300"><Clock3 className="inline w-3.5 h-3.5 mr-1" />Free trial / current validity ends: <strong>{formatDate(application.verifiedUntil || application.freeTrialEndsAt)}</strong></p>}
             {application.status === 'rejected' && <p className="text-xs text-rose-600">Review note: {application.reviewNote || 'Please contact support before reapplying.'}</p>}
-            {application.status === 'approved' && new Date(application.verifiedUntil || application.freeTrialEndsAt || 0).getTime() <= Date.now() && (
-              <div className="rounded-xl bg-blue-50 dark:bg-blue-950/40 p-3 space-y-2">
-                <p className="text-xs font-bold text-blue-900 dark:text-blue-200"><Wallet className="inline w-4 h-4 mr-1" />Renew Blue Tick — ₹500/month</p>
-                <p className="text-xs text-slate-600 dark:text-slate-300">UPI ID: <strong>{UPI_ID}</strong></p>
-                <p className="text-[11px] text-slate-500">UPI payment ke baad UTR enter karein. Sirf UTR submit karne se badge activate nahi hoga; admin payment confirm karega.</p>
-                <input value={utrById[application.id] || ''} onChange={(event) => setUtrById((current) => ({ ...current, [application.id]: event.target.value }))} placeholder="UPI UTR / transaction ID" className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-2.5 text-xs" />
-                <button type="button" disabled={busy || application.paymentStatus === 'pending'} onClick={() => submitPayment(application)} className="rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">{application.paymentStatus === 'pending' ? 'Payment under review' : 'Submit payment reference'}</button>
+            {application.status === 'approved' && new Date(application.verifiedUntil || application.freeTrialEndsAt || 0).getTime() <= Date.now() && application.paymentStatus !== 'pending' && (
+              <PaymentProofShare
+                amount={500}
+                title="Blue Tick renewal"
+                applicationId={application.id}
+                propertyTitle={application.propertyTitle}
+                onShared={(utr) => markPaymentSubmitted(application, utr)}
+                disabled={busy}
+              />
+            )}
+            {application.paymentStatus === 'pending' ? 'Payment under review' : 'Submit payment reference'}</button>
               </div>
             )}
             {application.paymentStatus === 'pending' && <p className="text-xs text-amber-600">Payment UTR admin verification ke liye pending hai.</p>}

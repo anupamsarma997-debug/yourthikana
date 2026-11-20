@@ -1192,58 +1192,14 @@ class DataStore {
     }
   }
 
-  public togglePropertyVerified(id: string, verified?: boolean) {
-    const prop = this.getPropertyById(id);
-    if (prop) {
-      prop.isVerified = verified !== undefined ? verified : !prop.isVerified;
-      if (db) {
-        setDoc(doc(db, 'properties', id), { isVerified: prop.isVerified }, { merge: true }).catch((err) => {
-          console.error('Firestore togglePropertyVerified error:', err);
-          this.firestoreError = err?.message || String(err);
-          this.notify();
-        });
-      }
-      if (prop.isVerified) {
-        this.addTransaction({
-          ownerId: prop.ownerId,
-          ownerName: prop.ownerName,
-          propertyId: prop.id,
-          propertyName: prop.title,
-          type: 'verified_badge',
-          planName: 'Blue Verified Badge (₹500/month)',
-          amount: 500,
-          date: new Date().toISOString().split('T')[0],
-        });
-      }
-      this.notify();
-    }
+  // Legacy badge toggles are intentionally disabled. Only the separate
+  // application workflows may activate or renew paid features after admin review.
+  public togglePropertyVerified(_id: string, _verified?: boolean): void {
+    console.warn('Direct Blue Tick activation is disabled; use verificationApplications.');
   }
 
-  public togglePropertyFeatured(id: string, featured?: boolean) {
-    const prop = this.getPropertyById(id);
-    if (prop) {
-      prop.isFeatured = featured !== undefined ? featured : !prop.isFeatured;
-      if (db) {
-        setDoc(doc(db, 'properties', id), { isFeatured: prop.isFeatured }, { merge: true }).catch((err) => {
-          console.error('Firestore togglePropertyFeatured error:', err);
-          this.firestoreError = err?.message || String(err);
-          this.notify();
-        });
-      }
-      if (prop.isFeatured) {
-        this.addTransaction({
-          ownerId: prop.ownerId,
-          ownerName: prop.ownerName,
-          propertyId: prop.id,
-          propertyName: prop.title,
-          type: 'search_boost',
-          planName: 'Top Search Placement ⭐ Featured (₹500/month)',
-          amount: 500,
-          date: new Date().toISOString().split('T')[0],
-        });
-      }
-      this.notify();
-    }
+  public togglePropertyFeatured(_id: string, _featured?: boolean): void {
+    console.warn('Direct Search Boost activation is disabled; use searchBoostApplications.');
   }
 
   public async deleteProperty(id: string): Promise<{ success: boolean; status?: number; message?: string }> {
@@ -1564,16 +1520,7 @@ class DataStore {
       console.warn('Firestore lead sync error:', err);
     }
 
-    // Check reward milestone (5+ leads unlocks featured search boost!)
-    if (safeRef !== 'direct') {
-      const ownerLeadsCount = this.getLeadsForRefId(safeRef).length;
-      if (ownerLeadsCount >= 5) {
-        const prop = this.properties.find((p) => p.id === propertyId);
-        if (prop && !prop.isFeatured) {
-          this.togglePropertyFeatured(propertyId, true);
-        }
-      }
-    }
+    // QR/lead milestones no longer activate paid Search Boost automatically.
 
     this.notify();
   }

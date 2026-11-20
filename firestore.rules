@@ -531,6 +531,53 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // OPTIONAL BLUE TICK VERIFICATION — owner-submitted applications and payment references.
+    match /verificationApplications/{applicationId} {
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasAll([
+          'ownerUid', 'propertyId', 'propertyTitle', 'status',
+          'paymentStatus', 'documentCount', 'documentPaths', 'submittedAt'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'ownerUid', 'propertyId', 'propertyTitle', 'status',
+          'paymentStatus', 'documentCount', 'documentPaths', 'submittedAt'
+        ]) &&
+        request.resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.propertyId is string &&
+        request.resource.data.propertyTitle is string &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.paymentStatus == 'not_submitted' &&
+        request.resource.data.documentCount is int &&
+        request.resource.data.documentCount >= 1 &&
+        request.resource.data.documentCount <= 3 &&
+        request.resource.data.documentPaths is list &&
+        request.resource.data.documentPaths.size() == request.resource.data.documentCount &&
+        request.resource.data.submittedAt is timestamp &&
+        exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
+        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '') == request.auth.uid;
+
+      allow read: if isAdmin() ||
+        (isSignedIn() && resource.data.ownerUid == request.auth.uid);
+
+      // Owners may submit only a UPI reference after approval. They cannot
+      // approve themselves, extend dates, or change the verification status.
+      allow update: if isAdmin() ||
+        (
+          isSignedIn() &&
+          resource.data.ownerUid == request.auth.uid &&
+          resource.data.status == 'approved' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'paymentUtr', 'paymentSubmittedAt', 'paymentStatus'
+          ]) &&
+          request.resource.data.paymentUtr is string &&
+          request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}$') &&
+          request.resource.data.paymentSubmittedAt is timestamp &&
+          request.resource.data.paymentStatus == 'pending'
+        );
+
+      allow delete: if isAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

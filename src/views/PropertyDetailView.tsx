@@ -3,6 +3,7 @@ import { Property, RoomType } from '../types';
 import { store } from '../services/store';
 import { MapLocationView } from '../components/MapLocationView';
 import { BannerSlider } from '../components/BannerSlider';
+import { isBlueTickActive, isSearchBoostActive } from '../utils/propertyBadges';
 import { 
   ArrowLeft, 
   MapPin, 
@@ -86,14 +87,14 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
             {property.propertyType}
           </span>
 
-          {property.isFeatured && (
+          {isSearchBoostActive(property) && (
             <span className="bg-amber-400 text-slate-950 text-xs font-black px-3 py-1 rounded-lg shadow-sm flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 fill-slate-950" />
               ⭐ Featured Search Boost
             </span>
           )}
 
-          {property.isVerified && (
+          {isBlueTickActive(property) && (
             <span className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-lg shadow-sm flex items-center gap-1">
               <BadgeCheck className="w-4 h-4 fill-white text-blue-600" />
               Blue Verified Homestay

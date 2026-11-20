@@ -29,6 +29,7 @@ export const AdminDashboardView: React.FC = () => {
   const [users, setUsers] = useState<User[]>(store.getUsers());
   const [banners, setBanners] = useState<BannerAd[]>(store.getAllBanners());
   const [transactions, setTransactions] = useState(store.getTransactions());
+  const [activeTab, setActiveTab] = useState<'properties' | 'users' | 'banners' | 'revenue'>('properties');
 
   // Only the founder's verified Firebase account may enter the admin dashboard.
   const [isVerifying, setIsVerifying] = useState(true);

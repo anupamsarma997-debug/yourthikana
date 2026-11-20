@@ -46,7 +46,7 @@ async function createOwnedProperty(uid = 'owner-1', propertyId = 'property-1') {
   return ownerDb;
 }
 
-test('owners can apply for Blue Tick only for their own property and cannot self-approve', async () => {
+test('owners can apply for Blue Tick only after property approval and cannot self-approve', async () => {
   const ownerDb = await createOwnedProperty('blue-owner', 'blue-property');
   const application = {
     ownerUid: 'blue-owner',
@@ -58,6 +58,10 @@ test('owners can apply for Blue Tick only for their own property and cannot self
     documentPaths: ['verification-documents/blue-owner/app-1/0-proof.pdf'],
     submittedAt: new Date(),
   };
+  await assertFails(setDoc(doc(ownerDb, 'verificationApplications', 'app-pending'), application));
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await updateDoc(doc(context.firestore(), 'properties', 'blue-property'), { status: 'active' });
+  });
   await assertSucceeds(setDoc(doc(ownerDb, 'verificationApplications', 'app-1'), application));
   await assertFails(updateDoc(doc(ownerDb, 'verificationApplications', 'app-1'), {
     status: 'approved',
@@ -72,6 +76,9 @@ test('owners can apply for Blue Tick only for their own property and cannot self
 
 test('owner can submit only a payment UTR after admin approval; cannot extend validity', async () => {
   const ownerDb = await createOwnedProperty('payment-owner', 'payment-property');
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await updateDoc(doc(context.firestore(), 'properties', 'payment-property'), { status: 'active' });
+  });
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), 'verificationApplications', 'payment-app'), {
       ownerUid: 'payment-owner',

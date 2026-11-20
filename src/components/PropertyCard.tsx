@@ -102,7 +102,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             </span>
           </div>
 
-          {property.isVerified && (
+          {property.isVerified && property.verifiedUntil && new Date(property.verifiedUntil).getTime() > Date.now() && (
             <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-md flex items-center gap-1 backdrop-blur-md">
               <BadgeCheck className="w-3.5 h-3.5 fill-white text-blue-600" />
               Verified Blue Tick

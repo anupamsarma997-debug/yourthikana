@@ -162,7 +162,7 @@ export const BlueTickAdminPanel: React.FC = () => {
           </div>
           {application.status === 'pending' && (
             <div className="flex gap-2">
-              <button type="button" disabled={busyId === application.id || !proofChecked[application.id]} onClick={() => review(application, 'approve') className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><CheckCircle2 className="w-4 h-4" />Approve — start 3-month free trial</button>
+              <button type="button" disabled={busyId === application.id || !proofChecked[application.id]} onClick={() => review(application, 'approve')} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><CheckCircle2 className="w-4 h-4" />Approve — start 3-month free trial</button>
               <button type="button" disabled={busyId === application.id} onClick={() => review(application, 'reject')} className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><XCircle className="w-4 h-4" />Reject</button>
             </div>
           )}

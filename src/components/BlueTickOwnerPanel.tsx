@@ -153,7 +153,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
       <div className="grid sm:grid-cols-3 gap-3 text-xs">
         <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3"><strong>1. Apply</strong><p className="mt-1 text-slate-500">Property proof submit karein.</p></div>
         <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3"><strong>2. Free trial</strong><p className="mt-1 text-slate-500">Approval date se 3 calendar months free.</p></div>
-        <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3"><strong>3. Renewal</strong><p className="mt-1 text-slate-500">Uske baad ₹1,000 per month.</p></div>
+        <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3"><strong>3. Renewal</strong><p className="mt-1 text-slate-500">Uske baad ₹500 per month.</p></div>
       </div>
 
       <form onSubmit={submitApplication} className="space-y-3 border-t border-slate-100 dark:border-slate-700 pt-4">
@@ -183,7 +183,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
             {application.status === 'rejected' && <p className="text-xs text-rose-600">Review note: {application.reviewNote || 'Please contact support before reapplying.'}</p>}
             {application.status === 'approved' && new Date(application.verifiedUntil || application.freeTrialEndsAt || 0).getTime() <= Date.now() && (
               <div className="rounded-xl bg-blue-50 dark:bg-blue-950/40 p-3 space-y-2">
-                <p className="text-xs font-bold text-blue-900 dark:text-blue-200"><Wallet className="inline w-4 h-4 mr-1" />Renew Blue Tick — ₹1,000/month</p>
+                <p className="text-xs font-bold text-blue-900 dark:text-blue-200"><Wallet className="inline w-4 h-4 mr-1" />Renew Blue Tick — ₹500/month</p>
                 <p className="text-xs text-slate-600 dark:text-slate-300">UPI ID: <strong>{UPI_ID}</strong></p>
                 <p className="text-[11px] text-slate-500">UPI payment ke baad UTR enter karein. Sirf UTR submit karne se badge activate nahi hoga; admin payment confirm karega.</p>
                 <input value={utrById[application.id] || ''} onChange={(event) => setUtrById((current) => ({ ...current, [application.id]: event.target.value }))} placeholder="UPI UTR / transaction ID" className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-2.5 text-xs" />

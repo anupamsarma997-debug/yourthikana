@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ImagePlus, MessageCircle, Smartphone, CheckCircle2 } from 'lucide-react';
 
 const UPI_ID = 'anupamsarma997-1@okhdfcbank';
@@ -19,6 +19,10 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
   const [utr, setUtr] = useState(initialUtr);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (initialUtr) setUtr(initialUtr);
+  }, [initialUtr]);
 
   const upiLink = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent('YourThikana')}&am=${amount}&cu=INR&tn=${encodeURIComponent(`${title} - ${propertyTitle}`)}`;
   const cleanUtr = utr.trim();

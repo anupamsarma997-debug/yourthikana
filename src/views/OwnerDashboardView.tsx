@@ -3,6 +3,8 @@ import { Property, RoomType, User, PropertyType } from '../types';
 import { store } from '../services/store';
 import { auth } from '../lib/firebase';
 import { uploadPropertyPhoto } from '../services/uploadPropertyImage';
+import { BlueTickOwnerPanel } from '../components/BlueTickOwnerPanel';
+import { SearchBoostOwnerPanel } from '../components/SearchBoostOwnerPanel';
 import { AuthModal } from '../components/AuthModal';
 import { QRPerformanceCard } from '../components/QRPerformanceCard';
 import { 
@@ -852,18 +854,9 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     setEditingRoomId(null);
   };
 
-  // Upgrade Plan / Buy Badges
-  const handleBuyAddon = (propId: string, addonType: 'verified' | 'featured' | 'renew') => {
-    if (addonType === 'verified') {
-      store.togglePropertyVerified(propId, true);
-      alert('Blue Verified Badge activated for ₹500/month!');
-    } else if (addonType === 'featured') {
-      store.togglePropertyFeatured(propId, true);
-      alert('⭐ Search Boost activated for ₹500/month! Your homestay will appear at the top of search results.');
-    } else if (addonType === 'renew') {
-      store.renewPropertySubscription(propId, 30, '₹1000 Standard Listing Plan');
-      alert('Listing subscription renewed for 30 days (₹1000).');
-    }
+  // Paid add-ons must use the separate request and admin-review workflows.
+  const handleBuyAddon = async (_propId: string, _addonType: 'verified' | 'featured' | 'renew') => {
+    alert('Please use the Blue Tick / Search Boost request panels. Activation requires admin approval.');
   };
 
   return (
@@ -1171,7 +1164,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                       </button>
 
                       <button
-                        onClick={() => handleBuyAddon(property.id, 'verified')}
+                        onClick={() => setActiveTab('subscriptions')}
                         disabled={property.isVerified}
                         className="flex-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold text-xs py-2 rounded-xl border border-blue-200 dark:border-blue-800 hover:bg-blue-100 disabled:opacity-50"
                       >
@@ -1179,7 +1172,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                       </button>
 
                       <button
-                        onClick={() => handleBuyAddon(property.id, 'featured')}
+                        onClick={() => setActiveTab('subscriptions')}
                         disabled={property.isFeatured}
                         className="flex-1 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold text-xs py-2 rounded-xl border border-amber-200 dark:border-amber-800 hover:bg-amber-100 disabled:opacity-50"
                       >
@@ -1257,6 +1250,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       {/* Tab 3: Subscription Plans & Badges */}
       {activeTab === 'subscriptions' && (
         <div className="space-y-6">
+          <BlueTickOwnerPanel properties={properties} />
+          <SearchBoostOwnerPanel properties={properties} />
           <div className="text-center max-w-xl mx-auto space-y-2">
             <h3 className="text-xl font-black text-slate-900 dark:text-white">
               Listing Subscriptions & Add-on Plans

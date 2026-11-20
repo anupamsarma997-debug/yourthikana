@@ -138,7 +138,7 @@ export const AdminDashboardView: React.FC = () => {
   // Compute Revenue Stats
   const totalRevenue = transactions.reduce((acc, t) => acc + t.amount, 0);
   const totalVerifiedCount = properties.filter((p) => p.isVerified && p.verifiedUntil && new Date(p.verifiedUntil).getTime() > Date.now()).length;
-  const totalFeaturedCount = properties.filter((p) => p.isFeatured).length;
+  const totalFeaturedCount = properties.filter((p) => p.isFeatured && p.featuredUntil && Date.parse(p.featuredUntil) > Date.now()).length;
 
   const handleAddBanner = (e: React.FormEvent) => {
     e.preventDefault();

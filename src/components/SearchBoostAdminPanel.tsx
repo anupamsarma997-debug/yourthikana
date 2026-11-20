@@ -54,7 +54,9 @@ export const SearchBoostAdminPanel: React.FC = () => {
       const batch = writeBatch(db);
       const applicationRef = doc(db, 'searchBoostApplications', application.id);
       if (approve) {
-        const featuredUntil = addCalendarMonth(now).toISOString();
+        const currentFeaturedUntil = propertySnapshot.data().featuredUntil ? new Date(propertySnapshot.data().featuredUntil) : now;
+        const renewalBase = currentFeaturedUntil.getTime() > now.getTime() ? currentFeaturedUntil : now;
+        const featuredUntil = addCalendarMonth(renewalBase).toISOString();
         batch.update(applicationRef, {
           status: 'approved',
           paymentStatus: 'verified',

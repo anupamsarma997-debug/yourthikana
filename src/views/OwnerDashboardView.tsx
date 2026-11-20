@@ -1198,7 +1198,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                         <span>QR & Gate Poster</span>
                       </button>
 
-                      {property.status === 'active' && (
+                      {isOwner && property.status === 'active' && (
                         <>
                           <button
                             onClick={() => setActiveTab('subscriptions')}

@@ -4,6 +4,7 @@ import { Property, User, BannerAd } from '../types';
 import { auth } from '../lib/firebase';
 import { BlueTickAdminPanel } from '../components/BlueTickAdminPanel';
 import { SearchBoostAdminPanel } from '../components/SearchBoostAdminPanel';
+import { isBlueTickActive, isSearchBoostActive } from '../utils/propertyBadges';
 import { 
   ShieldCheck, 
   ShieldAlert,
@@ -328,23 +329,12 @@ export const AdminDashboardView: React.FC = () => {
                       </span>
                     </td>
                     <td className="p-3 space-x-1">
-                      <button
-                        onClick={() => store.togglePropertyVerified(p.id, !p.isVerified)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          p.isVerified ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                        }`}
-                      >
-                        {p.isVerified ? 'Verified ✓' : '+ Verified'}
-                      </button>
-
-                      <button
-                        onClick={() => store.togglePropertyFeatured(p.id, !p.isFeatured)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          p.isFeatured ? 'bg-amber-400 text-slate-950' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                        }`}
-                      >
-                        {p.isFeatured ? '⭐ Boosted' : '+ Boost'}
-                      </button>
+                      <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${isBlueTickActive(p) ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                        {isBlueTickActive(p) ? 'Verified ✓' : 'Not verified'}
+                      </span>
+                      <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${isSearchBoostActive(p) ? 'bg-amber-400 text-slate-950' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                        {isSearchBoostActive(p) ? '⭐ Boosted' : 'Not boosted'}
+                      </span>
                     </td>
                     <td className="p-3 text-right space-x-2">
                       {p.status === 'pending' && (

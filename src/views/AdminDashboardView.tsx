@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { store } from '../services/store';
 import { Property, User, BannerAd } from '../types';
 import { auth } from '../lib/firebase';
+import { BlueTickAdminPanel } from '../components/BlueTickAdminPanel';
 import { 
   ShieldCheck, 
   ShieldAlert,
@@ -35,7 +36,7 @@ export const AdminDashboardView: React.FC = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [claimDetails, setClaimDetails] = useState<string>('');
 
-  const [activeTab, setActiveTab] = useState<'properties' | 'users' | 'banners' | 'revenue'>('properties');
+  const [activeTab, setActiveTab] = useState<'properties' | 'users' | 'banners' | 'revenue' | 'verifications'>('properties');
 
   useEffect(() => {
     let isMounted = true;
@@ -59,9 +60,7 @@ export const AdminDashboardView: React.FC = () => {
         try {
           const idTokenResult = await fbUser.getIdTokenResult(true);
           const hasAdminClaim =
-            idTokenResult.claims.admin === true ||
-            idTokenResult.claims.role === 'admin' ||
-            fbUser.uid === 'user_admin';
+            idTokenResult.claims.admin === true;
 
           if (isMounted) {
             setIsAuthorized(hasAdminClaim);
@@ -76,18 +75,11 @@ export const AdminDashboardView: React.FC = () => {
           }
         }
       } else {
-        // Fallback for local master admin session
-        if (currentUser.id === 'user_admin' || currentUser.email === 'admin@thikana-ne.in') {
-          if (isMounted) {
-            setIsAuthorized(true);
-            setClaimDetails('Master Admin Session Verified');
-            setIsVerifying(false);
-          }
-        } else {
-          if (isMounted) {
-            setIsAuthorized(false);
-            setIsVerifying(false);
-          }
+        // No Firebase Auth session means no administrator access.
+        if (isMounted) {
+          setIsAuthorized(false);
+          setClaimDetails('Missing Firebase Auth session');
+          setIsVerifying(false);
         }
       }
     }
@@ -119,7 +111,7 @@ export const AdminDashboardView: React.FC = () => {
 
   // Compute Revenue Stats
   const totalRevenue = transactions.reduce((acc, t) => acc + t.amount, 0);
-  const totalVerifiedCount = properties.filter((p) => p.isVerified).length;
+  const totalVerifiedCount = properties.filter((p) => p.isVerified && p.verifiedUntil && new Date(p.verifiedUntil).getTime() > Date.now()).length;
   const totalFeaturedCount = properties.filter((p) => p.isFeatured).length;
 
   const handleAddBanner = (e: React.FormEvent) => {
@@ -224,7 +216,7 @@ export const AdminDashboardView: React.FC = () => {
             {totalVerifiedCount}
           </p>
           <p className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold mt-1">
-            ₹500/mo Active Blue Ticks
+            ₹1,000/mo after 3-month free trial
           </p>
         </div>
 
@@ -279,7 +271,17 @@ export const AdminDashboardView: React.FC = () => {
         >
           Revenue Log ({transactions.length})
         </button>
+        <button
+          onClick={() => setActiveTab('verifications')}
+          className={`flex-1 py-3 text-xs font-extrabold rounded-xl transition-all ${
+            activeTab === 'verifications' ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-600 dark:text-slate-400'
+          }`}
+        >
+          Blue Tick Review
+        </button>
       </div>
+
+      {activeTab === 'verifications' && <BlueTickAdminPanel />}
 
       {/* Tab 1: Properties Table */}
       {activeTab === 'properties' && (
@@ -322,14 +324,9 @@ export const AdminDashboardView: React.FC = () => {
                       </span>
                     </td>
                     <td className="p-3 space-x-1">
-                      <button
-                        onClick={() => store.togglePropertyVerified(p.id, !p.isVerified)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          p.isVerified ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                        }`}
-                      >
-                        {p.isVerified ? 'Verified ✓' : '+ Verified'}
-                      </button>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${p.isVerified && p.verifiedUntil && new Date(p.verifiedUntil).getTime() > Date.now() ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                        {p.isVerified && p.verifiedUntil && new Date(p.verifiedUntil).getTime() > Date.now() ? 'Blue Tick active' : 'No active Blue Tick'}
+                      </span>
 
                       <button
                         onClick={() => store.togglePropertyFeatured(p.id, !p.isFeatured)}

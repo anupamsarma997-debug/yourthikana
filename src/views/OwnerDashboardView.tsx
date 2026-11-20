@@ -761,7 +761,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
         }
 
         setFilterMode('my');
-        alert(`🎉 Property "${newProp?.title || title}" listed & published successfully!\n\nIt is now saved in Firestore and live on the Home Page and All Listings.`);
+        alert(`Property "${newProp?.title || title}" submitted successfully.\n\nIt is saved in YourThikana and is pending admin approval. It will appear publicly only after approval.`);
       }
 
       setIsFormOpen(false);

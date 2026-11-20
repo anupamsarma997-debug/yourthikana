@@ -29,7 +29,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ pr
   const [message, setMessage] = useState('');
 
   const eligibleProperties = useMemo(
-    () => properties.filter((property) => property.ownerUid === uid && property.status === 'active'),
+    () => properties.filter((property) => property.ownerUid === uid && property.status === 'active' && !(property.isFeatured && property.featuredUntil && Date.parse(property.featuredUntil) > Date.now())),
     [properties, uid]
   );
 

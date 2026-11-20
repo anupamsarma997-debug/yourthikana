@@ -988,7 +988,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
               )}
             </div>
             <span className="text-xs text-slate-500 font-semibold">
-              Showing {properties.length} active property listings
+              Showing {properties.length} of your property listings
             </span>
           </div>
 
@@ -1014,6 +1014,15 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                           <div className="flex items-center gap-1.5 mb-1">
                             <span className="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-md">
                               {property.propertyType}
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                              property.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
+                              property.status === 'pending' ? 'bg-amber-100 text-amber-800' :
+                              property.status === 'rejected' ? 'bg-rose-100 text-rose-800' : 'bg-slate-200 text-slate-700'
+                            }`}>
+                              {property.status === 'active' ? 'Approved & Published' :
+                               property.status === 'pending' ? 'Pending Admin Approval' :
+                               property.status === 'rejected' ? 'Rejected — Contact Support' : 'Not Public'}
                             </span>
                             {property.isVerified && property.verifiedUntil && new Date(property.verifiedUntil).getTime() > Date.now() && (
                               <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-0.5">

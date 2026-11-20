@@ -53,8 +53,12 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ pr
       setMessage('Sirf apni approved/published property select karein.');
       return;
     }
-    if (applications.some((item) => item.propertyId === propertyId)) {
-      setMessage('Is property ka Search Boost request pehle se bana hua hai. Rejected request ke card se payment karke dobara submit karein.');
+    if (applications.some((item) =>
+      item.propertyId === propertyId &&
+      (item.status === 'awaiting_payment' || item.status === 'pending' || item.status === 'rejected' ||
+        (item.status === 'approved' && !!item.featuredUntil && Date.parse(item.featuredUntil) > Date.now()))
+    )) {
+      setMessage('Is property ka Search Boost request pehle se bana hua hai. Payment ya review ke liye neeche usi request ka card use karein.');
       return;
     }
     setBusy(true);

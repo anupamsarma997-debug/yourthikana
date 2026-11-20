@@ -41,6 +41,7 @@ async function createOwnedProperty(uid = 'owner-1', propertyId = 'property-1') {
     city: 'Guwahati',
     ownerUid: uid,
     ownerId: uid,
+    status: 'pending',
   }));
   return ownerDb;
 }
@@ -130,6 +131,9 @@ test('owners cannot self-assign verification, featured status, ratings, or paid 
     subscriptionExpiryDate: '',
   };
   await assertSucceeds(setDoc(doc(ownerDb, 'properties', 'safe-create'), base));
+  await assertFails(setDoc(doc(ownerDb, 'properties', 'owner-bypasses-review'), {
+    ...base, status: 'active',
+  }));
   await assertFails(setDoc(doc(ownerDb, 'properties', 'fake-verified'), {
     ...base, isVerified: true,
   }));

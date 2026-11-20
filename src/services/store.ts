@@ -1042,28 +1042,39 @@ class DataStore {
     if (db) {
       try {
         const relatedRooms = this.rooms.filter((room) => room.propertyId === id);
-        const [verificationSnapshot, boostSnapshot] = await Promise.all([
-          getDocs(query(collection(db, 'verificationApplications'), where('propertyId', '==', id))),
-          getDocs(query(collection(db, 'searchBoostApplications'), where('propertyId', '==', id))),
-        ]);
         const isAdmin = currentUser.role === 'admin';
-        if (!isAdmin && (!verificationSnapshot.empty || !boostSnapshot.empty)) {
+        // Owners may query only their own application documents; admins may query
+        // by property ID across all owners. Keep Firestore query constraints aligned
+        // with the corresponding security rules.
+        const [verificationQuery, boostQuery] = await Promise.all([
+          getDocs(query(
+            collection(db, 'verificationApplications'),
+            where(isAdmin ? 'propertyId' : 'ownerUid', '==', isAdmin ? id : firebaseUid)
+          )),
+          getDocs(query(
+            collection(db, 'searchBoostApplications'),
+            where(isAdmin ? 'propertyId' : 'ownerUid', '==', isAdmin ? id : firebaseUid)
+          )),
+        ]);
+        const verificationDocs = verificationQuery.docs.filter((application) => application.data().propertyId === id);
+        const boostDocs = boostQuery.docs.filter((application) => application.data().propertyId === id);
+        if (!isAdmin && (verificationDocs.length > 0 || boostDocs.length > 0)) {
           return { success: false, status: 409, message: 'This property has Blue Tick / Search Boost records. Please ask the website admin to delete it safely.' };
         }
-        const applicationCount = isAdmin ? verificationSnapshot.size + boostSnapshot.size : 0;
+        const applicationCount = isAdmin ? verificationDocs.length + boostDocs.length : 0;
         if (relatedRooms.length + applicationCount > 499) {
           return { success: false, status: 400, message: 'This property has too many related records for safe deletion. Please contact support.' };
         }
         const batch = writeBatch(db);
         relatedRooms.forEach((room) => batch.delete(doc(db, 'rooms', room.id)));
         if (isAdmin) {
-          verificationSnapshot.docs.forEach((application) => batch.delete(application.ref));
-          boostSnapshot.docs.forEach((application) => batch.delete(application.ref));
+          verificationDocs.forEach((application) => batch.delete(application.ref));
+          boostDocs.forEach((application) => batch.delete(application.ref));
         }
         batch.delete(doc(db, 'properties', id));
         await batch.commit();
         if (isAdmin && storage) {
-          const proofPaths = verificationSnapshot.docs.flatMap((application) => {
+          const proofPaths = verificationDocs.flatMap((application) => {
             const paths = application.data().documentPaths;
             return Array.isArray(paths) ? paths.filter((path: unknown) => typeof path === 'string') : [];
           });

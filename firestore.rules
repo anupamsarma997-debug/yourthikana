@@ -94,19 +94,36 @@ service cloud.firestore {
         request.resource.data.ownerUid == request.auth.uid &&
         request.resource.data.propertyId is string &&
         request.resource.data.propertyTitle is string &&
-        request.resource.data.status == 'pending' &&
+        request.resource.data.status == 'awaiting_payment' &&
         request.resource.data.paymentStatus == 'pending' &&
-        request.resource.data.paymentUtr is string &&
-        request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}$') &&
+        request.resource.data.paymentUtr == '' &&
         request.resource.data.proofSubmissionMethod == 'whatsapp' &&
-        request.resource.data.proofStatus == 'awaiting_whatsapp' &&
+        request.resource.data.proofStatus == 'awaiting_payment' &&
         request.resource.data.submittedAt is timestamp &&
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
         get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '') == request.auth.uid &&
         get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('status', '') == 'active';
 
       allow read: if isAdmin() || (signedIn() && resource.data.ownerUid == request.auth.uid);
-      allow update, delete: if isAdmin();
+      // Owners can submit a real UTR after sharing proof. Only an unpaid draft or a
+      // previously rejected application can be moved back into the admin review queue.
+      allow update: if isAdmin() || (
+        signedIn() &&
+        resource.data.ownerUid == request.auth.uid &&
+        resource.data.status in ['awaiting_payment', 'rejected'] &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'paymentStatus', 'paymentUtr', 'paymentSubmittedAt',
+          'proofSubmissionMethod', 'proofStatus'
+        ]) &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.paymentStatus == 'pending' &&
+        request.resource.data.paymentUtr is string &&
+        request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}$') &&
+        request.resource.data.paymentSubmittedAt is timestamp &&
+        request.resource.data.proofSubmissionMethod == 'whatsapp' &&
+        request.resource.data.proofStatus == 'share_sheet_opened'
+      );
+      allow delete: if isAdmin();
     }
 
     // Atomic one-listing-per-account reservation. The reservation is created

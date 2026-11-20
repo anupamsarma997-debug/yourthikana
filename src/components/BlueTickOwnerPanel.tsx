@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, deleteDoc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, doc, where } from 'firebase/firestore';
-import { BadgeCheck, Clock3, FileCheck2, MessageCircle, Upload, Wallet } from 'lucide-react';
+import { BadgeCheck, Clock3, FileCheck2, MessageCircle, Upload } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
 import { Property } from '../types';
 import { PaymentProofShare } from './PaymentProofShare';
@@ -150,9 +150,6 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
                 onShared={(utr) => markPaymentSubmitted(application, utr)}
                 disabled={busy}
               />
-            )}
-            {application.paymentStatus === 'pending' ? 'Payment under review' : 'Submit payment reference'}</button>
-              </div>
             )}
             {application.paymentStatus === 'pending' && <p className="text-xs text-amber-600">Payment UTR admin verification ke liye pending hai.</p>}
             {application.paymentStatus === 'rejected' && <p className="text-xs text-rose-600">Payment verify nahi hua. Correct UTR ke saath dobara submit karein.</p>}

@@ -95,8 +95,8 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ pr
         <div><h3 className="text-lg font-black text-slate-900 dark:text-white">Search Boost — ₹500 / month</h3><p className="text-xs text-slate-500">Only approved and published properties can request a boost.</p></div>
       </div>
       <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 space-y-1">
-        <p className="text-xs font-bold text-amber-900 dark:text-amber-200"><Wallet className="inline w-4 h-4 mr-1" />UPI ID: {UPI_ID}</p>
-        <p className="text-[11px] text-slate-600 dark:text-slate-300">₹500 payment ke baad UTR enter karein aur property proof WhatsApp par bhejein. Admin documents aur bank credit dono verify karega.</p>
+        <p className="text-xs font-bold text-amber-900 dark:text-amber-200"><Wallet className="inline w-4 h-4 mr-1" />Pay ₹500 using the Pay Now button below each request.</p>
+        <p className="text-[11px] text-slate-600 dark:text-slate-300">Payment screenshot aur asli UTR share karna zaroori hai. Admin bank credit verify karne ke baad hi boost active karega.</p>
       </div>
       <form onSubmit={submitRequest} className="grid sm:grid-cols-[1fr_auto] gap-2">
         <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Approved property

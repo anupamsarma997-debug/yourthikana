@@ -1099,7 +1099,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                             onClick={() => handleBuyAddon(property.id, 'renew')}
                             className="bg-slate-900 text-white text-[10px] px-2.5 py-1 rounded-lg hover:bg-slate-800 cursor-pointer"
                           >
-                            Renew ₹1000
+                            Renew ₹500
                           </button>
                         )}
                       </div>

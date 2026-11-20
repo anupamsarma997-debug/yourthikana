@@ -33,7 +33,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
   const [message, setMessage] = useState('');
 
   const ownedProperties = useMemo(
-    () => properties.filter((property) => property.ownerUid === uid),
+    () => properties.filter((property) => property.ownerUid === uid && property.status === 'active'),
     [properties, uid]
   );
 

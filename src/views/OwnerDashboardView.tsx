@@ -1165,18 +1165,18 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
 
                       <button
                         onClick={() => setActiveTab('subscriptions')}
-                        disabled={property.isVerified}
+                        disabled={Boolean(property.isVerified && property.verifiedUntil && Date.parse(property.verifiedUntil) > Date.now())}
                         className="flex-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold text-xs py-2 rounded-xl border border-blue-200 dark:border-blue-800 hover:bg-blue-100 disabled:opacity-50"
                       >
-                        {property.isVerified ? '✓ Verified Active' : '+ Blue Tick (₹500)'}
+                        {property.isVerified && property.verifiedUntil && Date.parse(property.verifiedUntil) > Date.now() ? '✓ Blue Tick Active' : property.isVerified ? 'Renew Blue Tick' : '+ Blue Tick Verification'}
                       </button>
 
                       <button
                         onClick={() => setActiveTab('subscriptions')}
-                        disabled={property.isFeatured}
+                        disabled={Boolean(property.isFeatured && property.featuredUntil && Date.parse(property.featuredUntil) > Date.now())}
                         className="flex-1 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold text-xs py-2 rounded-xl border border-amber-200 dark:border-amber-800 hover:bg-amber-100 disabled:opacity-50"
                       >
-                        {property.isFeatured ? '⭐ Boost Active' : '+ Search Boost (₹500)'}
+                        {property.isFeatured && property.featuredUntil && Date.parse(property.featuredUntil) > Date.now() ? '⭐ Boost Active' : '+ Search Boost (₹500)'}
                       </button>
                     </div>
 

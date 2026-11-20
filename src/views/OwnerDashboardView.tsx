@@ -1029,7 +1029,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                                 <BadgeCheck className="w-3 h-3" /> Verified
                               </span>
                             )}
-                            {property.isFeatured && (
+                            {property.isFeatured && property.featuredUntil && Date.parse(property.featuredUntil) > Date.now() && (
                               <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-md">
                                 ⭐ Featured
                               </span>
@@ -1206,10 +1206,10 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
 
                       <button
                         onClick={() => handleBuyAddon(property.id, 'featured')}
-                        disabled={property.isFeatured}
+                        disabled={Boolean(property.isFeatured && property.featuredUntil && Date.parse(property.featuredUntil) > Date.now())}
                         className="flex-1 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold text-xs py-2 rounded-xl border border-amber-200 dark:border-amber-800 hover:bg-amber-100 disabled:opacity-50"
                       >
-                        {property.isFeatured ? '⭐ Boost Active' : '+ Search Boost (₹500)'}
+                        {property.isFeatured && property.featuredUntil && Date.parse(property.featuredUntil) > Date.now() ? '⭐ Boost Active' : '+ Search Boost (₹500)'}
                       </button>
                     </div>
 

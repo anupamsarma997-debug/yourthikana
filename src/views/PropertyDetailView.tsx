@@ -92,7 +92,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
             </span>
           )}
 
-          {property.isVerified && (
+          {property.isVerified && property.verifiedUntil && new Date(property.verifiedUntil).getTime() > Date.now() && (
             <span className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-lg shadow-sm flex items-center gap-1">
               <BadgeCheck className="w-4 h-4 fill-white text-blue-600" />
               Blue Verified Homestay
@@ -343,7 +343,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
                     <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">
                       {property.ownerName}
                     </h4>
-                    {property.isVerified && (
+                    {property.isVerified && property.verifiedUntil && new Date(property.verifiedUntil).getTime() > Date.now() && (
                       <BadgeCheck className="w-4 h-4 text-blue-600 fill-white" />
                     )}
                   </div>

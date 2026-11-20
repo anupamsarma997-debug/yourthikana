@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, deleteDoc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, doc, where } from 'firebase/firestore';
-import { deleteObject, ref, uploadBytes } from 'firebase/storage';
-import { BadgeCheck, Clock3, FileCheck2, Upload, Wallet } from 'lucide-react';
-import { auth, db, storage } from '../lib/firebase';
+import { BadgeCheck, Clock3, FileCheck2, MessageCircle, Wallet } from 'lucide-react';
+import { auth, db } from '../lib/firebase';
 import { Property } from '../types';
 
 type Application = {
@@ -27,7 +26,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
   const uid = auth?.currentUser?.uid || '';
   const [applications, setApplications] = useState<Application[]>([]);
   const [propertyId, setPropertyId] = useState('');
-  const [files, setFiles] = useState<File[]>([]);
+  const [whatsappUrl, setWhatsappUrl] = useState('');
   const [utrById, setUtrById] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -55,25 +54,13 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
     event.preventDefault();
     setMessage('');
     const user = auth?.currentUser;
-    if (!db || !storage || !user) {
+    if (!db || !user) {
       setMessage('Pehle apne owner Google account se sign in karein.');
       return;
     }
     const property = ownedProperties.find((item) => item.id === propertyId);
     if (!property) {
       setMessage('Apni property select karein.');
-      return;
-    }
-    if (files.length < 1 || files.length > 3) {
-      setMessage('1 se 3 supporting documents upload karein.');
-      return;
-    }
-    const invalid = files.find((file) =>
-      !['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(file.type) ||
-      file.size <= 0 || file.size > 8 * 1024 * 1024
-    );
-    if (invalid) {
-      setMessage('Sirf JPG, PNG, WEBP ya PDF file chalegi; har file 8 MB se chhoti honi chahiye.');
       return;
     }
     if (applications.some((item) => item.propertyId === propertyId && item.status !== 'rejected')) {
@@ -84,37 +71,17 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
     setBusy(true);
     try {
       const applicationRef = doc(collection(db, 'verificationApplications'));
-      const documentPaths = files.map((file, index) => {
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80) || `document-${index + 1}`;
-        return `verification-documents/${user.uid}/${applicationRef.id}/${index}-${safeName}`;
-      });
       await setDoc(applicationRef, {
-        ownerUid: user.uid,
-        propertyId: property.id,
-        propertyTitle: property.title,
-        status: 'pending',
-        paymentStatus: 'not_submitted',
-        documentCount: files.length,
-        documentPaths,
+        ownerUid: user.uid, propertyId: property.id, propertyTitle: property.title,
+        status: 'pending', paymentStatus: 'not_submitted',
+        documentCount: 0, documentPaths: [],
+        proofSubmissionMethod: 'whatsapp', proofStatus: 'awaiting_whatsapp',
         submittedAt: serverTimestamp(),
       });
-      const uploadedPaths: string[] = [];
-      try {
-        for (let index = 0; index < files.length; index += 1) {
-          const file = files[index];
-          const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80) || `document-${index + 1}`;
-          const path = `verification-documents/${user.uid}/${applicationRef.id}/${index}-${safeName}`;
-          await uploadBytes(ref(storage, path), file, { contentType: file.type });
-          uploadedPaths.push(path);
-        }
-      } catch (uploadError) {
-        await Promise.all(uploadedPaths.map((path) => deleteObject(ref(storage, path)).catch(() => undefined)));
-        await deleteDoc(applicationRef).catch(() => undefined);
-        throw uploadError;
-      }
-      setFiles([]);
+      const proofMessage = `Hello YourThikana Admin, Blue Tick proof documents for application ${applicationRef.id}. Property: ${property.title}. Owner UID: ${user.uid}. I am sending the property proof documents for manual review.`;
+      setWhatsappUrl(`https://wa.me/919101280465?text=${encodeURIComponent(proofMessage)}`);
       setPropertyId('');
-      setMessage('Application submit ho gayi. Admin documents review karke approval dega.');
+      setMessage('Application submit ho gayi. Ab WhatsApp par property proof documents bhejein. Approval manual document review ke baad hi hoga.');
     } catch (error: any) {
       console.error('Blue Tick application failed:', error);
       setMessage(error?.message || 'Application submit nahi ho payi. Please try again.');
@@ -170,12 +137,11 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
           <option value="">Select a property</option>
           {ownedProperties.map((property) => <option key={property.id} value={property.id}>{property.title} — {property.city}</option>)}
         </select>
-        <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Supporting proof (1–3 files, JPG/PNG/WEBP/PDF, max 8 MB each)</label>
-        <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple onChange={(event) => setFiles(Array.from(event.target.files || []).slice(0, 3))} className="w-full text-xs text-slate-600 dark:text-slate-300" />
-        <p className="text-[11px] text-slate-500">Business/property ownership proof use karein. Aadhaar number ya unnecessary personal details ko hide karke upload karein. Documents private rahenge aur sirf authorized admin review karega.</p>
+        <p className="text-[11px] text-slate-500">Trade licence, property-tax/electricity bill, lease/authorisation letter jaise proof WhatsApp par bhejein. Aadhaar aur unnecessary personal numbers hide karein.</p>
         <button disabled={busy || !ownedProperties.length} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-xs font-extrabold text-white disabled:opacity-50"><Upload className="w-4 h-4" />{busy ? 'Submitting…' : 'Apply for Blue Tick'}</button>
       </form>
 
+      {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-xs font-extrabold text-white"><MessageCircle className="w-4 h-4" />Send proof documents on WhatsApp</a>}
       {message && <p role="status" className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 text-xs text-slate-700 dark:text-slate-200">{message}</p>}
 
       <div className="space-y-3">
@@ -184,7 +150,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
         {applications.map((application) => (
           <div key={application.id} className="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <div><p className="font-bold text-sm text-slate-900 dark:text-white">{application.propertyTitle}</p><p className="text-[11px] text-slate-500">Status: {application.status} · {application.documentPaths?.length || 0} private documents</p></div>
+              <div><p className="font-bold text-sm text-slate-900 dark:text-white">{application.propertyTitle}</p><p className="text-[11px] text-slate-500">Status: {application.status} · Proof: {application.proofStatus === 'received' ? 'received' : 'send on WhatsApp'}</p></div>
               <span className="text-[10px] uppercase font-black rounded-lg bg-slate-100 dark:bg-slate-700 px-2 py-1">{application.status}</span>
             </div>
             {application.status === 'approved' && <p className="text-xs text-slate-600 dark:text-slate-300"><Clock3 className="inline w-3.5 h-3.5 mr-1" />Free trial / current validity ends: <strong>{formatDate(application.verifiedUntil || application.freeTrialEndsAt)}</strong></p>}

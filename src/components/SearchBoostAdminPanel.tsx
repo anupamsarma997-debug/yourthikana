@@ -89,14 +89,15 @@ export const SearchBoostAdminPanel: React.FC = () => {
     }
   };
 
+  const reviewable = applications.filter((item) => item.status !== 'awaiting_payment');
   const pending = applications.filter((item) => item.status === 'pending');
   const active = applications.filter((item) => item.status === 'approved' && item.featuredUntil && Date.parse(item.featuredUntil) > Date.now());
   return (
     <section className="bg-white dark:bg-slate-800 rounded-3xl border border-amber-200 dark:border-amber-900 p-5 sm:p-6 space-y-4">
       <div className="flex items-center gap-3"><div className="rounded-xl bg-amber-100 dark:bg-amber-950 p-3"><BadgePercent className="w-6 h-6 text-amber-600" /></div><div><h2 className="text-lg font-black text-slate-900 dark:text-white">Search Boost Review</h2><p className="text-xs text-slate-500">Pending: {pending.length} · Active: {active.length} · Price: ₹500 / month</p></div></div>
       {message && <p role="status" className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 text-xs">{message}</p>}
-      {applications.length === 0 && <p className="text-xs text-slate-500">No Search Boost requests received yet.</p>}
-      {applications.map((application) => (
+      {reviewable.length === 0 && <p className="text-xs text-slate-500">No paid Search Boost requests are waiting for review.</p>}
+      {reviewable.map((application) => (
         <article key={application.id} className="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-sm font-extrabold text-slate-900 dark:text-white">{application.propertyTitle}</h3><p className="text-[11px] text-slate-500">Property: {application.propertyId} · Owner UID: {application.ownerUid}</p><p className="text-xs font-bold text-amber-700 dark:text-amber-300">Payment UTR: {application.paymentUtr}</p></div><span className="rounded-lg bg-slate-100 dark:bg-slate-700 px-2 py-1 text-[10px] font-black uppercase">{application.status} / {application.paymentStatus}</span></div>
           <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 text-xs space-y-2"><p className="font-bold text-slate-700 dark:text-slate-200">Manual property-proof review — WhatsApp</p><p>Application ID: <strong>{application.id}</strong>. Owner se proof documents WhatsApp par receive karke property details se match karein.</p><a href={`https://wa.me/919101280465?text=${encodeURIComponent('Please check Search Boost proof for application '+application.id)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-bold text-green-700"><MessageCircle className="w-4 h-4" />Open WhatsApp</a>{application.status === 'pending' && <><label className="flex items-center gap-2"><input type="checkbox" checked={!!proofChecked[application.id]} onChange={(event) => setProofChecked((old) => ({...old,[application.id]:event.target.checked}))} />I received and checked the property proof documents.</label><label className="flex items-center gap-2"><input type="checkbox" checked={!!paymentChecked[application.id]} onChange={(event) => setPaymentChecked((old) => ({...old,[application.id]:event.target.checked}))} />I independently confirmed ₹500 bank/UPI credit.</label></>}</div>

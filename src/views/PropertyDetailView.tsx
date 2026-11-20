@@ -85,7 +85,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
             {property.propertyType}
           </span>
 
-          {property.isFeatured && (
+          {property.isFeatured && property.featuredUntil && Date.parse(property.featuredUntil) > Date.now() && (
             <span className="bg-amber-400 text-slate-950 text-xs font-black px-3 py-1 rounded-lg shadow-sm flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 fill-slate-950" />
               ⭐ Featured Search Boost

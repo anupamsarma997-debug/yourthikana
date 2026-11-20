@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Property, RoomType } from '../types';
 import { store } from '../services/store';
+import { isBlueTickActive, isSearchBoostActive } from '../utils/propertyBadges';
 import { 
   BadgeCheck, 
   Star, 
@@ -72,7 +73,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
         {/* Top Badges Row */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 pointer-events-none">
           <div className="flex items-center gap-1.5 flex-wrap">
-            {property.isFeatured && (
+            {isSearchBoostActive(property) && (
               <span className="bg-amber-400 text-slate-950 text-[10px] font-black uppercase px-2.5 py-1 rounded-lg shadow-md flex items-center gap-1">
                 <Sparkles className="w-3 h-3 fill-slate-950" />
                 Featured ⭐
@@ -83,7 +84,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             </span>
           </div>
 
-          {property.isVerified && (
+          {isBlueTickActive(property) && (
             <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-md flex items-center gap-1 backdrop-blur-md">
               <BadgeCheck className="w-3.5 h-3.5 fill-white text-blue-600" />
               Verified Blue Tick

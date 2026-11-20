@@ -27,6 +27,28 @@ service firebase.storage {
       allow delete: if isOwner(ownerUid) || isAdmin();
     }
 
+    // Private Blue Tick evidence: only the verified platform admin can read.
+    match /verification-documents/{ownerUid}/{applicationId}/{fileName} {
+      function applicationDoc() {
+        return firestore.get(/databases/(default)/documents/verificationApplications/$(applicationId));
+      }
+      function validProof() {
+        return request.resource != null &&
+          request.resource.size > 0 &&
+          request.resource.size <= 8 * 1024 * 1024 &&
+          request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+      }
+      allow create: if isOwner(ownerUid) &&
+        applicationDoc().data.ownerUid == ownerUid &&
+        applicationDoc().data.status == 'pending' &&
+        validProof();
+      allow read: if isAdmin();
+      allow delete: if isAdmin() ||
+        (isOwner(ownerUid) && applicationDoc().data.ownerUid == ownerUid &&
+          applicationDoc().data.status == 'pending');
+      allow update: if false;
+    }
+
     // Deny everything else by default
     match /{allPaths=**} {
       allow read, write: if false;

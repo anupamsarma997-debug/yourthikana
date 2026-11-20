@@ -1,9 +1,11 @@
 import { Property, RoomType, BannerAd, User, UserRole, BookingEnquiry, SubscriptionTransaction, PropertyType, PropertyVisit, PropertyLead } from '../types';
 import { INITIAL_USERS, INITIAL_PROPERTIES, INITIAL_ROOMS, INITIAL_BANNERS, INITIAL_TRANSACTIONS } from '../data/initialData';
 import { db, auth, isFirebaseConfigured, firebaseConfigError } from '../lib/firebase';
-import { collection, doc, setDoc, deleteDoc, getDoc, onSnapshot, query, where, writeBatch } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, getDoc, getDocs, onSnapshot, query, where, writeBatch } from 'firebase/firestore';
 import { onAuthStateChanged, signOut, getIdTokenResult } from 'firebase/auth';
 import { deletePropertyPhoto } from './uploadPropertyImage';
+import { deleteObject, ref as storageRef } from 'firebase/storage';
+import { storage } from '../lib/firebase';
 
 const STORAGE_KEYS = {
   USERS: 'thikana_users_v1',
@@ -1035,18 +1037,42 @@ class DataStore {
       };
     }
 
-    // Remove rooms first: Firestore room-delete rules verify ownership through
-    // the parent property document, so deleting the property first would block cleanup.
+    // Remove dependent records before the parent. Admin deletion also removes
+    // verification/boost application records and private verification proof files.
     if (db) {
       try {
         const relatedRooms = this.rooms.filter((room) => room.propertyId === id);
-        if (relatedRooms.length > 499) {
-          return { success: false, status: 400, message: 'This property has too many room records for a safe single-step deletion. Please contact support.' };
+        const [verificationSnapshot, boostSnapshot] = await Promise.all([
+          getDocs(query(collection(db, 'verificationApplications'), where('propertyId', '==', id))),
+          getDocs(query(collection(db, 'searchBoostApplications'), where('propertyId', '==', id))),
+        ]);
+        const isAdmin = currentUser.role === 'admin';
+        if (!isAdmin && (!verificationSnapshot.empty || !boostSnapshot.empty)) {
+          return { success: false, status: 409, message: 'This property has Blue Tick / Search Boost records. Please ask the website admin to delete it safely.' };
+        }
+        const applicationCount = isAdmin ? verificationSnapshot.size + boostSnapshot.size : 0;
+        if (relatedRooms.length + applicationCount > 499) {
+          return { success: false, status: 400, message: 'This property has too many related records for safe deletion. Please contact support.' };
         }
         const batch = writeBatch(db);
         relatedRooms.forEach((room) => batch.delete(doc(db, 'rooms', room.id)));
+        if (isAdmin) {
+          verificationSnapshot.docs.forEach((application) => batch.delete(application.ref));
+          boostSnapshot.docs.forEach((application) => batch.delete(application.ref));
+        }
         batch.delete(doc(db, 'properties', id));
         await batch.commit();
+        if (isAdmin && storage) {
+          const proofPaths = verificationSnapshot.docs.flatMap((application) => {
+            const paths = application.data().documentPaths;
+            return Array.isArray(paths) ? paths.filter((path: unknown) => typeof path === 'string') : [];
+          });
+          await Promise.all(proofPaths.map((path: string) =>
+            deleteObject(storageRef(storage, path)).catch((error) => {
+              console.warn('Private verification proof cleanup notice:', error?.message || error);
+            })
+          ));
+        }
       } catch (error: any) {
         console.error('Firestore deleteProperty failed:', error);
         return {

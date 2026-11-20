@@ -1003,25 +1003,12 @@ class DataStore {
     return false;
   }
 
-  public async togglePropertyFeatured(id: string, featured?: boolean): Promise<boolean> {
-    const prop = this.getPropertyById(id);
-    if (!prop) return false;
-    const nextValue = featured !== undefined ? featured : !prop.isFeatured;
-    const saved = await this.updateAdminPropertyFields(id, { isFeatured: nextValue });
-    if (saved && nextValue) {
-      this.addTransaction({
-        ownerId: prop.ownerId,
-        ownerName: prop.ownerName,
-        propertyId: prop.id,
-        propertyName: prop.title,
-        type: 'search_boost',
-        planName: 'Top Search Placement ⭐ Featured (₹500/month)',
-        amount: 500,
-        date: new Date().toISOString().split('T')[0],
-      });
-      this.notify();
-    }
-    return saved;
+  // Search Boost cannot be switched on by an admin toggle. Activation must
+  // follow a separate owner UTR submission and independent bank-credit review.
+  // Keep this legacy method fail-closed until that payment workflow is available.
+  public async togglePropertyFeatured(_id: string, _featured?: boolean): Promise<boolean> {
+    console.warn('Search Boost activation is disabled until payment verification is completed.');
+    return false;
   }
 
   public async deleteProperty(id: string): Promise<{ success: boolean; status?: number; message?: string }> {

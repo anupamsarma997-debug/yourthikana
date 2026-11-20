@@ -95,16 +95,16 @@ export const BlueTickAdminPanel: React.FC = () => {
 
   const verifyPayment = async (application: VerificationApplication, approve: boolean) => {
     if (!db || !auth?.currentUser || !application.paymentUtr) return;
-    if (approve) {
-      const propertySnapshot = await getDoc(doc(db, 'properties', application.propertyId));
-      if (!propertySnapshot.exists() || propertySnapshot.data().status !== 'active') {
-        setMessage('Property deleted or not published. Blue Tick renewal cannot be activated.');
-        return;
-      }
-    }
     setBusyId(application.id);
     setMessage('');
     try {
+      if (approve) {
+        const propertySnapshot = await getDoc(doc(db, 'properties', application.propertyId));
+        if (!propertySnapshot.exists() || propertySnapshot.data().status !== 'active') {
+          setMessage('Property deleted or not published. Blue Tick renewal cannot be activated.');
+          return;
+        }
+      }
       const batch = writeBatch(db);
       const applicationRef = doc(db, 'verificationApplications', application.id);
       if (approve) {

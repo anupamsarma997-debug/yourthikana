@@ -95,8 +95,8 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ pr
         <div><h3 className="text-lg font-black text-slate-900 dark:text-white">Search Boost — ₹500 / month</h3><p className="text-xs text-slate-500">Only approved and published properties can request a boost.</p></div>
       </div>
       <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 space-y-1">
-        <p className="text-xs font-bold text-amber-900 dark:text-amber-200"><Wallet className="inline w-4 h-4 mr-1" />Pay ₹500 using the Pay Now button below each request.</p>
-        <p className="text-[11px] text-slate-600 dark:text-slate-300">Payment screenshot aur asli UTR share karna zaroori hai. Admin bank credit verify karne ke baad hi boost active karega.</p>
+        <p className="text-xs font-bold text-amber-900 dark:text-amber-200"><Wallet className="inline w-4 h-4 mr-1" />One-time monthly boost payment: ₹500.</p>
+        <p className="text-[11px] text-slate-600 dark:text-slate-300">Pay using any UPI app, then share the payment screenshot and real UTR. Boost starts only after admin verifies the bank credit.</p>
       </div>
       <form onSubmit={submitRequest} className="grid sm:grid-cols-[1fr_auto] gap-2">
         <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Approved property
@@ -114,11 +114,11 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ pr
         {applications.map((application) => (
           <article key={application.id} className="rounded-xl border border-slate-200 dark:border-slate-700 p-3 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div><p className="text-sm font-bold text-slate-900 dark:text-white">{application.propertyTitle}</p><p className="text-[11px] text-slate-500">UTR: {application.paymentUtr || 'Not submitted'} · {application.status}</p></div>
+              <div><p className="text-sm font-bold text-slate-900 dark:text-white">{application.propertyTitle}</p><p className="text-[11px] text-slate-500">{application.paymentUtr ? `UTR submitted: ${application.paymentUtr}` : 'Payment not submitted yet'}</p></div>
               <div className="text-right text-xs font-bold"><span className={application.status === 'approved' ? 'text-emerald-600' : application.status === 'rejected' ? 'text-rose-600' : 'text-amber-600'}>{application.status === 'approved' ? 'Boost active' : application.status === 'rejected' ? 'Rejected' : 'Admin review pending'}</span>{application.featuredUntil && <p className="text-[10px] text-slate-500"><Clock3 className="inline w-3 h-3 mr-1" />Until {dateLabel(application.featuredUntil)}</p>}</div>
             </div>
-            {application.status === 'pending' && !application.paymentUtr && (
-              <PaymentProofShare amount={500} title="Search Boost" applicationId={application.id} propertyTitle={application.propertyTitle} onShared={(utrValue) => markPaymentSubmitted(application, utrValue)} disabled={busy} />
+            {application.status === 'pending' && (
+              <PaymentProofShare amount={500} title="Search Boost" applicationId={application.id} propertyTitle={application.propertyTitle} onShared={(utrValue) => markPaymentSubmitted(application, utrValue)} initialUtr={application.paymentUtr || ''} disabled={busy} />
             )}
           </article>
         ))}

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ImagePlus, MessageCircle, Smartphone, CheckCircle2 } from 'lucide-react';
 
 const UPI_ID = 'anupamsarma997-1@okhdfcbank';
@@ -10,14 +10,19 @@ type Props = {
   propertyTitle: string;
   onShared: (utr: string) => Promise<void>;
   disabled?: boolean;
+  initialUtr?: string;
 };
 
-export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationId, propertyTitle, onShared, disabled }) => {
+export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationId, propertyTitle, onShared, disabled, initialUtr = '' }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [utr, setUtr] = useState('');
+  const [utr, setUtr] = useState(initialUtr);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (initialUtr) setUtr(initialUtr);
+  }, [initialUtr]);
 
   const upiLink = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent('YourThikana')}&am=${amount}&cu=INR&tn=${encodeURIComponent(`${title} - ${propertyTitle}`)}`;
   const cleanUtr = utr.trim();
@@ -47,10 +52,7 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
     try {
       await navigator.share({ files: [file], title: 'YourThikana payment screenshot', text });
       await onShared(cleanUtr);
-      setMessage('Share menu khul gaya tha. WhatsApp mein Admin +91 9101280465 select karke Send zaroor dabayein. Payment bank verification ke baad hi approve hoga.');
-      setFile(null);
-      setUtr('');
-      if (inputRef.current) inputRef.current.value = '';
+      setMessage('Share options opened. Select WhatsApp, choose Admin +91 9101280465 and tap Send. This does not confirm payment; admin will verify the bank credit.');
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         setMessage('Share cancel hua. WhatsApp par bhejne ke liye dobara try karein.');
@@ -66,11 +68,11 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
   return (
     <div className="rounded-2xl border-2 border-emerald-200 dark:border-emerald-900 bg-white dark:bg-slate-900 p-4 space-y-3">
       <div>
-        <p className="text-sm font-extrabold text-slate-900 dark:text-white">Payment: ₹{amount}</p>
-        <p className="text-xs text-slate-500 mt-1">Step 1: Pay karein, Step 2: screenshot aur asli UTR bharein, Step 3: WhatsApp par bhejein.</p>
+        <div className="flex items-center justify-between gap-3"><p className="text-base font-black text-slate-900 dark:text-white">Pay ₹{amount}</p><span className="rounded-full bg-emerald-50 dark:bg-emerald-950 px-2.5 py-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">UPI payment</span></div>
+        <p className="text-xs text-slate-500 mt-1">Pay, add your screenshot and transaction ID, then share with admin.</p>
       </div>
       <a href={upiLink} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-extrabold text-white shadow-sm">
-        <Smartphone className="h-5 w-5" /> Pay Now · ₹{amount} (Google Pay / PhonePe / UPI)
+        <Smartphone className="h-5 w-5" /> Continue to Google Pay / PhonePe / UPI
       </a>
       <p className="text-[11px] text-slate-600 dark:text-slate-300">UPI ID: <strong>{UPI_ID}</strong></p>
 
@@ -87,9 +89,9 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
       </div>
 
       <button type="button" disabled={disabled || busy || !file || !validUtr} onClick={sendProof} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-40">
-        <MessageCircle className="h-5 w-5" /><ImagePlus className="h-5 w-5" />{busy ? 'Opening WhatsApp share…' : 'Share Screenshot to Admin WhatsApp'}
+        <MessageCircle className="h-5 w-5" /><ImagePlus className="h-5 w-5" />{busy ? 'Opening share options…' : 'Share payment proof'}
       </button>
-      <p className="text-[10px] text-slate-500">Share menu mein WhatsApp aur Admin chat select karke Send dabayein. Website screenshot ko khud upload nahi karti. Admin bank credit manually verify karega.</p>
+      <p className="text-[10px] text-slate-500">Your screenshot is shared only after you choose WhatsApp and tap Send. Admin manually checks the bank credit before approval.</p>
       {message && <p role="status" className="rounded-lg bg-blue-50 dark:bg-slate-800 p-3 text-xs text-blue-800 dark:text-blue-200">{message}</p>}
     </div>
   );

@@ -270,8 +270,7 @@ service cloud.firestore {
             (!('subscriptionExpiryDate' in request.resource.data) ||
               request.resource.data.subscriptionExpiryDate == '') &&
 
-            (!('status' in request.resource.data) ||
-              request.resource.data.status in ['pending', 'active'])
+            request.resource.data.status == 'pending'
           )
         );
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { addDoc, collection, onSnapshot, query, serverTimestamp, updateDoc, doc, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, serverTimestamp, setDoc, updateDoc, doc, where } from 'firebase/firestore';
 import { ref, uploadBytes } from 'firebase/storage';
 import { BadgeCheck, Clock3, FileCheck2, Upload, Wallet } from 'lucide-react';
 import { auth, db, storage } from '../lib/firebase';
@@ -83,17 +83,19 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
 
     setBusy(true);
     try {
-      const applicationRef = await addDoc(collection(db, 'verificationApplications'), {
+      const applicationRef = doc(collection(db, 'verificationApplications'));
+      const documentPaths = files.map((file, index) => {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80) || `document-${index + 1}`;
+        return `verification-documents/${user.uid}/${applicationRef.id}/${index}-${safeName}`;
+      });
+      await setDoc(applicationRef, {
         ownerUid: user.uid,
         propertyId: property.id,
         propertyTitle: property.title,
         status: 'pending',
         paymentStatus: 'not_submitted',
         documentCount: files.length,
-        documentPaths: files.map((file, index) => {
-          const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80) || `document-${index + 1}`;
-          return `verification-documents/${user.uid}/APPLICATION_ID/${index}-${safeName}`;
-        }),
+        documentPaths,
         submittedAt: serverTimestamp(),
       });
       for (let index = 0; index < files.length; index += 1) {
@@ -102,12 +104,6 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
         const path = `verification-documents/${user.uid}/${applicationRef.id}/${index}-${safeName}`;
         await uploadBytes(ref(storage, path), file, { contentType: file.type });
       }
-      await updateDoc(applicationRef, {
-        documentPaths: files.map((file, index) => {
-          const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80) || `document-${index + 1}`;
-          return `verification-documents/${user.uid}/${applicationRef.id}/${index}-${safeName}`;
-        }),
-      });
       setFiles([]);
       setPropertyId('');
       setMessage('Application submit ho gayi. Admin documents review karke approval dega.');

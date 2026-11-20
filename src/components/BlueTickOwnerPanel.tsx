@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, onSnapshot, query, serverTimestamp, setDoc, updateDoc, doc, where } from 'firebase/firestore';
-import { ref, uploadBytes } from 'firebase/storage';
+import { collection, deleteDoc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, doc, where } from 'firebase/firestore';
+import { deleteObject, ref, uploadBytes } from 'firebase/storage';
 import { BadgeCheck, Clock3, FileCheck2, Upload, Wallet } from 'lucide-react';
 import { auth, db, storage } from '../lib/firebase';
 import { Property } from '../types';
@@ -98,11 +98,19 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
         documentPaths,
         submittedAt: serverTimestamp(),
       });
-      for (let index = 0; index < files.length; index += 1) {
-        const file = files[index];
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80) || `document-${index + 1}`;
-        const path = `verification-documents/${user.uid}/${applicationRef.id}/${index}-${safeName}`;
-        await uploadBytes(ref(storage, path), file, { contentType: file.type });
+      const uploadedPaths: string[] = [];
+      try {
+        for (let index = 0; index < files.length; index += 1) {
+          const file = files[index];
+          const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80) || `document-${index + 1}`;
+          const path = `verification-documents/${user.uid}/${applicationRef.id}/${index}-${safeName}`;
+          await uploadBytes(ref(storage, path), file, { contentType: file.type });
+          uploadedPaths.push(path);
+        }
+      } catch (uploadError) {
+        await Promise.all(uploadedPaths.map((path) => deleteObject(ref(storage, path)).catch(() => undefined)));
+        await deleteDoc(applicationRef).catch(() => undefined);
+        throw uploadError;
       }
       setFiles([]);
       setPropertyId('');

@@ -5,6 +5,7 @@ import { store } from '../services/store';
 import { auth } from '../lib/firebase';
 import { uploadPropertyPhoto } from '../services/uploadPropertyImage';
 import { BlueTickOwnerPanel } from '../components/BlueTickOwnerPanel';
+import { SearchBoostOwnerPanel } from '../components/SearchBoostOwnerPanel';
 import { AuthModal } from '../components/AuthModal';
 import { QRPerformanceCard } from '../components/QRPerformanceCard';
 import { 
@@ -1197,20 +1198,22 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                         <span>QR & Gate Poster</span>
                       </button>
 
-                      <button
-                        onClick={() => setActiveTab('subscriptions')}
-                        className="flex-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold text-xs py-2 rounded-xl border border-blue-200 dark:border-blue-800 hover:bg-blue-100"
-                      >
-                        <BadgeCheck className="inline w-3.5 h-3.5 mr-1" />Blue Tick application
-                      </button>
-
-                      <button
-                        onClick={() => handleBuyAddon(property.id, 'featured')}
-                        disabled={Boolean(property.isFeatured && property.featuredUntil && Date.parse(property.featuredUntil) > Date.now())}
-                        className="flex-1 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold text-xs py-2 rounded-xl border border-amber-200 dark:border-amber-800 hover:bg-amber-100 disabled:opacity-50"
-                      >
-                        {property.isFeatured && property.featuredUntil && Date.parse(property.featuredUntil) > Date.now() ? '⭐ Boost Active' : '+ Search Boost (₹500)'}
-                      </button>
+                      {property.status === 'active' && (
+                        <>
+                          <button
+                            onClick={() => setActiveTab('subscriptions')}
+                            className="flex-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold text-xs py-2 rounded-xl border border-blue-200 dark:border-blue-800 hover:bg-blue-100"
+                          >
+                            <BadgeCheck className="inline w-3.5 h-3.5 mr-1" />Blue Tick Verification
+                          </button>
+                          <button
+                            onClick={() => setActiveTab('subscriptions')}
+                            className="flex-1 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold text-xs py-2 rounded-xl border border-amber-200 dark:border-amber-800 hover:bg-amber-100"
+                          >
+                            ⭐ Search Boost — ₹500/month
+                          </button>
+                        </>
+                      )}
                     </div>
 
                   </div>
@@ -1284,6 +1287,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       {activeTab === 'subscriptions' && (
         <div className="space-y-6">
           <BlueTickOwnerPanel properties={properties} />
+          <SearchBoostOwnerPanel properties={properties} />
           <div className="text-center max-w-xl mx-auto space-y-2">
             <h3 className="text-xl font-black text-slate-900 dark:text-white">
               Listing Subscriptions & Add-on Plans

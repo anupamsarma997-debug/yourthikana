@@ -75,7 +75,8 @@ export interface Property {
   reviewsCount: number;
   isVerified: boolean; // Optional Blue Tick, admin-approved only
   verifiedUntil?: string;
-  isFeatured: boolean; // Search Boost (₹500/mo)
+  isFeatured: boolean; // Search Boost is visible only while featuredUntil is in the future.
+  featuredUntil?: string; // ISO timestamp set only after verified ₹500 payment.
   status: 'active' | 'pending' | 'rejected' | 'hidden_expired' | 'blocked';
   subscriptionPlan: 'standard_1000' | 'standard_1500' | 'none';
   subscriptionPrice: number;

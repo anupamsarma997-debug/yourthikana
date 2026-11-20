@@ -3,6 +3,7 @@ import { Property, RoomType } from '../types';
 import { store } from '../services/store';
 import { PropertyCard } from '../components/PropertyCard';
 import { BannerSlider } from '../components/BannerSlider';
+import { isBlueTickActive, isSearchBoostActive } from '../utils/propertyBadges';
 import { 
   Search, 
   MapPin, 
@@ -207,15 +208,15 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
         if (rating < minRating) return false;
 
         // Verified Filter
-        if (onlyVerified && !p.isVerified) return false;
+        if (onlyVerified && !isBlueTickActive(p)) return false;
 
         // Featured Filter
-        if (onlyFeatured && !p.isFeatured) return false;
+        if (onlyFeatured && !isSearchBoostActive(p)) return false;
 
         return true;
       }).sort((a, b) => {
-        if (a?.isFeatured && !b?.isFeatured) return -1;
-        if (!a?.isFeatured && b?.isFeatured) return 1;
+        if (isSearchBoostActive(a) && !isSearchBoostActive(b)) return -1;
+        if (!isSearchBoostActive(a) && isSearchBoostActive(b)) return 1;
         const rA = typeof a?.rating === 'number' ? a.rating : 5.0;
         const rB = typeof b?.rating === 'number' ? b.rating : 5.0;
         return rB - rA;

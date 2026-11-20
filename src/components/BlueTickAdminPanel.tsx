@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, doc, onSnapshot, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, writeBatch } from 'firebase/firestore';
 import { getBlob, ref } from 'firebase/storage';
 import { BadgeCheck, CheckCircle2, Download, FileText, RefreshCw, XCircle } from 'lucide-react';
 import { auth, db, storage } from '../lib/firebase';
@@ -52,6 +52,12 @@ export const BlueTickAdminPanel: React.FC = () => {
     setBusyId(application.id);
     setMessage('');
     try {
+      const propertyRef = doc(db, 'properties', application.propertyId);
+      const propertySnapshot = await getDoc(propertyRef);
+      if (action === 'approve' && (!propertySnapshot.exists() || propertySnapshot.data().status !== 'active')) {
+        setMessage('Property deleted or not published. Blue Tick cannot be approved.');
+        return;
+      }
       const batch = writeBatch(db);
       const applicationRef = doc(db, 'verificationApplications', application.id);
       if (action === 'approve') {
@@ -89,6 +95,13 @@ export const BlueTickAdminPanel: React.FC = () => {
 
   const verifyPayment = async (application: VerificationApplication, approve: boolean) => {
     if (!db || !auth?.currentUser || !application.paymentUtr) return;
+    if (approve) {
+      const propertySnapshot = await getDoc(doc(db, 'properties', application.propertyId));
+      if (!propertySnapshot.exists() || propertySnapshot.data().status !== 'active') {
+        setMessage('Property deleted or not published. Blue Tick renewal cannot be activated.');
+        return;
+      }
+    }
     setBusyId(application.id);
     setMessage('');
     try {

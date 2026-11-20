@@ -164,6 +164,9 @@ test('owners can edit listing content but cannot grant themselves verification o
     isVerified: true,
   }));
   await assertFails(updateDoc(doc(ownerDb, 'properties', 'property-1'), {
+    status: 'active',
+  }));
+  await assertFails(updateDoc(doc(ownerDb, 'properties', 'property-1'), {
     isFeatured: true,
   }));
   await assertFails(updateDoc(doc(ownerDb, 'properties', 'property-1'), {

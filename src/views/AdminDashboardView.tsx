@@ -303,7 +303,7 @@ export const AdminDashboardView: React.FC = () => {
             activeTab === 'verifications' ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-600 dark:text-slate-400'
           }`}
         >
-          Blue Tick Review
+          Blue Tick Verification
         </button>
       </div>
 

@@ -421,6 +421,36 @@ class DataStore {
           }
         }
 
+        // Start the platform-owner property listener independently of the owner's
+        // Firestore profile document. Admin review must still load if that profile
+        // document is missing or delayed.
+        if (fbUser.emailVerified && (fbUser.email || '').trim().toLowerCase() === 'anupamsarma997@gmail.com') {
+          try {
+            const tokenResult = await fbUser.getIdTokenResult(true);
+            const verifiedPlatformOwner =
+              tokenResult.signInProvider === 'google.com' &&
+              tokenResult.claims.email === 'anupamsarma997@gmail.com' &&
+              tokenResult.claims.email_verified === true;
+            if (verifiedPlatformOwner) {
+              const allPropertiesUnsub = onSnapshot(
+                collection(db, 'properties'),
+                (snapshot) => {
+                  allAdminProperties = snapshot.docs.map((item) => normalizeProperty({ id: item.id, ...item.data() }));
+                  publishPropertySources();
+                },
+                (err) => {
+                  this.firestoreError = err?.message || String(err);
+                  console.warn('Firestore admin properties sync notice:', this.firestoreError);
+                  this.notify(false);
+                }
+              );
+              propertyUnsubscribers.push(allPropertiesUnsub);
+            }
+          } catch (tokenError) {
+            console.warn('Admin property sync identity verification failed:', tokenError);
+          }
+        }
+
         const userUnsub = onSnapshot(doc(db, 'users', fbUser.uid), async (docSnap) => {
           if (docSnap.exists()) {
             const uData = { id: docSnap.id, ...docSnap.data() } as User;
@@ -431,28 +461,21 @@ class DataStore {
             this.persist();
             this.notify(false);
 
-            // Admins may load the full private collections; owners only receive
-            // documents explicitly scoped to their Firebase UID.
+            // Private collections and user accounts are synced only after the
+            // authenticated profile exists. Admin property review is bootstrapped
+            // above so it does not depend on this profile snapshot.
             clearDataListeners();
-            let verifiedPlatformOwner = false;
+            let admin = false;
             try {
               const tokenResult = await fbUser.getIdTokenResult(true);
-              verifiedPlatformOwner =
+              admin =
                 fbUser.emailVerified &&
                 (fbUser.email || '').trim().toLowerCase() === 'anupamsarma997@gmail.com' &&
                 tokenResult.signInProvider === 'google.com' &&
+                tokenResult.claims.email === 'anupamsarma997@gmail.com' &&
                 tokenResult.claims.email_verified === true;
             } catch (tokenError) {
               console.warn('Admin identity verification failed:', tokenError);
-            }
-            // Never trust the editable Firestore profile role for admin access.
-            const admin = verifiedPlatformOwner;
-            if (admin) {
-              const allPropertiesUnsub = onSnapshot(collection(db, 'properties'), (snapshot) => {
-                allAdminProperties = snapshot.docs.map((item) => normalizeProperty({ id: item.id, ...item.data() }));
-                publishPropertySources();
-              }, (err) => console.warn('Firestore admin properties query notice:', err?.message || err));
-              propertyUnsubscribers.push(allPropertiesUnsub);
             }
             const privateCollections = [
               { name: 'enquiries', apply: (items: BookingEnquiry[]) => { this.enquiries = items; } },

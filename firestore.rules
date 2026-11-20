@@ -224,7 +224,8 @@ service cloud.firestore {
         request.resource.data.documentPaths.size() == request.resource.data.documentCount &&
         request.resource.data.submittedAt is timestamp &&
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
-        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '') == request.auth.uid;
+        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '') == request.auth.uid &&
+        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('status', '') == 'active';
 
       allow read: if isAdmin() ||
         (isSignedIn() && resource.data.ownerUid == request.auth.uid);

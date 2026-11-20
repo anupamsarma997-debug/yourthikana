@@ -4,6 +4,7 @@ import { getEffectiveRoomPrice, hasValidRoomDiscount } from '../utils/roomPricin
 import { store } from '../services/store';
 import { auth } from '../lib/firebase';
 import { uploadPropertyPhoto } from '../services/uploadPropertyImage';
+import { BlueTickOwnerPanel } from '../components/BlueTickOwnerPanel';
 import { AuthModal } from '../components/AuthModal';
 import { QRPerformanceCard } from '../components/QRPerformanceCard';
 import { 
@@ -1014,7 +1015,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                             <span className="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-md">
                               {property.propertyType}
                             </span>
-                            {property.isVerified && (
+                            {property.isVerified && property.verifiedUntil && new Date(property.verifiedUntil).getTime() > Date.now() && (
                               <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-0.5">
                                 <BadgeCheck className="w-3 h-3" /> Verified
                               </span>
@@ -1188,11 +1189,10 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                       </button>
 
                       <button
-                        onClick={() => handleBuyAddon(property.id, 'verified')}
-                        disabled={property.isVerified}
-                        className="flex-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold text-xs py-2 rounded-xl border border-blue-200 dark:border-blue-800 hover:bg-blue-100 disabled:opacity-50"
+                        onClick={() => setActiveTab('subscriptions')}
+                        className="flex-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold text-xs py-2 rounded-xl border border-blue-200 dark:border-blue-800 hover:bg-blue-100"
                       >
-                        {property.isVerified ? '✓ Verified Active' : '+ Blue Tick (₹500)'}
+                        <BadgeCheck className="inline w-3.5 h-3.5 mr-1" />Blue Tick application
                       </button>
 
                       <button
@@ -1274,6 +1274,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       {/* Tab 3: Subscription Plans & Badges */}
       {activeTab === 'subscriptions' && (
         <div className="space-y-6">
+          <BlueTickOwnerPanel properties={properties} />
           <div className="text-center max-w-xl mx-auto space-y-2">
             <h3 className="text-xl font-black text-slate-900 dark:text-white">
               Listing Subscriptions & Add-on Plans
@@ -1355,7 +1356,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                   Badges & Search Boost
                 </span>
                 <h4 className="text-xl font-black text-slate-900 dark:text-white mt-2">
-                  ₹500 / month each
+                  Search Boost: ₹500 / month
                 </h4>
                 <p className="text-xs text-slate-500 mt-1">
                   Stand out from competitors and gain guest trust.
@@ -1365,10 +1366,10 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                   <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800">
                     <p className="font-extrabold text-blue-900 dark:text-blue-300 flex items-center gap-1">
                       <BadgeCheck className="w-4 h-4 fill-blue-600 text-white" />
-                      Blue Verified Badge (₹500)
+                      Blue Tick Verification
                     </p>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      Displays trust badge on your listing card.
+                      Optional proof review. 3 months free after approval, then ₹1,000/month. Apply in the verification panel above.
                     </p>
                   </div>
 

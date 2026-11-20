@@ -198,13 +198,22 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
         // Verified Filter
         if (onlyVerified && !p.isVerified) return false;
 
-        // Featured Filter
-        if (onlyFeatured && !p.isFeatured) return false;
+        // A paid Search Boost is valid only until its explicit expiry timestamp.
+        // Legacy featured flags without an expiry are deliberately not promoted.
+        const boostActive = Boolean(
+          p.isFeatured &&
+          p.featuredUntil &&
+          Number.isFinite(Date.parse(p.featuredUntil)) &&
+          Date.parse(p.featuredUntil) > Date.now()
+        );
+        if (onlyFeatured && !boostActive) return false;
 
         return true;
       }).sort((a, b) => {
-        if (a?.isFeatured && !b?.isFeatured) return -1;
-        if (!a?.isFeatured && b?.isFeatured) return 1;
+        const aBoostActive = Boolean(a?.isFeatured && a?.featuredUntil && Date.parse(a.featuredUntil) > Date.now());
+        const bBoostActive = Boolean(b?.isFeatured && b?.featuredUntil && Date.parse(b.featuredUntil) > Date.now());
+        if (aBoostActive && !bBoostActive) return -1;
+        if (!aBoostActive && bBoostActive) return 1;
         const rA = typeof a?.rating === 'number' ? a.rating : 5.0;
         const rB = typeof b?.rating === 'number' ? b.rating : 5.0;
         return rB - rA;

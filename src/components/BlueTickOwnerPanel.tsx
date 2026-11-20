@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, deleteDoc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, doc, where } from 'firebase/firestore';
-import { BadgeCheck, Clock3, FileCheck2, MessageCircle, Wallet } from 'lucide-react';
+import { BadgeCheck, Clock3, FileCheck2, MessageCircle, Upload, Wallet } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
 import { Property } from '../types';
 
@@ -16,6 +16,7 @@ type Application = {
   paymentStatus?: 'not_submitted' | 'pending' | 'verified' | 'rejected';
   paymentUtr?: string;
   documentPaths?: string[];
+  proofStatus?: string;
   reviewNote?: string;
 };
 

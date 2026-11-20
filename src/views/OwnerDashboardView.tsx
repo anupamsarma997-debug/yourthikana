@@ -1369,7 +1369,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                       Blue Tick Verification
                     </p>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      Optional proof review. 3 months free after approval, then ₹1,000/month. Apply in the verification panel above.
+                      Optional proof review. 3 months free after approval, then ₹500/month. Apply in the verification panel above.
                     </p>
                   </div>
 

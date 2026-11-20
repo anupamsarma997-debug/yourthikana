@@ -97,6 +97,52 @@ test('owner can submit only a payment UTR after admin approval; cannot extend va
   }));
 });
 
+test('Search Boost requests require an approved owned property and trusted admin payment review', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'properties', 'boost-property'), {
+      title: 'Published Homestay',
+      city: 'Guwahati',
+      ownerUid: 'boost-owner',
+      ownerId: 'boost-owner',
+      status: 'active',
+    });
+  });
+
+  const ownerDb = testEnv.authenticatedContext('boost-owner').firestore();
+  const application = {
+    ownerUid: 'boost-owner',
+    propertyId: 'boost-property',
+    propertyTitle: 'Published Homestay',
+    status: 'pending',
+    paymentStatus: 'pending',
+    paymentUtr: 'ABCD123456789012',
+    submittedAt: new Date(),
+  };
+  const applicationRef = doc(ownerDb, 'searchBoostApplications', 'boost-app');
+  await assertSucceeds(setDoc(applicationRef, application));
+  await assertFails(updateDoc(applicationRef, {
+    status: 'approved',
+    paymentStatus: 'verified',
+  }));
+  await assertFails(setDoc(doc(ownerDb, 'searchBoostApplications', 'bad-utr'), {
+    ...application,
+    paymentUtr: 'short',
+  }));
+  await assertFails(setDoc(doc(ownerDb, 'searchBoostApplications', 'wrong-owner'), {
+    ...application,
+    ownerUid: 'another-user',
+  }));
+
+  const adminDb = testEnv.authenticatedContext('trusted-admin', { admin: true }).firestore();
+  await assertSucceeds(updateDoc(doc(adminDb, 'searchBoostApplications', 'boost-app'), {
+    status: 'approved',
+    paymentStatus: 'verified',
+    reviewedBy: 'trusted-admin',
+    reviewedAt: new Date().toISOString(),
+    featuredUntil: '2026-12-20T00:00:00.000Z',
+  }));
+});
+
 test('public visitors can read published property listings', async () => {
   const ownerDb = await createOwnedProperty();
   const publicDb = testEnv.unauthenticatedContext().firestore();

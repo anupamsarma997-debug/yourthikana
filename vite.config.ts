@@ -22,6 +22,10 @@ export default defineConfig(() => ({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
+          if (id.includes('/node_modules/@firebase/firestore/')) return 'vendor-firestore';
+          if (id.includes('/node_modules/@firebase/auth/')) return 'vendor-auth';
+          if (id.includes('/node_modules/@firebase/storage/')) return 'vendor-storage';
+          if (id.includes('/node_modules/@firebase/')) return 'vendor-firebase-core';
           if (id.includes('/node_modules/firebase/')) return 'vendor-firebase';
           if (id.includes('/node_modules/@google/genai/')) return 'vendor-ai';
           if (id.includes('/node_modules/motion/')) return 'vendor-motion';

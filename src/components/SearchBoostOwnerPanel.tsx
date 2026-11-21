@@ -104,27 +104,27 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
   );
 
   return (
-    <section className="w-full min-w-0 space-y-5 overflow-hidden rounded-3xl border border-amber-200 bg-white p-4 dark:border-amber-900 dark:bg-slate-800 sm:p-6">
+    <section className="w-full min-w-0 space-y-5 overflow-hidden rounded-[24px] border border-slate-700 bg-[#0B1220] p-4 text-[#E5EAF3] shadow-xl sm:p-5">
       <header className="flex min-w-0 items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-950">
-          <BadgePercent className="h-6 w-6 text-amber-700 dark:text-amber-300" />
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#3A2A0B]">
+          <BadgePercent className="h-6 w-6 text-[#FBBF24]" />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-lg font-black leading-tight text-slate-950 dark:text-white">Search Boost</h3>
-          <p className="mt-1 text-sm font-semibold text-amber-700 dark:text-amber-300">₹500 / month</p>
-          <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">Apni approved property ko search mein boost karein.</p>
+          <h3 className="text-xl font-black leading-tight text-white">Search Boost</h3>
+          <p className="mt-1 text-sm font-bold text-[#FBBF24]">₹500 / month</p>
+          <p className="mt-1 text-sm leading-5 text-[#9AA7BD]">Apni approved property ko search results mein highlight karein.</p>
         </div>
       </header>
 
-      <div className="rounded-2xl bg-amber-50 p-3 dark:bg-amber-950/30">
-        <p className="flex items-center gap-2 text-sm font-bold text-amber-950 dark:text-amber-200"><Wallet className="h-5 w-5 shrink-0" />One-time monthly boost payment: ₹500</p>
-        <p className="mt-1 text-xs leading-5 text-slate-700 dark:text-slate-300">UPI se payment karein. Screenshot aur asli UTR share karne ke baad admin bank credit verify karega. Verification se pehle boost active nahi hoga.</p>
+      <div className="rounded-2xl border border-[#3A2A0B] bg-[#131C2E] p-3">
+        <p className="flex items-center gap-2 text-sm font-bold text-[#FBBF24]"><Wallet className="h-5 w-5 shrink-0" />One-time monthly boost payment: ₹500</p>
+        <p className="mt-1 text-xs leading-5 text-[#9AA7BD]">UPI se payment karein. Screenshot aur asli UTR share karne ke baad admin bank credit verify karega. Verification se pehle boost active nahi hoga.</p>
       </div>
 
       {paymentApplication && (
-        <div id="search-boost-payment" className="scroll-mt-4 space-y-2 rounded-2xl border-2 border-emerald-400 bg-emerald-50/60 p-3 dark:border-emerald-700 dark:bg-emerald-950/20 sm:p-4">
-          <h4 className="text-base font-black text-slate-950 dark:text-white">Payment required — {paymentApplication.propertyTitle}</h4>
-          <p className="text-xs leading-5 text-slate-600 dark:text-slate-300">Pay button yahin sabse upar milega; kisi menu ya hidden tab ke andar nahi.</p>
+        <div id="search-boost-payment" className="scroll-mt-4 space-y-3 rounded-2xl border border-[#14B8A6] bg-[#131C2E] p-3 sm:p-4">
+          <h4 className="text-base font-black text-white">Payment required — {paymentApplication.propertyTitle}</h4>
+          <p className="text-xs leading-5 text-[#9AA7BD]">Pay button yahin sabse upar milega; kisi menu ya hidden tab ke andar nahi.</p>
           <PaymentProofShare
             key={paymentApplication.id + '-' + paymentApplication.status}
             amount={500}
@@ -138,13 +138,13 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
         </div>
       )}
 
-      <form onSubmit={submitRequest} className="space-y-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-700 sm:p-4">
-        <label htmlFor="search-boost-property" className="block text-sm font-bold text-slate-900 dark:text-white">1. Approved property choose karein</label>
-        <select id="search-boost-property" value={propertyId} onChange={(event) => setPropertyId(event.target.value)} required className="min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white p-3 text-base text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white">
+      <form onSubmit={submitRequest} className="space-y-3 rounded-2xl border border-[#243049] bg-[#131C2E] p-3 sm:p-4">
+        <label htmlFor="search-boost-property" className="block text-sm font-bold text-[#E5EAF3]">1. Approved property choose karein</label>
+        <select id="search-boost-property" value={propertyId} onChange={(event) => setPropertyId(event.target.value)} required className="min-h-12 w-full min-w-0 rounded-xl border border-[#3A4866] bg-[#0B1220] p-3 text-base text-white">
           <option value="">Select property</option>
           {eligibleProperties.map((property) => <option key={property.id} value={property.id}>{property.title}</option>)}
         </select>
-        <button type="submit" disabled={busy || !eligibleProperties.length || !propertyId} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-4 text-center text-base font-extrabold text-slate-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+        <button type="submit" disabled={busy || !eligibleProperties.length || !propertyId} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#FBBF24] px-4 py-4 text-center text-base font-extrabold text-[#241800] shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
           {busy ? 'Creating request…' : '2. Create Search Boost request'}
           {!busy && <ArrowRight className="h-5 w-5" />}
         </button>
@@ -155,16 +155,16 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
 
       <div className="space-y-3">
         <div>
-          <h4 className="text-base font-extrabold text-slate-950 dark:text-white">Your Search Boost requests</h4>
-          <p className="mt-1 text-xs text-slate-500">Payment aur proof har request ke neeche alag-alag dikhte hain.</p>
+          <h4 className="text-base font-extrabold text-white">Your Search Boost requests</h4>
+          <p className="mt-1 text-xs text-[#9AA7BD]">Payment aur proof har request ke neeche alag-alag dikhte hain.</p>
         </div>
-        {applications.length === 0 && <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-slate-700">Abhi koi Search Boost request nahi hai.</p>}
+        {applications.length === 0 && <p className="rounded-xl border border-dashed border-[#3A4866] p-4 text-sm text-[#9AA7BD]">Abhi koi Search Boost request nahi hai.</p>}
         {applications.map((application) => (
-          <article key={application.id} className="w-full min-w-0 space-y-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-700 sm:p-4">
+          <article key={application.id} className="w-full min-w-0 space-y-3 rounded-2xl border border-[#3A4866] bg-[#131C2E] p-3 sm:p-4">
             <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="break-words text-base font-bold text-slate-950 dark:text-white">{application.propertyTitle}</p>
-                <p className="mt-1 break-all text-xs text-slate-500">{application.paymentUtr ? `UTR submitted: ${application.paymentUtr}` : 'Payment not submitted yet'}</p>
+                <p className="break-words text-base font-bold text-white">{application.propertyTitle}</p>
+                <p className="mt-1 break-all text-xs text-[#9AA7BD]">{application.paymentUtr ? `UTR submitted: ${application.paymentUtr}` : 'Payment not submitted yet'}</p>
               </div>
               <span className={`inline-flex min-h-8 w-fit max-w-full items-center rounded-full px-3 py-1 text-xs font-bold ${application.status === 'approved' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : application.status === 'rejected' ? 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200'}`}>
                 {application.status === 'approved' ? 'Boost active' : application.status === 'rejected' ? 'Rejected — payment required to retry' : application.status === 'awaiting_payment' ? 'Payment required' : 'Admin review pending'}

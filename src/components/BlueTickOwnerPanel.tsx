@@ -31,16 +31,16 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
+  const ownedProperties = useMemo(
+    () => properties.filter((property) => property.ownerUid === uid && property.status === 'active'),
+    [properties, uid]
+  );
+
   useEffect(() => {
     if (selectedPropertyId && ownedProperties.some((property) => property.id === selectedPropertyId)) {
       setPropertyId(selectedPropertyId);
     }
   }, [selectedPropertyId, ownedProperties]);
-
-  const ownedProperties = useMemo(
-    () => properties.filter((property) => property.ownerUid === uid && property.status === 'active'),
-    [properties, uid]
-  );
 
   useEffect(() => {
     if (!db || !uid) {

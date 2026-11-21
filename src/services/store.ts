@@ -177,9 +177,37 @@ function makePropertyDuplicateKey(value: { title?: string; address?: string; cit
 
 const normalizeProperty = (p: any): Property => ({
   ...p,
-  rating: typeof p?.rating === 'number' && !isNaN(p.rating) ? p.rating : 5.0,
-  reviewsCount: typeof p?.reviewsCount === 'number' && !isNaN(p.reviewsCount) ? p.reviewsCount : 1,
+  id: String(p?.id || ''),
+  title: String(p?.title || 'Untitled property'),
+  description: String(p?.description || ''),
+  propertyType: p?.propertyType || 'Homestay',
+  address: String(p?.address || ''),
+  city: String(p?.city || ''),
+  state: String(p?.state || ''),
+  ownerName: String(p?.ownerName || 'Property Owner'),
+  ownerPhone: String(p?.ownerPhone || ''),
+  ownerWhatsApp: String(p?.ownerWhatsApp || p?.ownerPhone || ''),
+  photos: Array.isArray(p?.photos) ? p.photos.filter((photo: unknown): photo is string => typeof photo === 'string' && photo.trim().length > 0) : (typeof p?.coverImage === 'string' && p.coverImage ? [p.coverImage] : []),
+  rating: typeof p?.rating === 'number' && Number.isFinite(p.rating) ? p.rating : 5.0,
+  reviewsCount: typeof p?.reviewsCount === 'number' && Number.isFinite(p.reviewsCount) ? p.reviewsCount : 0,
 });
+
+const normalizeRoom = (room: any): RoomType | null => {
+  if (!room || typeof room !== 'object' || !room.id || !room.propertyId) return null;
+  return {
+    ...room,
+    id: String(room.id),
+    propertyId: String(room.propertyId),
+    roomName: String(room.roomName || 'Room'),
+    pricePerNight: Number.isFinite(Number(room.pricePerNight)) ? Number(room.pricePerNight) : 1500,
+    maxGuests: Number.isFinite(Number(room.maxGuests)) ? Number(room.maxGuests) : 2,
+    description: String(room.description || ''),
+    amenities: Array.isArray(room.amenities) ? room.amenities.filter((item: unknown): item is string => typeof item === 'string') : [],
+    photos: Array.isArray(room.photos) ? room.photos.filter((photo: unknown): photo is string => typeof photo === 'string') : [],
+    roomSize: String(room.roomSize || ''),
+    bedType: String(room.bedType || ''),
+  } as RoomType;
+};
 
 class DataStore {
   private users: User[] = [];
@@ -229,7 +257,8 @@ class DataStore {
       this.properties = (Array.isArray(rawProps) ? rawProps : INITIAL_PROPERTIES).map(normalizeProperty);
 
       const storedRooms = localStorage.getItem(STORAGE_KEYS.ROOMS);
-      this.rooms = storedRooms ? JSON.parse(storedRooms) : INITIAL_ROOMS;
+      const rawRooms = storedRooms ? JSON.parse(storedRooms) : INITIAL_ROOMS;
+      this.rooms = (Array.isArray(rawRooms) ? rawRooms : INITIAL_ROOMS).map(normalizeRoom).filter((room): room is RoomType => Boolean(room));
 
       const storedBanners = localStorage.getItem(STORAGE_KEYS.BANNERS);
       this.banners = storedBanners ? JSON.parse(storedBanners) : INITIAL_BANNERS;
@@ -958,7 +987,7 @@ class DataStore {
   }
 
   public getRooms(): RoomType[] {
-    return this.rooms;
+    return Array.isArray(this.rooms) ? this.rooms : [];
   }
 
   public getPropertyById(id: string): Property | undefined {
@@ -1308,7 +1337,7 @@ class DataStore {
 
   // Room Types
   public getRoomsByProperty(propertyId: string): RoomType[] {
-    return this.rooms.filter((r) => r.propertyId === propertyId);
+    return this.getRooms().filter((room) => room && room.propertyId === propertyId);
   }
 
   public addRoom(room: Omit<RoomType, 'id'>): RoomType {

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
-import { BadgePercent, Clock3, Wallet } from 'lucide-react';
+import { BadgePercent, Clock3, Wallet, ArrowRight } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
 import { Property } from '../types';
 import { PaymentProofShare } from './PaymentProofShare';
@@ -78,7 +78,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
         submittedAt: serverTimestamp(),
       });
       setPropertyId('');
-      setMessage('Payment step ready hai. ₹500 pay karke screenshot aur asli UTR share karein; uske baad hi request admin review mein jayegi.');
+      setMessage('Request ban gayi. Neeche apne request card mein alag Pay ₹500 button dabayein.');
     } catch (error: any) {
       console.error('Search Boost request failed:', error);
       setMessage(error?.message || 'Request submit nahi ho payi.');
@@ -100,37 +100,61 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
   };
 
   return (
-    <section className="bg-white dark:bg-slate-800 rounded-3xl border border-amber-200 dark:border-amber-900 p-5 sm:p-6 space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="rounded-xl bg-amber-100 dark:bg-amber-950 p-3"><BadgePercent className="w-6 h-6 text-amber-600" /></div>
-        <div><h3 className="text-lg font-black text-slate-900 dark:text-white">Search Boost — ₹500 / month</h3><p className="text-xs text-slate-500">Only approved and published properties can request a boost.</p></div>
+    <section className="w-full min-w-0 space-y-5 overflow-hidden rounded-3xl border border-amber-200 bg-white p-4 dark:border-amber-900 dark:bg-slate-800 sm:p-6">
+      <header className="flex min-w-0 items-start gap-3">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-950">
+          <BadgePercent className="h-6 w-6 text-amber-700 dark:text-amber-300" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-lg font-black leading-tight text-slate-950 dark:text-white">Search Boost</h3>
+          <p className="mt-1 text-sm font-semibold text-amber-700 dark:text-amber-300">₹500 / month</p>
+          <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">Apni approved property ko search mein boost karein.</p>
+        </div>
+      </header>
+
+      <div className="rounded-2xl bg-amber-50 p-3 dark:bg-amber-950/30">
+        <p className="flex items-center gap-2 text-sm font-bold text-amber-950 dark:text-amber-200"><Wallet className="h-5 w-5 shrink-0" />One-time monthly boost payment: ₹500</p>
+        <p className="mt-1 text-xs leading-5 text-slate-700 dark:text-slate-300">UPI se payment karein. Screenshot aur asli UTR share karne ke baad admin bank credit verify karega. Verification se pehle boost active nahi hoga.</p>
       </div>
-      <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 space-y-1">
-        <p className="text-xs font-bold text-amber-900 dark:text-amber-200"><Wallet className="inline w-4 h-4 mr-1" />One-time monthly boost payment: ₹500.</p>
-        <p className="text-[11px] text-slate-600 dark:text-slate-300">Pay using any UPI app, then share the payment screenshot and real UTR. Boost starts only after admin verifies the bank credit.</p>
-      </div>
-      <form onSubmit={submitRequest} className="grid sm:grid-cols-[1fr_auto] gap-2">
-        <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Approved property
-          <select value={propertyId} onChange={(event) => setPropertyId(event.target.value)} required className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm">
-            <option value="">Select property</option>
-            {eligibleProperties.map((property) => <option key={property.id} value={property.id}>{property.title}</option>)}
-          </select>
-        </label>
-        <button disabled={busy || !eligibleProperties.length} className="self-end rounded-xl bg-amber-500 px-4 py-3 text-xs font-extrabold text-slate-950 disabled:opacity-50">{busy ? 'Submitting…' : 'Create Search Boost request'}</button>
+
+      <form onSubmit={submitRequest} className="space-y-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-700 sm:p-4">
+        <label htmlFor="search-boost-property" className="block text-sm font-bold text-slate-900 dark:text-white">1. Approved property choose karein</label>
+        <select id="search-boost-property" value={propertyId} onChange={(event) => setPropertyId(event.target.value)} required className="min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white p-3 text-base text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white">
+          <option value="">Select property</option>
+          {eligibleProperties.map((property) => <option key={property.id} value={property.id}>{property.title}</option>)}
+        </select>
+        <button type="submit" disabled={busy || !eligibleProperties.length || !propertyId} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-4 text-center text-base font-extrabold text-slate-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+          {busy ? 'Creating request…' : '2. Create Search Boost request'}
+          {!busy && <ArrowRight className="h-5 w-5" />}
+        </button>
+        {!eligibleProperties.length && <p className="text-xs leading-5 text-slate-500">Abhi koi eligible approved/published property available nahi hai.</p>}
       </form>
-      {message && <p role="status" className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 text-xs">{message}</p>}
-      <div className="space-y-2">
-        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">Your Search Boost requests</h4>
-        {applications.length === 0 && <p className="text-xs text-slate-500">No Search Boost requests yet.</p>}
+
+      {message && <p role="status" aria-live="polite" className="break-words rounded-xl bg-slate-50 p-3 text-sm leading-5 text-slate-700 dark:bg-slate-900 dark:text-slate-200">{message}</p>}
+
+      <div className="space-y-3">
+        <div>
+          <h4 className="text-base font-extrabold text-slate-950 dark:text-white">Your Search Boost requests</h4>
+          <p className="mt-1 text-xs text-slate-500">Payment aur proof har request ke neeche alag-alag dikhte hain.</p>
+        </div>
+        {applications.length === 0 && <p className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-slate-700">Abhi koi Search Boost request nahi hai.</p>}
         {applications.map((application) => (
-          <article key={application.id} className="rounded-xl border border-slate-200 dark:border-slate-700 p-3 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div><p className="text-sm font-bold text-slate-900 dark:text-white">{application.propertyTitle}</p><p className="text-[11px] text-slate-500">{application.paymentUtr ? `UTR submitted: ${application.paymentUtr}` : 'Payment not submitted yet'}</p></div>
-              <div className="text-right text-xs font-bold"><span className={application.status === 'approved' ? 'text-emerald-600' : application.status === 'rejected' ? 'text-rose-600' : 'text-amber-600'}>{application.status === 'approved' ? 'Boost active' : application.status === 'rejected' ? 'Rejected — payment required to retry' : application.status === 'awaiting_payment' ? 'Payment required' : 'Admin review pending'}</span>{application.featuredUntil && <p className="text-[10px] text-slate-500"><Clock3 className="inline w-3 h-3 mr-1" />Until {dateLabel(application.featuredUntil)}</p>}</div>
+          <article key={application.id} className="w-full min-w-0 space-y-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-700 sm:p-4">
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="break-words text-base font-bold text-slate-950 dark:text-white">{application.propertyTitle}</p>
+                <p className="mt-1 break-all text-xs text-slate-500">{application.paymentUtr ? `UTR submitted: ${application.paymentUtr}` : 'Payment not submitted yet'}</p>
+              </div>
+              <span className={`inline-flex min-h-8 w-fit max-w-full items-center rounded-full px-3 py-1 text-xs font-bold ${application.status === 'approved' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : application.status === 'rejected' ? 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200'}`}>
+                {application.status === 'approved' ? 'Boost active' : application.status === 'rejected' ? 'Rejected — payment required to retry' : application.status === 'awaiting_payment' ? 'Payment required' : 'Admin review pending'}
+              </span>
             </div>
+            {application.featuredUntil && <p className="flex items-center gap-2 text-xs text-slate-500"><Clock3 className="h-4 w-4 shrink-0" />Active until {dateLabel(application.featuredUntil)}</p>}
             {(application.status === 'awaiting_payment' || application.status === 'pending' || application.status === 'rejected') && (
               <PaymentProofShare key={`${application.id}-${application.status}`} amount={500} title="Search Boost" applicationId={application.id} propertyTitle={application.propertyTitle} onShared={(utrValue) => markPaymentSubmitted(application, utrValue)} initialUtr={application.paymentUtr || ''} disabled={busy} />
             )}
+            {application.status === 'approved' && <p className="rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">Search Boost active hai.</p>}
+            {application.reviewNote && <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-700 dark:bg-slate-900 dark:text-slate-200">Admin note: {application.reviewNote}</p>}
           </article>
         ))}
       </div>

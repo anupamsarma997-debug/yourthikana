@@ -159,22 +159,22 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
   };
 
   return (
-    <section className="w-full min-w-0 overflow-hidden rounded-[24px] border border-slate-700 bg-[#0B1220] p-4 text-[#E5EAF3] shadow-xl space-y-5 sm:p-5">
+    <section className="w-full min-w-0 overflow-hidden rounded-[18px] border border-[#243049] bg-[#0B1220] p-4 text-[#E5EAF3] shadow-xl space-y-4 sm:p-4">
       <div className="flex items-start gap-3">
         <div className="rounded-xl bg-[#243049] p-3"><BadgeCheck className="w-6 h-6 text-[#93C5FD]" /></div>
         <div>
-          <h3 className="text-xl font-black text-white">Apply for Blue Tick</h3>
-          <p className="mt-1 text-sm leading-5 text-[#9AA7BD]">Property verify karwayein aur listing par Blue Tick dikhayein.</p>
+          <h3 className="text-xl font-extrabold text-white">Apply karein</h3>
+          <p className="mt-1 text-sm leading-5 text-[#9AA7BD]">Form bharein, pay karein, phir WhatsApp par share karein.</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 text-xs">
-        <div className="rounded-2xl border border-[#243049] bg-[#131C2E] p-3"><strong className="text-white">1. Apply</strong><p className="mt-1 text-[#9AA7BD]">Property proof submit karein.</p></div>
+      <div className="grid grid-cols-1 gap-2 text-xs">
+        <div className="rounded-[18px] border border-[#243049] bg-[#131C2E] p-4"><strong className="text-white">1. Apply</strong><p className="mt-1 text-[#9AA7BD]">Property proof submit karein.</p></div>
         <div className="rounded-2xl border border-[#243049] bg-[#131C2E] p-3"><strong className="text-white">2. Payment</strong><p className="mt-1 text-[#9AA7BD]">₹500/month. No free trial; admin verifies payment.</p></div>
         <div className="rounded-2xl border border-[#243049] bg-[#131C2E] p-3"><strong className="text-white">3. Review</strong><p className="mt-1 text-[#9AA7BD]">Badge starts only after payment and document approval.</p></div>
       </div>
 
-      <form onSubmit={submitApplication} className="space-y-3 rounded-2xl border border-[#243049] bg-[#131C2E] p-4">
+      <form onSubmit={submitApplication} className="space-y-3 rounded-[18px] border border-[#243049] bg-[#131C2E] p-4">
         <label className="block text-sm font-bold text-[#E5EAF3]">Choose your property</label>
         <select value={propertyId} onChange={(event) => setPropertyId(event.target.value)} required className="min-h-12 w-full min-w-0 rounded-xl border border-[#3A4866] bg-[#0B1220] p-3 text-base text-white">
           <option value="">Select a property</option>
@@ -194,7 +194,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
         <h4 className="font-extrabold text-base text-white">Application status</h4>
         {applications.length === 0 && <p className="rounded-2xl border border-dashed border-[#3A4866] p-4 text-sm text-[#9AA7BD]">Abhi koi Blue Tick application nahi hai.</p>}
         {applications.map((application) => (
-          <div key={application.id} className="min-w-0 space-y-3 rounded-2xl border border-[#3A4866] bg-[#131C2E] p-4">
+          <div key={application.id} className="min-w-0 space-y-3 rounded-[18px] border border-[#243049] bg-[#131C2E] p-4">
             <div className="flex items-center justify-between gap-3">
               <div><p className="font-bold text-base text-white">{application.propertyTitle}</p><p className="mt-1 text-xs text-[#9AA7BD]">Submitted application · {application.proofStatus === 'received' ? 'Proof received' : 'Proof share required'}</p></div>
               <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${application.status === 'approved' ? 'bg-[#0B3A33] text-[#5EEAD4]' : application.status === 'rejected' ? 'bg-[#3B1420] text-[#FCA5B5]' : 'bg-[#3A2A0B] text-[#FBBF24]'}`}>{application.status}</span>

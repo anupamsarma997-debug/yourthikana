@@ -259,7 +259,7 @@ service cloud.firestore {
         resource.data.ownerUid == request.auth.uid &&
         resource.data.status in ['pending', 'approved'] &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'paymentUtr', 'paymentSubmittedAt', 'paymentStatus', 'proofStatus', 'proofSharedAt'
+          'paymentUtr', 'paymentSubmittedAt', 'paymentStatus', 'proofSubmissionMethod', 'proofStatus', 'proofSharedAt'
         ]) &&
         (
           (

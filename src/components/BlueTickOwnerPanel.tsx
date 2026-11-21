@@ -23,13 +23,19 @@ type Application = {
 
 const formatDate = (value?: string) => value ? new Date(value).toLocaleDateString('en-IN') : '—';
 
-export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ properties }) => {
+export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedPropertyId?: string }> = ({ properties, selectedPropertyId }) => {
   const uid = auth?.currentUser?.uid || '';
   const [applications, setApplications] = useState<Application[]>([]);
   const [propertyId, setPropertyId] = useState('');
   const [whatsappUrl, setWhatsappUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (selectedPropertyId && ownedProperties.some((property) => property.id === selectedPropertyId)) {
+      setPropertyId(selectedPropertyId);
+    }
+  }, [selectedPropertyId, ownedProperties]);
 
   const ownedProperties = useMemo(
     () => properties.filter((property) => property.ownerUid === uid && property.status === 'active'),

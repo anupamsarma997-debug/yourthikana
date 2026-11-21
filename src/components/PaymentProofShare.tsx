@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ImagePlus, MessageCircle, Smartphone, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ImagePlus, MessageCircle, Smartphone, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 const UPI_ID = 'anupamsarma997-1@okhdfcbank';
 
@@ -14,7 +14,6 @@ type Props = {
 };
 
 export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationId, propertyTitle, onShared, disabled, initialUtr = '' }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [utr, setUtr] = useState(initialUtr);
   const [busy, setBusy] = useState(false);
@@ -52,7 +51,7 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
     try {
       await navigator.share({ files: [file], title: 'YourThikana payment screenshot', text });
       await onShared(cleanUtr);
-      setMessage('Share options opened. Select WhatsApp, choose Admin +91 9101280465 and tap Send. This does not confirm payment; admin will verify the bank credit.');
+      setMessage('Share options khul gaye. WhatsApp select karein, Admin +91 9101280465 choose karein aur Send dabayein. Payment admin bank credit verify karne ke baad hi confirm hoga.');
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         setMessage('Share cancel hua. WhatsApp par bhejne ke liye dobara try karein.');
@@ -66,33 +65,81 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
   };
 
   return (
-    <div className="rounded-2xl border-2 border-emerald-200 dark:border-emerald-900 bg-white dark:bg-slate-900 p-4 space-y-3">
-      <div>
-        <div className="flex items-center justify-between gap-3"><p className="text-base font-black text-slate-900 dark:text-white">Pay ₹{amount}</p><span className="rounded-full bg-emerald-50 dark:bg-emerald-950 px-2.5 py-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">UPI payment</span></div>
-        <p className="text-xs text-slate-500 mt-1">Pay, add your screenshot and transaction ID, then share with admin.</p>
+    <section aria-label="Payment and proof" className="w-full min-w-0 overflow-hidden rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm dark:border-emerald-900 dark:bg-slate-950 sm:p-5">
+      <div className="mb-4 flex min-w-0 items-start gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+          <Smartphone className="h-6 w-6" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Secure UPI payment</p>
+          <h4 className="mt-0.5 text-xl font-black leading-tight text-slate-950 dark:text-white">Pay ₹{amount}</h4>
+          <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">Payment button alag hai. Pay karne ke baad screenshot aur asli UTR share karein.</p>
+        </div>
       </div>
-      <a href={upiLink} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-extrabold text-white shadow-sm">
-        <Smartphone className="h-5 w-5" /> Continue to Google Pay / PhonePe / UPI
+
+      <a
+        href={upiLink}
+        aria-label={`Pay ₹${amount} using UPI`}
+        className="mb-4 flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-md transition-colors hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-300"
+      >
+        <Smartphone className="h-5 w-5 shrink-0" />
+        <span>Pay ₹{amount} now</span>
       </a>
-      <p className="text-[11px] text-slate-600 dark:text-slate-300">UPI ID: <strong>{UPI_ID}</strong></p>
 
-      <div className="space-y-1">
-        <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">Payment screenshot <span className="text-red-600">*Required</span></label>
-        <input ref={inputRef} type="file" accept="image/*" onChange={(event) => setFile(event.target.files?.[0] || null)} className="block w-full text-xs text-slate-700 dark:text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:text-xs file:font-bold dark:file:bg-slate-700" />
-        {file && <p className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300"><CheckCircle2 className="h-4 w-4" /> Selected: {file.name}</p>}
+      <div className="mb-4 rounded-xl bg-slate-50 p-3 dark:bg-slate-900">
+        <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">UPI ID</p>
+        <p className="mt-1 break-all text-sm font-bold text-slate-900 dark:text-white">{UPI_ID}</p>
       </div>
 
-      <div className="space-y-1">
-        <label htmlFor={`utr-${applicationId}`} className="block text-xs font-bold text-slate-800 dark:text-slate-200">UPI UTR / Transaction ID <span className="text-red-600">*Required</span></label>
-        <input id={`utr-${applicationId}`} value={utr} onChange={(event) => setUtr(event.target.value.replace(/\s/g, '').slice(0, 30))} placeholder="Enter actual UTR from GPay / PhonePe" maxLength={30} autoComplete="off" className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-3 text-sm" />
-        <p className="text-[10px] text-slate-500">UTR payment app ke transaction details se copy karein. Blank UTR accept nahi hoga; fake UTR generate nahi hota.</p>
+      <div className="space-y-4">
+        <div className="min-w-0">
+          <label htmlFor={`payment-file-${applicationId}`} className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
+            1. Payment screenshot <span className="text-rose-600">*Required</span>
+          </label>
+          <input
+            id={`payment-file-${applicationId}`}
+            type="file"
+            accept="image/*"
+            onChange={(event) => setFile(event.target.files?.[0] || null)}
+            className="block min-h-12 w-full max-w-full cursor-pointer rounded-xl border border-slate-300 bg-white p-2 text-sm text-slate-700 file:mr-2 file:min-h-10 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:font-bold file:text-emerald-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:file:bg-slate-800 dark:file:text-emerald-300"
+          />
+          {file && <p className="mt-2 flex items-start gap-2 break-all text-xs font-medium text-emerald-700 dark:text-emerald-300"><CheckCircle2 className="h-4 w-4 shrink-0" />Selected: {file.name}</p>}
+          <p className="mt-1 text-xs leading-5 text-slate-500">Image file only, maximum 10 MB.</p>
+        </div>
+
+        <div className="min-w-0">
+          <label htmlFor={`utr-${applicationId}`} className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
+            2. UPI UTR / Transaction ID <span className="text-rose-600">*Required</span>
+          </label>
+          <input
+            id={`utr-${applicationId}`}
+            value={utr}
+            onChange={(event) => setUtr(event.target.value.replace(/\s/g, '').slice(0, 30))}
+            placeholder="GPay / PhonePe se actual UTR paste karein"
+            maxLength={30}
+            autoComplete="off"
+            className="min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white p-3 text-base text-slate-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+          />
+          <p className="mt-1 text-xs leading-5 text-slate-500">Blank ya fake UTR accept nahi hoga. UTR apne payment app ke transaction details se copy karein.</p>
+        </div>
+
+        <button
+          type="button"
+          disabled={disabled || busy || !file || !validUtr}
+          onClick={sendProof}
+          className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-4 text-center text-base font-extrabold text-white shadow-sm transition-colors hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+        >
+          <MessageCircle className="h-5 w-5 shrink-0" />
+          <ImagePlus className="h-5 w-5 shrink-0" />
+          <span>{busy ? 'Opening share options…' : 'Share screenshot & UTR'}</span>
+        </button>
       </div>
 
-      <button type="button" disabled={disabled || busy || !file || !validUtr} onClick={sendProof} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-40">
-        <MessageCircle className="h-5 w-5" /><ImagePlus className="h-5 w-5" />{busy ? 'Opening share options…' : 'Share payment proof'}
-      </button>
-      <p className="text-[10px] text-slate-500">Your screenshot is shared only after you choose WhatsApp and tap Send. Admin manually checks the bank credit before approval.</p>
-      {message && <p role="status" className="rounded-lg bg-blue-50 dark:bg-slate-800 p-3 text-xs text-blue-800 dark:text-blue-200">{message}</p>}
-    </div>
+      <div className="mt-4 flex items-start gap-2 rounded-xl bg-blue-50 p-3 dark:bg-blue-950/40">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-blue-700 dark:text-blue-300" />
+        <p className="text-xs leading-5 text-blue-900 dark:text-blue-200">WhatsApp share sheet mein Admin +91 9101280465 select karke Send dabana hoga. Payment sirf admin ke bank-credit verification ke baad confirm hoga.</p>
+      </div>
+      {message && <p role="status" aria-live="polite" className="mt-3 break-words rounded-xl bg-amber-50 p-3 text-sm leading-5 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{message}</p>}
+    </section>
   );
 };

@@ -108,7 +108,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
   };
 
   return (
-    <section className="bg-white dark:bg-slate-800 rounded-3xl border border-blue-200 dark:border-blue-900 p-5 sm:p-6 space-y-5">
+    <section className="w-full min-w-0 overflow-hidden rounded-3xl border border-blue-200 bg-white p-4 space-y-5 dark:border-blue-900 dark:bg-slate-800 sm:p-6">
       <div className="flex items-start gap-3">
         <div className="rounded-xl bg-blue-100 dark:bg-blue-950 p-3"><BadgeCheck className="w-6 h-6 text-blue-600" /></div>
         <div>
@@ -130,17 +130,17 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
           {ownedProperties.map((property) => <option key={property.id} value={property.id}>{property.title} — {property.city}</option>)}
         </select>
         <p className="text-[11px] text-slate-500">Trade licence, property-tax/electricity bill, lease/authorisation letter jaise proof WhatsApp par bhejein. Aadhaar aur unnecessary personal numbers hide karein.</p>
-        <button disabled={busy || !ownedProperties.length} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-xs font-extrabold text-white disabled:opacity-50"><Upload className="w-4 h-4" />{busy ? 'Submitting…' : 'Apply for Blue Tick'}</button>
+        <button disabled={busy || !ownedProperties.length} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-4 text-base font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"><Upload className="w-4 h-4" />{busy ? 'Submitting…' : 'Apply for Blue Tick'}</button>
       </form>
 
-      {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-xs font-extrabold text-white"><MessageCircle className="w-4 h-4" />Send proof documents on WhatsApp</a>}
+      {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-4 text-center text-base font-extrabold text-white"><MessageCircle className="w-4 h-4" />Send proof documents on WhatsApp</a>}
       {message && <p role="status" className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 text-xs text-slate-700 dark:text-slate-200">{message}</p>}
 
       <div className="space-y-3">
         <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">Your verification applications</h4>
         {applications.length === 0 && <p className="text-xs text-slate-500">Abhi koi Blue Tick application nahi hai.</p>}
         {applications.map((application) => (
-          <div key={application.id} className="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+          <div key={application.id} className="min-w-0 space-y-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-700 sm:p-4">
             <div className="flex items-center justify-between gap-3">
               <div><p className="font-bold text-sm text-slate-900 dark:text-white">{application.propertyTitle}</p><p className="text-[11px] text-slate-500">Status: {application.status} · Proof: {application.proofStatus === 'received' ? 'received' : 'send on WhatsApp'}</p></div>
               <span className="text-[10px] uppercase font-black rounded-lg bg-slate-100 dark:bg-slate-700 px-2 py-1">{application.status}</span>

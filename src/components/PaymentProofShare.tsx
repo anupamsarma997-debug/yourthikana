@@ -26,6 +26,13 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
   const upiLink = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent('YourThikana')}&am=${amount}&cu=INR&tn=${encodeURIComponent(`${title} - ${propertyTitle}`)}`;
   const cleanUtr = utr.trim();
   const validUtr = /^[A-Za-z0-9-]{8,30}$/.test(cleanUtr);
+  const whatsappText = `YourThikana ${title} payment proof
+Application ID: ${applicationId}
+Property: ${propertyTitle}
+Amount: ₹${amount}
+UPI UTR: ${cleanUtr || 'Will share with screenshot'}
+Please verify the screenshot and bank credit manually.`;
+  const whatsappLink = `https://wa.me/919101280465?text=${encodeURIComponent(whatsappText)}`;
 
   const sendProof = async () => {
     setMessage('');
@@ -122,6 +129,19 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
           />
           <p className="mt-1 text-xs leading-5 text-slate-500">Blank ya fake UTR accept nahi hoga. UTR apne payment app ke transaction details se copy karein.</p>
         </div>
+
+        <a
+          href={whatsappLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Open WhatsApp chat with YourThikana admin"
+          className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300"
+        >
+          <MessageCircle className="h-5 w-5 shrink-0" />
+          <span>Open WhatsApp Admin in 1 tap</span>
+        </a>
+
+        <p className="text-xs leading-5 text-slate-500">WhatsApp chat seedha Admin ke saath khulega. Screenshot ko WhatsApp mein Attach karke Send karein. Auto-send Android/WhatsApp allow nahi karta.</p>
 
         <button
           type="button"

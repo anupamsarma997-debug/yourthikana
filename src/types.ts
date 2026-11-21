@@ -83,6 +83,9 @@ export interface Property {
   subscriptionPrice: number;
   subscriptionExpiresAt: string;
   subscriptionExpiryDate?: string;
+  subscriptionTrialStartedAt?: string;
+  subscriptionTrialEndsAt?: string;
+  subscriptionStatus?: 'trial' | 'active' | 'expired' | 'pending';
   createdAt: string;
 }
 

@@ -983,9 +983,11 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {properties.map((property) => {
                 const rooms = store.getRoomsByProperty(property.id);
-                const expiry = new Date(property.subscriptionExpiryDate);
+                const expiryValue = property.subscriptionTrialEndsAt || property.subscriptionExpiryDate || property.subscriptionExpiresAt;
+                const expiry = expiryValue ? new Date(expiryValue) : null;
                 const today = new Date();
-                const daysLeft = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                const daysLeft = expiry && Number.isFinite(expiry.getTime()) ? Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+                const isTrial = property.subscriptionStatus === 'trial' && daysLeft > 0;
 
                 const isOwner = currentUser && store.isOwnerOfProperty(currentUser.id, property.id);
 
@@ -1068,7 +1070,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                       }`}>
                         <span className="flex items-center gap-1.5">
                           <Clock className="w-4 h-4" />
-                          <span>Subscription: {daysLeft} days remaining</span>
+                          <span>{isTrial ? `Free trial: ${daysLeft} days remaining` : daysLeft > 0 ? `Subscription: ${daysLeft} days remaining` : 'Subscription payment required'}</span>
                         </span>
 
                         {isOwner && (
@@ -1076,7 +1078,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                             onClick={() => handleBuyAddon(property.id, 'renew')}
                             className="bg-slate-900 text-white text-[10px] px-2.5 py-1 rounded-lg hover:bg-slate-800 cursor-pointer"
                           >
-                            Renew ₹1000
+                            Pay ₹1000/month
                           </button>
                         )}
                       </div>
@@ -1267,130 +1269,41 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
 
       {/* Tab 3: Listing Plans & Pricing */}
       {activeTab === 'subscriptions' && (
-        <div className="space-y-6">
-          <div className="text-center max-w-xl mx-auto space-y-2">
-            <h3 className="text-xl font-black text-slate-900 dark:text-white">
-              Listing Subscriptions & Add-on Plans
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Zero Commission Model: Choose a monthly listing plan to showcase your property directly to travelers with 100% direct WhatsApp leads!
-            </p>
+        <div className="space-y-5">
+          <div className="max-w-2xl space-y-2">
+            <h3 className="text-xl font-black text-slate-900 dark:text-white">YourThikana Revenue & Services</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-300">Har service alag hai. Monthly platform subscription per property hai; Blue Tick aur Search Boost ismein included nahi hain.</p>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Plan 1 */}
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-lg space-y-4 relative flex flex-col justify-between">
-              <div>
-                <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-black uppercase px-2.5 py-1 rounded-md">
-                  Standard Listing
-                </span>
-                <h4 className="text-xl font-black text-slate-900 dark:text-white mt-2">
-                  ₹1,000 / month
-                </h4>
-                <p className="text-xs text-slate-500 mt-1">
-                  Ideal for standard homestays & local guest houses.
-                </p>
-
-                <ul className="mt-4 text-xs space-y-2 text-slate-700 dark:text-slate-300">
-                  <li className="flex items-center gap-2">✓ Unlimited room types</li>
-                  <li className="flex items-center gap-2">✓ Up to 20 Photos & 10s Video</li>
-                  <li className="flex items-center gap-2">✓ Direct WhatsApp Enquiries</li>
-                  <li className="flex items-center gap-2">✓ AI Description Generator</li>
-                  <li className="flex items-center gap-2">✓ 0% Platform Commission</li>
-                </ul>
-              </div>
-
-              <button
-                onClick={() => alert('Standard Listing Plan selected (₹1000/month). Please choose your property to activate.')}
-                className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-extrabold text-xs py-3 rounded-xl hover:opacity-90 transition-all cursor-pointer"
-              >
-                Subscribe ₹1000/mo
-              </button>
-            </div>
-
-            {/* Plan 2 */}
-            <div className="bg-gradient-to-b from-emerald-900 to-slate-900 text-white p-6 rounded-3xl border-2 border-emerald-500 shadow-2xl space-y-4 relative flex flex-col justify-between">
-              <span className="absolute -top-3 right-6 bg-emerald-500 text-slate-950 text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-md">
-                Prime Choice
-              </span>
-              <div>
-                <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase px-2.5 py-1 rounded-md">
-                  Prime Location Listing
-                </span>
-                <h4 className="text-xl font-black text-white mt-2">
-                  ₹1,500 / month
-                </h4>
-                <p className="text-xs text-slate-300 mt-1">
-                  For prime tourist hubs (Manali Mall Road, Goa Beaches, Gangtok Town).
-                </p>
-
-                <ul className="mt-4 text-xs space-y-2 text-slate-200">
-                  <li className="flex items-center gap-2">✓ Priority Placement in Search</li>
-                  <li className="flex items-center gap-2">✓ Unlimited room types</li>
-                  <li className="flex items-center gap-2">✓ Full 20 Photos + Video Tour</li>
-                  <li className="flex items-center gap-2">✓ Direct WhatsApp Enquiries</li>
-                  <li className="flex items-center gap-2">✓ Priority Customer Support</li>
-                </ul>
-              </div>
-
-              <button
-                onClick={() => alert('Prime Location Plan selected (₹1500/month).')}
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs py-3 rounded-xl shadow-lg transition-transform active:scale-95 cursor-pointer"
-              >
-                Subscribe ₹1500/mo
-              </button>
-            </div>
-
-            {/* Addons */}
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-lg space-y-4 flex flex-col justify-between">
-              <div>
-                <span className="bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-black uppercase px-2.5 py-1 rounded-md">
-                  Badges & Search Boost
-                </span>
-                <h4 className="text-xl font-black text-slate-900 dark:text-white mt-2">
-                  ₹500 / month each
-                </h4>
-                <p className="text-xs text-slate-500 mt-1">
-                  Stand out from competitors and gain guest trust.
-                </p>
-
-                <div className="mt-4 space-y-3 text-xs">
-                  <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800">
-                    <p className="font-extrabold text-blue-900 dark:text-blue-300 flex items-center gap-1">
-                      <BadgeCheck className="w-4 h-4 fill-blue-600 text-white" />
-                      Blue Verified Badge (₹500)
-                    </p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      Displays trust badge on your listing card.
-                    </p>
-                  </div>
-
-                  <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800">
-                    <p className="font-extrabold text-amber-900 dark:text-amber-300 flex items-center gap-1">
-                      <Sparkles className="w-4 h-4 text-amber-500" />
-                      ⭐ Top Search Boost (₹500)
-                    </p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      Pins your property to top of customer searches.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setActiveTab('properties')}
-                className="w-full bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs py-3 rounded-xl hover:bg-slate-200 cursor-pointer"
-              >
-                Apply Badges to Properties
-              </button>
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <article className="rounded-2xl border border-emerald-300 bg-white p-5 shadow-sm dark:border-emerald-800 dark:bg-slate-800 space-y-3">
+              <span className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-300">1 · Monthly Platform Subscription</span>
+              <h4 className="text-2xl font-black text-slate-900 dark:text-white">₹1,000 <span className="text-sm font-semibold">/ property / month</span></h4>
+              <p className="text-sm text-slate-600 dark:text-slate-300">Har property ko admin approval aur listing live hone ki date se pehle 3 calendar months free. Trial khatam hone ke baad ₹1,000/month per property.</p>
+              <p className="text-xs text-slate-500">Room count ya owner account ke hisaab se extra charge nahi; har property ka apna alag subscription period hoga.</p>
+            </article>
+            <article className="rounded-2xl border border-blue-200 bg-white p-5 shadow-sm dark:border-blue-900 dark:bg-slate-800 space-y-3">
+              <span className="text-xs font-black uppercase text-blue-700 dark:text-blue-300">2 · Blue Tick Verification</span>
+              <h4 className="text-2xl font-black text-slate-900 dark:text-white">₹500 <span className="text-sm font-semibold">/ month</span></h4>
+              <p className="text-sm text-slate-600 dark:text-slate-300">Optional paid verification. No free trial; payment and document review are separate from the platform subscription.</p>
+              <button onClick={() => document.getElementById('owner-payments')?.scrollIntoView({ behavior: 'smooth' })} className="min-h-12 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-extrabold text-white">Open Blue Tick application</button>
+            </article>
+            <article className="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm dark:border-amber-900 dark:bg-slate-800 space-y-3">
+              <span className="text-xs font-black uppercase text-amber-700 dark:text-amber-300">3 · Search Boost</span>
+              <h4 className="text-2xl font-black text-slate-900 dark:text-white">₹500 <span className="text-sm font-semibold">/ month</span></h4>
+              <p className="text-sm text-slate-600 dark:text-slate-300">Optional paid search placement. No free trial; paid separately for each approved property.</p>
+              <button onClick={() => document.getElementById('owner-payments')?.scrollIntoView({ behavior: 'smooth' })} className="min-h-12 w-full rounded-xl bg-amber-500 px-4 py-3 text-sm font-extrabold text-slate-950">Open Search Boost request</button>
+            </article>
+            <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800 space-y-3">
+              <span className="text-xs font-black uppercase text-slate-600 dark:text-slate-300">4 · Website Ads</span>
+              <h4 className="text-xl font-black text-slate-900 dark:text-white">Google AdSense</h4>
+              <p className="text-sm text-slate-600 dark:text-slate-300">Separate website advertising income. Ads will be enabled only after Google AdSense approval and setup; no ad revenue is assumed before approval.</p>
+              <span className="inline-flex w-fit rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-200">AdSense setup pending</span>
+            </article>
           </div>
         </div>
       )}
 
-      {/* Tab 3: Customer WhatsApp Enquiries Lead Tracker */}
+            {/* Tab 3: Customer WhatsApp Enquiries Lead Tracker */}
       {activeTab === 'leads' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">

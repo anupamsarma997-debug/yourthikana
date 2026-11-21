@@ -58,22 +58,24 @@ export const BlueTickAdminPanel: React.FC = () => {
         setMessage('Property deleted or not published. Blue Tick cannot be approved.');
         return;
       }
+      if (action === 'approve' && application.paymentStatus !== 'verified') {
+        setMessage('Verify the ₹500 payment first. Blue Tick has no free trial.');
+        return;
+      }
       const batch = writeBatch(db);
       const applicationRef = doc(db, 'verificationApplications', application.id);
       if (action === 'approve') {
         const approvedAt = new Date();
-        const freeTrialEndsAt = addCalendarMonths(approvedAt, 3).toISOString();
+        const paidUntil = addCalendarMonths(approvedAt, 1).toISOString();
         batch.update(applicationRef, {
           status: 'approved',
           approvedAt: approvedAt.toISOString(),
-          freeTrialEndsAt,
-          verifiedUntil: freeTrialEndsAt,
-          paymentStatus: 'not_submitted',
+          verifiedUntil: paidUntil,
           reviewedBy: auth.currentUser.uid,
         });
         batch.update(doc(db, 'properties', application.propertyId), {
           isVerified: true,
-          verifiedUntil: freeTrialEndsAt,
+          verifiedUntil: paidUntil,
         });
       } else {
         batch.update(applicationRef, {
@@ -84,7 +86,7 @@ export const BlueTickAdminPanel: React.FC = () => {
         });
       }
       await batch.commit();
-      setMessage(action === 'approve' ? 'Application approved. Three-month free period starts now.' : 'Application rejected.');
+      setMessage(action === 'approve' ? 'Payment and property proof approved. Blue Tick activated for one paid month.' : 'Application rejected.');
     } catch (error: any) {
       console.error('Verification review failed:', error);
       setMessage(error?.message || 'Review action failed. Check admin claim and property record.');
@@ -98,7 +100,7 @@ export const BlueTickAdminPanel: React.FC = () => {
     setBusyId(application.id);
     setMessage('');
     try {
-      if (approve) {
+      if (approve && application.status === 'approved') {
         const propertySnapshot = await getDoc(doc(db, 'properties', application.propertyId));
         if (!propertySnapshot.exists() || propertySnapshot.data().status !== 'active') {
           setMessage('Property deleted or not published. Blue Tick renewal cannot be activated.');
@@ -109,19 +111,18 @@ export const BlueTickAdminPanel: React.FC = () => {
       const applicationRef = doc(db, 'verificationApplications', application.id);
       if (approve) {
         const now = new Date();
-        const existingExpiry = application.verifiedUntil ? new Date(application.verifiedUntil) : now;
-        const renewalBase = existingExpiry.getTime() > now.getTime() ? existingExpiry : now;
-        const nextExpiry = addCalendarMonths(renewalBase, 1).toISOString();
         batch.update(applicationRef, {
           paymentStatus: 'verified',
           paymentVerifiedAt: now.toISOString(),
           paymentVerifiedBy: auth.currentUser.uid,
-          verifiedUntil: nextExpiry,
         });
-        batch.update(doc(db, 'properties', application.propertyId), {
-          isVerified: true,
-          verifiedUntil: nextExpiry,
-        });
+        if (application.status === 'approved') {
+          const existingExpiry = application.verifiedUntil ? new Date(application.verifiedUntil) : now;
+          const renewalBase = existingExpiry.getTime() > now.getTime() ? existingExpiry : now;
+          const nextExpiry = addCalendarMonths(renewalBase, 1).toISOString();
+          batch.update(applicationRef, { verifiedUntil: nextExpiry });
+          batch.update(doc(db, 'properties', application.propertyId), { isVerified: true, verifiedUntil: nextExpiry });
+        }
       } else {
         batch.update(applicationRef, {
           paymentStatus: 'rejected',
@@ -141,7 +142,7 @@ export const BlueTickAdminPanel: React.FC = () => {
   };
 
   const pending = applications.filter((item) => item.status === 'pending');
-  const paymentPending = applications.filter((item) => item.status === 'approved' && item.paymentStatus === 'pending');
+  const paymentPending = applications.filter((item) => (item.status === 'pending' || item.status === 'approved') && item.paymentStatus === 'pending');
 
   return (
     <section className="bg-white dark:bg-slate-800 rounded-3xl border border-blue-200 dark:border-blue-900 p-5 sm:p-6 space-y-5">
@@ -162,12 +163,12 @@ export const BlueTickAdminPanel: React.FC = () => {
           </div>
           {application.status === 'pending' && (
             <div className="flex gap-2">
-              <button type="button" disabled={busyId === application.id || !proofChecked[application.id]} onClick={() => review(application, 'approve')} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><CheckCircle2 className="w-4 h-4" />Approve — start 3-month free trial</button>
+              <button type="button" disabled={busyId === application.id || !proofChecked[application.id] || application.paymentStatus !== 'verified'} onClick={() => review(application, 'approve')} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><CheckCircle2 className="w-4 h-4" />Approve paid Blue Tick</button>
               <button type="button" disabled={busyId === application.id} onClick={() => review(application, 'reject')} className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><XCircle className="w-4 h-4" />Reject</button>
             </div>
           )}
           {application.status === 'approved' && <p className="text-xs text-slate-600 dark:text-slate-300">Blue Tick valid until: <strong>{dateLabel(application.verifiedUntil || application.freeTrialEndsAt)}</strong></p>}
-          {application.status === 'approved' && application.paymentStatus === 'pending' && (
+          {(application.status === 'pending' || application.status === 'approved') && application.paymentStatus === 'pending' && (
             <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
               <p className="text-xs font-bold text-amber-900 dark:text-amber-200">Payment UTR: {application.paymentUtr}</p>
               <div className="flex gap-2">
@@ -178,7 +179,7 @@ export const BlueTickAdminPanel: React.FC = () => {
           )}
         </article>
       ))}
-      <p className="text-[11px] text-slate-500"><RefreshCw className="inline w-3.5 h-3.5 mr-1" />Payment UTR is not proof by itself. Verify the ₹500 credit in your UPI/bank account before approving a renewal.</p>
+      <p className="text-[11px] text-slate-500"><RefreshCw className="inline w-3.5 h-3.5 mr-1" />Payment UTR is not proof by itself. Verify the ₹500 credit in your UPI/bank account before approving a new Blue Tick or renewal.</p>
     </section>
   );
 };

@@ -18,6 +18,16 @@ const STORAGE_KEYS = {
   MOBILE_FRAME: 'thikana_mobile_frame_v1',
 };
 
+function addCalendarMonths(date: Date, months: number): Date {
+  const result = new Date(date);
+  const day = result.getDate();
+  result.setDate(1);
+  result.setMonth(result.getMonth() + months);
+  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+  result.setDate(Math.min(day, lastDay));
+  return result;
+}
+
 // Helper for cryptographic SHA-256 password hashing with salt
 function rightRotate(value: number, amount: number) {
   return (value >>> amount) | (value << (32 - amount));
@@ -1074,34 +1084,21 @@ class DataStore {
       // Check only this account's listings. A collection-wide read is not
       // permitted by the privacy rules and is unnecessary because the atomic
       // owner-limit and duplicate-key documents enforce both constraints.
-      const existingSnapshot = await getDocs(
-        query(collection(db, 'properties'), where('ownerUid', '==', ownerUid))
-      );
-      if (!existingSnapshot.empty) {
-        throw new Error('ONE_PROPERTY_PER_ACCOUNT: This account already has a property listing. One account can publish only one property.');
-      }
-
-      const ownerLimitRef = doc(db, 'owner_listing_limits', ownerUid);
+      // Each owner may list multiple distinct properties. The global fingerprint lock
+      // still prevents duplicate property submissions across all accounts.
       const duplicateRef = doc(db, 'property_duplicate_keys', duplicateKey);
       const propertyRef = doc(db, 'properties', newProp.id);
       await runTransaction(db, async (transaction) => {
-        const [ownerLimitSnapshot, duplicateSnapshot] = await Promise.all([
-          transaction.get(ownerLimitRef),
-          transaction.get(duplicateRef),
-        ]);
-        if (ownerLimitSnapshot.exists()) {
-          throw new Error('ONE_PROPERTY_PER_ACCOUNT: This account already has a property listing. One account can publish only one property.');
-        }
+        const duplicateSnapshot = await transaction.get(duplicateRef);
         if (duplicateSnapshot.exists()) {
           throw new Error('DUPLICATE_PROPERTY: This property already appears on THIKANA. Duplicate listings are not allowed.');
         }
-        transaction.set(ownerLimitRef, { ownerUid, propertyId: newProp.id, createdAt: now.toISOString() });
         transaction.set(duplicateRef, { ownerUid, propertyId: newProp.id, createdAt: now.toISOString() });
         transaction.set(propertyRef, sanitizeForFirestore(newProp));
       });
     } catch (err: any) {
       this.firestoreError = err?.message || String(err);
-      if (err?.message?.startsWith('ONE_PROPERTY_PER_ACCOUNT:') || err?.message?.startsWith('DUPLICATE_PROPERTY:')) {
+      if (err?.message?.startsWith('DUPLICATE_PROPERTY:')) {
         throw new Error(err.message);
       }
       const code = err?.code || 'unknown';
@@ -1195,8 +1192,20 @@ class DataStore {
     if (!db) return { success: false, message: 'Secure database is unavailable. No change was made.' };
 
     try {
-      await setDoc(doc(db, 'properties', id), { status }, { merge: true });
-      prop.status = status;
+      const update: Partial<Property> = { status };
+      if (status === 'active' && !prop.subscriptionTrialStartedAt && !prop.subscriptionTrialEndsAt) {
+        const trialStart = new Date();
+        const trialEnd = addCalendarMonths(trialStart, 3);
+        update.subscriptionTrialStartedAt = trialStart.toISOString();
+        update.subscriptionTrialEndsAt = trialEnd.toISOString();
+        update.subscriptionStatus = 'trial';
+        update.subscriptionPlan = 'standard_1000';
+        update.subscriptionPrice = 1000;
+        update.subscriptionExpiresAt = trialEnd.toISOString();
+        update.subscriptionExpiryDate = trialEnd.toISOString();
+      }
+      await setDoc(doc(db, 'properties', id), update, { merge: true });
+      Object.assign(prop, update);
       this.notify();
       return { success: true, message: `"${prop.title}" status changed to ${status}.` };
     } catch (err: any) {
@@ -1311,12 +1320,18 @@ class DataStore {
 
     prop.subscriptionExpiresAt = newExpiry.toISOString();
     prop.subscriptionExpiryDate = newExpiry.toISOString();
+    prop.subscriptionStatus = 'active';
+    prop.subscriptionPlan = 'standard_1000';
+    prop.subscriptionPrice = price;
     prop.status = 'active';
 
     if (db) {
       setDoc(doc(db, 'properties', propertyId), {
         subscriptionExpiresAt: prop.subscriptionExpiresAt,
         subscriptionExpiryDate: prop.subscriptionExpiryDate,
+        subscriptionStatus: prop.subscriptionStatus,
+        subscriptionPlan: prop.subscriptionPlan,
+        subscriptionPrice: prop.subscriptionPrice,
         status: prop.status
       }, { merge: true }).catch((err) => console.warn('Firestore renew error:', err));
     }

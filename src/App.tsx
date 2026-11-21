@@ -94,6 +94,62 @@ export function App() {
   const [isGalleryOpen, setIsGalleryOpen] = useState<boolean>(false);
   const [selectedRoomForWhatsApp, setSelectedRoomForWhatsApp] = useState<RoomType | undefined>(undefined);
 
+  // Keep in-app screens in browser history so Android/browser Back returns
+  // to the previous YourThikana screen instead of leaving the app immediately.
+  const skipHistoryPushRef = React.useRef(false);
+  const lastHistoryKeyRef = React.useRef('');
+  useEffect(() => {
+    const makeSnapshot = () => ({
+      __yourThikana: true,
+      role: currentRole,
+      view: currentView,
+      propertyId: selectedProperty?.id ?? null,
+      authOpen: isAuthOpen,
+      aiOpen: isAIOpen,
+      whatsappOpen: isWhatsAppOpen,
+      galleryOpen: isGalleryOpen,
+    });
+
+    const snapshot = makeSnapshot();
+    const key = JSON.stringify(snapshot);
+
+    if (!window.history.state?.__yourThikana) {
+      window.history.replaceState(snapshot, '', window.location.href);
+      lastHistoryKeyRef.current = key;
+    } else if (skipHistoryPushRef.current) {
+      window.history.replaceState(snapshot, '', window.location.href);
+      lastHistoryKeyRef.current = key;
+      skipHistoryPushRef.current = false;
+    } else if (lastHistoryKeyRef.current !== key) {
+      window.history.pushState(snapshot, '', window.location.href);
+      lastHistoryKeyRef.current = key;
+    }
+  }, [currentRole, currentView, selectedProperty, isAuthOpen, isAIOpen, isWhatsAppOpen, isGalleryOpen]);
+
+  useEffect(() => {
+    const restorePreviousScreen = (event: PopStateEvent) => {
+      const snapshot = event.state;
+      if (!snapshot?.__yourThikana) {
+        // The user has reached the original entry point; let the browser exit normally.
+        return;
+      }
+
+      skipHistoryPushRef.current = true;
+      setCurrentRole(snapshot.role === 'owner' || snapshot.role === 'admin' ? snapshot.role : 'customer');
+      setCurrentView(snapshot.view === 'property-detail' ? 'property-detail' : 'home');
+      const property = snapshot.propertyId ? store.getPropertyById(snapshot.propertyId) : null;
+      setSelectedProperty(property || null);
+      if (snapshot.view === 'property-detail' && !property) setCurrentView('home');
+      setIsAuthOpen(Boolean(snapshot.authOpen));
+      setIsAIOpen(Boolean(snapshot.aiOpen));
+      setIsWhatsAppOpen(Boolean(snapshot.whatsappOpen));
+      setIsGalleryOpen(Boolean(snapshot.galleryOpen));
+    };
+
+    window.addEventListener('popstate', restorePreviousScreen);
+    return () => window.removeEventListener('popstate', restorePreviousScreen);
+  }, []);
+
   // App Frame Toggle
   const [isMobileFrame, setIsMobileFrame] = useState<boolean>(store.getMobileFrame());
   const [isDark, setIsDark] = useState<boolean>(store.getTheme());

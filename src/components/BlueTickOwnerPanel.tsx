@@ -90,16 +90,37 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
     setBusy(true);
     try {
       const applicationRef = doc(collection(db, 'verificationApplications'));
+      const shareFiles = [...selectedDocuments];
+      const shareText = `Hello YourThikana Admin, Blue Tick proof documents for application ${applicationRef.id}. Property: ${property.title}. Please review these attached documents manually. I understand that the application is not approved until review is complete.`;
+      // Open Android's share sheet directly from the Apply tap, before async Firestore work can consume user activation.
+      const sharePromise = navigator.share && navigator.canShare && navigator.canShare({ files: shareFiles })
+        ? navigator.share({ files: shareFiles, title: 'YourThikana Blue Tick documents', text: shareText })
+        : null;
       await setDoc(applicationRef, {
         ownerUid: user.uid, propertyId: property.id, propertyTitle: property.title,
         status: 'pending', paymentStatus: 'not_submitted',
-        documentCount: selectedDocuments.length, documentPaths: [],
-        proofSubmissionMethod: 'device_share', proofStatus: 'awaiting_owner_share',
+        documentCount: shareFiles.length, documentPaths: [],
+        proofSubmissionMethod: 'device_share', proofStatus: sharePromise ? 'share_sheet_opened' : 'awaiting_owner_share',
         submittedAt: serverTimestamp(),
       });
       setProofShareTarget({ id: applicationRef.id, title: property.title });
       setPropertyId('');
-      setMessage('Application save ho gayi. ₹500 payment proof aur property documents dono submit karein. Admin bank payment aur documents verify karne ke baad hi Blue Tick activate karega.');
+      if (sharePromise) {
+        try {
+          await sharePromise;
+          await updateDoc(applicationRef, { proofStatus: 'share_sheet_completed', proofSharedAt: serverTimestamp() });
+          setMessage('Documents share sheet mein khul gaye. WhatsApp mein Admin +91 9101280465 choose karke Send dabayein. ₹500 payment proof alag se submit karein.');
+        } catch (shareError) {
+          if (shareError instanceof Error && shareError.name === 'AbortError') {
+            setMessage('Application save ho gayi. Document sharing cancel hui; neeche Share documents button se dobara try karein.');
+          } else {
+            console.error('Blue Tick document sharing failed:', shareError);
+            setMessage('Application save ho gayi, lekin share sheet nahi khuli. Neeche Share documents button dabayein.');
+          }
+        }
+      } else {
+        setMessage('Application save ho gayi. Is browser mein direct file sharing supported nahi; neeche Share documents button se Android Chrome mein try karein.');
+      }
     } catch (error: any) {
       console.error('Blue Tick application failed:', error);
       setMessage(error?.message || 'Application submit nahi ho payi. Please try again.');

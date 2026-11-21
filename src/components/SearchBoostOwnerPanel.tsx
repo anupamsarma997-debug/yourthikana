@@ -20,12 +20,18 @@ type SearchBoostApplication = {
 
 const dateLabel = (value?: string) => value ? new Date(value).toLocaleDateString('en-IN') : '—';
 
-export const SearchBoostOwnerPanel: React.FC<{ properties: Property[] }> = ({ properties }) => {
+export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedPropertyId?: string }> = ({ properties, selectedPropertyId }) => {
   const uid = auth?.currentUser?.uid || '';
   const [applications, setApplications] = useState<SearchBoostApplication[]>([]);
   const [propertyId, setPropertyId] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (selectedPropertyId && eligibleProperties.some((property) => property.id === selectedPropertyId)) {
+      setPropertyId(selectedPropertyId);
+    }
+  }, [selectedPropertyId, eligibleProperties]);
 
   const eligibleProperties = useMemo(
     () => properties.filter((property) => property.ownerUid === uid && property.status === 'active' && !(property.isFeatured && property.featuredUntil && Date.parse(property.featuredUntil) > Date.now())),

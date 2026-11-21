@@ -27,7 +27,8 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
   const uid = auth?.currentUser?.uid || '';
   const [applications, setApplications] = useState<Application[]>([]);
   const [propertyId, setPropertyId] = useState('');
-  const [whatsappUrl, setWhatsappUrl] = useState('');
+  const [selectedDocuments, setSelectedDocuments] = useState<File[]>([]);
+  const [proofShareTarget, setProofShareTarget] = useState<{ id: string; title: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -74,20 +75,27 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
       return;
     }
 
+    if (selectedDocuments.length === 0) {
+      setMessage('Kam se kam ek property proof document (photo ya PDF) select karein.');
+      return;
+    }
+    if (selectedDocuments.length > 5 || selectedDocuments.some((file) => file.size > 10 * 1024 * 1024) || selectedDocuments.reduce((total, file) => total + file.size, 0) > 20 * 1024 * 1024) {
+      setMessage('Maximum 5 files select karein. Har file 10 MB aur total size 20 MB se kam hona chahiye.');
+      return;
+    }
     setBusy(true);
     try {
       const applicationRef = doc(collection(db, 'verificationApplications'));
       await setDoc(applicationRef, {
         ownerUid: user.uid, propertyId: property.id, propertyTitle: property.title,
         status: 'pending', paymentStatus: 'not_submitted',
-        documentCount: 0, documentPaths: [],
-        proofSubmissionMethod: 'whatsapp', proofStatus: 'awaiting_whatsapp',
+        documentCount: selectedDocuments.length, documentPaths: [],
+        proofSubmissionMethod: 'device_share', proofStatus: 'awaiting_owner_share',
         submittedAt: serverTimestamp(),
       });
-      const proofMessage = `Hello YourThikana Admin, Blue Tick proof documents for application ${applicationRef.id}. Property: ${property.title}. Owner UID: ${user.uid}. I am sending the property proof documents for manual review.`;
-      setWhatsappUrl(`https://wa.me/919101280465?text=${encodeURIComponent(proofMessage)}`);
+      setProofShareTarget({ id: applicationRef.id, title: property.title });
       setPropertyId('');
-      setMessage('Application submit ho gayi. Ab WhatsApp par property proof documents bhejein. Approval manual document review ke baad hi hoga.');
+      setMessage('Application save ho gayi. Ab neeche button dabakar selected documents WhatsApp share sheet mein bhejein. Admin ke Send karne aur manual review ke baad hi proof receive maana jayega.');
     } catch (error: any) {
       console.error('Blue Tick application failed:', error);
       setMessage(error?.message || 'Application submit nahi ho payi. Please try again.');
@@ -129,11 +137,30 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
           <option value="">Select a property</option>
           {ownedProperties.map((property) => <option key={property.id} value={property.id}>{property.title} — {property.city}</option>)}
         </select>
-        <p className="text-[11px] text-slate-500">Trade licence, property-tax/electricity bill, lease/authorisation letter jaise proof WhatsApp par bhejein. Aadhaar aur unnecessary personal numbers hide karein.</p>
-        <button disabled={busy || !ownedProperties.length} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-4 text-base font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"><Upload className="w-4 h-4" />{busy ? 'Submitting…' : 'Apply for Blue Tick'}</button>
+        <label htmlFor="blue-tick-proof-files" className="block text-xs font-bold text-slate-700 dark:text-slate-200">Upload property proof documents (photo / PDF)</label>
+        <input id="blue-tick-proof-files" type="file" accept="image/*,application/pdf" multiple onChange={(event) => setSelectedDocuments(Array.from(event.target.files || []))} className="block min-h-12 w-full max-w-full rounded-xl border border-slate-300 bg-white p-2 text-sm text-slate-700 file:mr-2 file:min-h-10 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:font-bold file:text-blue-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:file:bg-slate-800 dark:file:text-blue-300" />
+        {selectedDocuments.length > 0 && <p className="break-words text-xs text-emerald-700 dark:text-emerald-300">{selectedDocuments.length} file(s) selected: {selectedDocuments.map((file) => file.name).join(', ')}</p>}
+        <p className="text-[11px] leading-5 text-slate-500">Trade licence, property-tax/electricity bill, lease/authorisation letter jaise proof. Maximum 5 files, 10 MB each, 20 MB total. Aadhaar aur unnecessary personal numbers hide karein. Files share sheet se WhatsApp par attach hongi; aapko Admin ko select karke Send dabana hoga.</p>
+        <button disabled={busy || !ownedProperties.length || selectedDocuments.length === 0} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-4 text-base font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"><Upload className="w-4 h-4" />{busy ? 'Submitting…' : 'Apply for Blue Tick'}</button>
       </form>
 
-      {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-4 text-center text-base font-extrabold text-white"><MessageCircle className="w-4 h-4" />Send proof documents on WhatsApp</a>}
+      {proofShareTarget && <button type="button" onClick={async () => {
+        const files = selectedDocuments;
+        const text = `Hello YourThikana Admin, Blue Tick proof documents for application ${proofShareTarget.id}. Property: ${proofShareTarget.title}. Please review these attached documents manually. I understand that the application is not approved until review is complete.`;
+        if (!files.length) { setMessage('Documents dobara select karein; share ke liye file available nahi hai.'); return; }
+        if (!navigator.share || !navigator.canShare || !navigator.canShare({ files })) {
+          setMessage('Is browser mein file attachment share supported nahi hai. Android Chrome mein kholkar try karein, ya WhatsApp mein Admin +91 9101280465 ko documents manually attach karein.');
+          return;
+        }
+        try {
+          await navigator.share({ files, title: 'YourThikana Blue Tick documents', text });
+          if (db && auth?.currentUser?.uid === uid) await updateDoc(doc(db, 'verificationApplications', proofShareTarget.id), { proofStatus: 'share_sheet_completed', proofSharedAt: serverTimestamp() });
+          setMessage('Share complete hua. WhatsApp mein Admin +91 9101280465 ko select karke Send confirm karein. Admin ke receive aur review se pehle application approved nahi hogi.');
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') setMessage('Share cancel hua. Application saved hai; documents bhejne ke liye dobara button dabayein.');
+          else { console.error('Blue Tick document sharing failed:', error); setMessage('Documents share nahi ho paye. Dobara try karein.'); }
+        }
+      }} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-4 text-center text-base font-extrabold text-white"><MessageCircle className="w-4 h-4" />Share selected documents on WhatsApp</button>}
       {message && <p role="status" className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 text-xs text-slate-700 dark:text-slate-200">{message}</p>}
 
       <div className="space-y-3">

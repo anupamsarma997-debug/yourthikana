@@ -104,7 +104,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
   );
 
   return (
-    <section className="w-full min-w-0 space-y-5 overflow-hidden rounded-[24px] border border-slate-700 bg-[#0B1220] p-4 text-[#E5EAF3] shadow-xl sm:p-5">
+    <section className="w-full min-w-0 space-y-5 overflow-hidden rounded-[18px] border border-[#243049] bg-[#0B1220] p-4 text-[#E5EAF3] shadow-xl sm:p-4">
       <header className="flex min-w-0 items-start gap-3">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#3A2A0B]">
           <BadgePercent className="h-6 w-6 text-[#FBBF24]" />
@@ -116,13 +116,13 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
         </div>
       </header>
 
-      <div className="rounded-2xl border border-[#3A2A0B] bg-[#131C2E] p-3">
+      <div className="rounded-[18px] border border-[#3A2A0B] bg-[#131C2E] p-4">
         <p className="flex items-center gap-2 text-sm font-bold text-[#FBBF24]"><Wallet className="h-5 w-5 shrink-0" />One-time monthly boost payment: ₹500</p>
         <p className="mt-1 text-xs leading-5 text-[#9AA7BD]">UPI se payment karein. Screenshot aur asli UTR share karne ke baad admin bank credit verify karega. Verification se pehle boost active nahi hoga.</p>
       </div>
 
       {paymentApplication && (
-        <div id="search-boost-payment" className="scroll-mt-4 space-y-3 rounded-2xl border border-[#14B8A6] bg-[#131C2E] p-3 sm:p-4">
+        <div id="search-boost-payment" className="scroll-mt-4 space-y-3 rounded-[18px] border border-[#14B8A6] bg-[#131C2E] p-4">
           <h4 className="text-base font-black text-white">Payment required — {paymentApplication.propertyTitle}</h4>
           <p className="text-xs leading-5 text-[#9AA7BD]">Pay button yahin sabse upar milega; kisi menu ya hidden tab ke andar nahi.</p>
           <PaymentProofShare
@@ -138,7 +138,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
         </div>
       )}
 
-      <form onSubmit={submitRequest} className="space-y-3 rounded-2xl border border-[#243049] bg-[#131C2E] p-3 sm:p-4">
+      <form onSubmit={submitRequest} className="space-y-3 rounded-[18px] border border-[#243049] bg-[#131C2E] p-4">
         <label htmlFor="search-boost-property" className="block text-sm font-bold text-[#E5EAF3]">1. Approved property choose karein</label>
         <select id="search-boost-property" value={propertyId} onChange={(event) => setPropertyId(event.target.value)} required className="min-h-12 w-full min-w-0 rounded-xl border border-[#3A4866] bg-[#0B1220] p-3 text-base text-white">
           <option value="">Select property</option>
@@ -160,7 +160,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
         </div>
         {applications.length === 0 && <p className="rounded-xl border border-dashed border-[#3A4866] p-4 text-sm text-[#9AA7BD]">Abhi koi Search Boost request nahi hai.</p>}
         {applications.map((application) => (
-          <article key={application.id} className="w-full min-w-0 space-y-3 rounded-2xl border border-[#3A4866] bg-[#131C2E] p-3 sm:p-4">
+          <article key={application.id} className="w-full min-w-0 space-y-3 rounded-[18px] border border-[#243049] bg-[#131C2E] p-4">
             <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <p className="break-words text-base font-bold text-white">{application.propertyTitle}</p>

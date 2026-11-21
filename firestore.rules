@@ -241,11 +241,13 @@ service cloud.firestore {
         request.resource.data.propertyTitle is string &&
         request.resource.data.status == 'pending' &&
         request.resource.data.paymentStatus == 'not_submitted' &&
-        request.resource.data.documentCount == 0 &&
+        request.resource.data.documentCount is int &&
+        request.resource.data.documentCount >= 1 &&
+        request.resource.data.documentCount <= 5 &&
         request.resource.data.documentPaths is list &&
         request.resource.data.documentPaths.size() == 0 &&
-        request.resource.data.proofSubmissionMethod == 'whatsapp' &&
-        request.resource.data.proofStatus == 'awaiting_whatsapp' &&
+        request.resource.data.proofSubmissionMethod == 'device_share' &&
+        request.resource.data.proofStatus == 'awaiting_owner_share' &&
         request.resource.data.submittedAt is timestamp &&
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
         get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '') == request.auth.uid &&
@@ -255,14 +257,59 @@ service cloud.firestore {
       allow update: if isAdmin() || (
         signedIn() &&
         resource.data.ownerUid == request.auth.uid &&
-        resource.data.status == 'approved' &&
+        resource.data.status in ['pending', 'approved'] &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'paymentUtr', 'paymentSubmittedAt', 'paymentStatus'
+          'paymentUtr', 'paymentSubmittedAt', 'paymentStatus', 'proofStatus', 'proofSharedAt'
         ]) &&
-        request.resource.data.paymentUtr is string &&
-        request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}$') &&
-        request.resource.data.paymentSubmittedAt is timestamp &&
-        request.resource.data.paymentStatus == 'pending'
+        (
+          (
+            request.resource.data.paymentUtr is string &&
+            request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}
+      allow delete: if isAdmin();
+    }
+
+
+    match /users/{userId} {
+      allow read: if isSelf(userId) || isAdmin();
+      allow create: if isSelf(userId) &&
+        request.resource.data.get('role', 'customer') in ['customer', 'owner'];
+      allow update: if isAdmin() || (
+        isSelf(userId) &&
+        request.resource.data.get('role', resource.data.get('role', 'customer')) == resource.data.get('role', 'customer') &&
+        request.resource.data.get('status', resource.data.get('status', 'active')) == resource.data.get('status', 'active') &&
+        request.resource.data.get('createdAt', resource.data.get('createdAt', '')) == resource.data.get('createdAt', '') &&
+        request.resource.data.get('googleUid', resource.data.get('googleUid', '')) == resource.data.get('googleUid', '')
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /public_profiles/{userId} {
+      allow read: if true;
+      allow create, update: if isSelf(userId) &&
+        request.resource.data.keys().hasOnly(['id', 'name', 'username', 'role']) &&
+        request.resource.data.get('role', 'customer') in ['customer', 'owner'];
+      allow delete: if isAdmin();
+    }
+
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /transactions/{transactionId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
+) &&
+            request.resource.data.paymentSubmittedAt is timestamp &&
+            request.resource.data.paymentStatus == 'pending'
+          ) ||
+          (
+            request.resource.data.proofStatus == 'share_sheet_completed' &&
+            request.resource.data.proofSharedAt is timestamp
+          )
+        )
       );
       allow delete: if isAdmin();
     }

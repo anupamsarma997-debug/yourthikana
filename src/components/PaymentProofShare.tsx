@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ImagePlus, MessageCircle, Smartphone, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { ImagePlus, Smartphone, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 const UPI_ID = 'anupamsarma997-1@okhdfcbank';
 
@@ -26,21 +26,14 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
   const upiLink = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent('YourThikana')}&am=${amount}&cu=INR&tn=${encodeURIComponent(`${title} - ${propertyTitle}`)}`;
   const cleanUtr = utr.trim();
   const validUtr = /^[A-Za-z0-9-]{8,30}$/.test(cleanUtr);
-  const whatsappText = `YourThikana ${title} payment proof
-Application ID: ${applicationId}
-Property: ${propertyTitle}
-Amount: ₹${amount}
-UPI UTR: ${cleanUtr || 'Will share with screenshot'}
-Please verify the screenshot and bank credit manually.`;
-  const whatsappLink = `https://wa.me/919101280465?text=${encodeURIComponent(whatsappText)}`;
 
-  const sendProof = async () => {
+  const sendProof = async (fileToShare: File | null = file) => {
     setMessage('');
-    if (!file || !file.type.startsWith('image/')) {
+    if (!fileToShare || !fileToShare.type.startsWith('image/')) {
       setMessage('Pehle payment ka asli screenshot select karein.');
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
+    if (fileToShare.size > 10 * 1024 * 1024) {
       setMessage('Screenshot 10 MB se chhota hona chahiye.');
       return;
     }
@@ -48,7 +41,7 @@ Please verify the screenshot and bank credit manually.`;
       setMessage('Apne UPI app se asli 8–30 character ka UTR / transaction ID bharein. Koi UTR khud se generate nahi hoga.');
       return;
     }
-    if (!navigator.share || !navigator.canShare || !navigator.canShare({ files: [file] })) {
+    if (!navigator.share || !navigator.canShare || !navigator.canShare({ files: [fileToShare] })) {
       setMessage('Image attachment share is browser mein supported nahi hai. Android Chrome mein website kholkar try karein.');
       return;
     }
@@ -56,7 +49,7 @@ Please verify the screenshot and bank credit manually.`;
     const text = `YourThikana ${title} payment proof\nApplication ID: ${applicationId}\nProperty: ${propertyTitle}\nAmount: ₹${amount}\nUPI UTR: ${cleanUtr}\nPlease verify the screenshot and bank credit manually. Admin WhatsApp: +91 9101280465.`;
     setBusy(true);
     try {
-      await navigator.share({ files: [file], title: 'YourThikana payment screenshot', text });
+      await navigator.share({ files: [fileToShare], title: 'YourThikana payment screenshot', text });
       await onShared(cleanUtr);
       setMessage('Share options khul gaye. WhatsApp select karein, Admin +91 9101280465 choose karein aur Send dabayein. Payment admin bank credit verify karne ke baad hi confirm hoga.');
     } catch (error) {
@@ -107,7 +100,7 @@ Please verify the screenshot and bank credit manually.`;
             id={`payment-file-${applicationId}`}
             type="file"
             accept="image/*"
-            onChange={(event) => setFile(event.target.files?.[0] || null)}
+            onChange={(event) => { const selected = event.target.files?.[0] || null; setFile(selected); if (selected && validUtr) void sendProof(selected); }}
             className="block min-h-12 w-full max-w-full cursor-pointer rounded-xl border border-slate-300 bg-white p-2 text-sm text-slate-700 file:mr-2 file:min-h-10 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:font-bold file:text-emerald-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:file:bg-slate-800 dark:file:text-emerald-300"
           />
           {file && <p className="mt-2 flex items-start gap-2 break-all text-xs font-medium text-emerald-700 dark:text-emerald-300"><CheckCircle2 className="h-4 w-4 shrink-0" />Selected: {file.name}</p>}
@@ -130,18 +123,7 @@ Please verify the screenshot and bank credit manually.`;
           <p className="mt-1 text-xs leading-5 text-slate-500">Blank ya fake UTR accept nahi hoga. UTR apne payment app ke transaction details se copy karein.</p>
         </div>
 
-        <a
-          href={whatsappLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Open WhatsApp chat with YourThikana admin"
-          className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300"
-        >
-          <MessageCircle className="h-5 w-5 shrink-0" />
-          <span>Open WhatsApp Admin in 1 tap</span>
-        </a>
-
-        <p className="text-xs leading-5 text-slate-500">WhatsApp chat seedha Admin ke saath khulega. Screenshot ko WhatsApp mein Attach karke Send karein. Auto-send Android/WhatsApp allow nahi karta.</p>
+        <p className="text-xs leading-5 text-slate-500">Screenshot select karte hi (agar UTR pehle se bhara hai) Android share sheet khul jayegi. WhatsApp choose karke Admin +91 9101280465 ko select karein aur Send dabayein.</p>
 
         <button
           type="button"
@@ -149,9 +131,8 @@ Please verify the screenshot and bank credit manually.`;
           onClick={sendProof}
           className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-4 text-center text-base font-extrabold text-white shadow-sm transition-colors hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
         >
-          <MessageCircle className="h-5 w-5 shrink-0" />
           <ImagePlus className="h-5 w-5 shrink-0" />
-          <span>{busy ? 'Opening share options…' : 'Share screenshot & UTR'}</span>
+          <span>{busy ? 'Opening WhatsApp share…' : file ? 'Share screenshot & UTR now' : 'Select screenshot to share'}</span>
         </button>
       </div>
 

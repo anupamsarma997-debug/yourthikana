@@ -99,6 +99,10 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
     });
   };
 
+  const paymentApplication = applications.find((application) =>
+    application.status === 'awaiting_payment' || application.status === 'pending' || application.status === 'rejected'
+  );
+
   return (
     <section className="w-full min-w-0 space-y-5 overflow-hidden rounded-3xl border border-amber-200 bg-white p-4 dark:border-amber-900 dark:bg-slate-800 sm:p-6">
       <header className="flex min-w-0 items-start gap-3">
@@ -116,6 +120,23 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
         <p className="flex items-center gap-2 text-sm font-bold text-amber-950 dark:text-amber-200"><Wallet className="h-5 w-5 shrink-0" />One-time monthly boost payment: ₹500</p>
         <p className="mt-1 text-xs leading-5 text-slate-700 dark:text-slate-300">UPI se payment karein. Screenshot aur asli UTR share karne ke baad admin bank credit verify karega. Verification se pehle boost active nahi hoga.</p>
       </div>
+
+      {paymentApplication && (
+        <div id="search-boost-payment" className="scroll-mt-4 space-y-2 rounded-2xl border-2 border-emerald-400 bg-emerald-50/60 p-3 dark:border-emerald-700 dark:bg-emerald-950/20 sm:p-4">
+          <h4 className="text-base font-black text-slate-950 dark:text-white">Payment required — {paymentApplication.propertyTitle}</h4>
+          <p className="text-xs leading-5 text-slate-600 dark:text-slate-300">Pay button yahin sabse upar milega; kisi menu ya hidden tab ke andar nahi.</p>
+          <PaymentProofShare
+            key={paymentApplication.id + '-' + paymentApplication.status}
+            amount={500}
+            title="Search Boost"
+            applicationId={paymentApplication.id}
+            propertyTitle={paymentApplication.propertyTitle}
+            onShared={(utrValue) => markPaymentSubmitted(paymentApplication, utrValue)}
+            initialUtr={paymentApplication.paymentUtr || ''}
+            disabled={busy}
+          />
+        </div>
+      )}
 
       <form onSubmit={submitRequest} className="space-y-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-700 sm:p-4">
         <label htmlFor="search-boost-property" className="block text-sm font-bold text-slate-900 dark:text-white">1. Approved property choose karein</label>
@@ -150,9 +171,6 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
               </span>
             </div>
             {application.featuredUntil && <p className="flex items-center gap-2 text-xs text-slate-500"><Clock3 className="h-4 w-4 shrink-0" />Active until {dateLabel(application.featuredUntil)}</p>}
-            {(application.status === 'awaiting_payment' || application.status === 'pending' || application.status === 'rejected') && (
-              <PaymentProofShare key={`${application.id}-${application.status}`} amount={500} title="Search Boost" applicationId={application.id} propertyTitle={application.propertyTitle} onShared={(utrValue) => markPaymentSubmitted(application, utrValue)} initialUtr={application.paymentUtr || ''} disabled={busy} />
-            )}
             {application.status === 'approved' && <p className="rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">Search Boost active hai.</p>}
             {application.reviewNote && <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-700 dark:bg-slate-900 dark:text-slate-200">Admin note: {application.reviewNote}</p>}
           </article>

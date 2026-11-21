@@ -79,6 +79,10 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
       setMessage('Kam se kam ek property proof document (photo ya PDF) select karein.');
       return;
     }
+    if (selectedDocuments.some((file) => !(file.type.startsWith('image/') || file.type === 'application/pdf') && !/\\.(jpe?g|png|webp|heic|pdf)$/i.test(file.name))) {
+      setMessage('Sirf image ya PDF documents select karein.');
+      return;
+    }
     if (selectedDocuments.length > 5 || selectedDocuments.some((file) => file.size > 10 * 1024 * 1024) || selectedDocuments.reduce((total, file) => total + file.size, 0) > 20 * 1024 * 1024) {
       setMessage('Maximum 5 files select karein. Har file 10 MB aur total size 20 MB se kam hona chahiye.');
       return;
@@ -101,6 +105,24 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
       setMessage(error?.message || 'Application submit nahi ho payi. Please try again.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const shareProofDocuments = async (applicationId: string, propertyTitle: string) => {
+    const files = selectedDocuments;
+    const text = `Hello YourThikana Admin, Blue Tick proof documents for application ${applicationId}. Property: ${propertyTitle}. Please review these attached documents manually. I understand that the application is not approved until review is complete.`;
+    if (!files.length) { setMessage('Pehle upar documents select karein.'); return; }
+    if (!navigator.share || !navigator.canShare || !navigator.canShare({ files })) {
+      setMessage('Is browser mein file attachment share supported nahi hai. Android Chrome mein kholkar try karein, ya WhatsApp mein Admin +91 9101280465 ko documents manually attach karein.');
+      return;
+    }
+    try {
+      await navigator.share({ files, title: 'YourThikana Blue Tick documents', text });
+      if (db && auth?.currentUser?.uid === uid) await updateDoc(doc(db, 'verificationApplications', applicationId), { proofStatus: 'share_sheet_completed', proofSharedAt: serverTimestamp() });
+      setMessage('Share complete hua. WhatsApp mein Admin +91 9101280465 ko select karke Send confirm karein. Admin ke receive aur review se pehle application approved nahi hogi.');
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') setMessage('Share cancel hua. Application saved hai; documents bhejne ke liye dobara button dabayein.');
+      else { console.error('Blue Tick document sharing failed:', error); setMessage('Documents share nahi ho paye. Dobara try karein.'); }
     }
   };
 
@@ -144,23 +166,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
         <button disabled={busy || !ownedProperties.length || selectedDocuments.length === 0} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-4 text-base font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"><Upload className="w-4 h-4" />{busy ? 'Submitting…' : 'Apply for Blue Tick'}</button>
       </form>
 
-      {proofShareTarget && <button type="button" onClick={async () => {
-        const files = selectedDocuments;
-        const text = `Hello YourThikana Admin, Blue Tick proof documents for application ${proofShareTarget.id}. Property: ${proofShareTarget.title}. Please review these attached documents manually. I understand that the application is not approved until review is complete.`;
-        if (!files.length) { setMessage('Documents dobara select karein; share ke liye file available nahi hai.'); return; }
-        if (!navigator.share || !navigator.canShare || !navigator.canShare({ files })) {
-          setMessage('Is browser mein file attachment share supported nahi hai. Android Chrome mein kholkar try karein, ya WhatsApp mein Admin +91 9101280465 ko documents manually attach karein.');
-          return;
-        }
-        try {
-          await navigator.share({ files, title: 'YourThikana Blue Tick documents', text });
-          if (db && auth?.currentUser?.uid === uid) await updateDoc(doc(db, 'verificationApplications', proofShareTarget.id), { proofStatus: 'share_sheet_completed', proofSharedAt: serverTimestamp() });
-          setMessage('Share complete hua. WhatsApp mein Admin +91 9101280465 ko select karke Send confirm karein. Admin ke receive aur review se pehle application approved nahi hogi.');
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') setMessage('Share cancel hua. Application saved hai; documents bhejne ke liye dobara button dabayein.');
-          else { console.error('Blue Tick document sharing failed:', error); setMessage('Documents share nahi ho paye. Dobara try karein.'); }
-        }
-      }} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-4 text-center text-base font-extrabold text-white"><MessageCircle className="w-4 h-4" />Share selected documents on WhatsApp</button>}
+      {proofShareTarget && <button type="button" onClick={() => shareProofDocuments(proofShareTarget.id, proofShareTarget.title)} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-4 text-center text-base font-extrabold text-white"><MessageCircle className="w-4 h-4" />Share selected documents on WhatsApp</button>}
       {message && <p role="status" className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 text-xs text-slate-700 dark:text-slate-200">{message}</p>}
 
       <div className="space-y-3">
@@ -172,6 +178,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
               <div><p className="font-bold text-sm text-slate-900 dark:text-white">{application.propertyTitle}</p><p className="text-[11px] text-slate-500">Status: {application.status} · Proof: {application.proofStatus === 'received' ? 'received' : 'send on WhatsApp'}</p></div>
               <span className="text-[10px] uppercase font-black rounded-lg bg-slate-100 dark:bg-slate-700 px-2 py-1">{application.status}</span>
             </div>
+            {application.status === 'pending' && application.proofStatus !== 'received' && <button type="button" onClick={() => shareProofDocuments(application.id, application.propertyTitle)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-3 py-3 text-sm font-bold text-white"><MessageCircle className="w-4 h-4" />Select/share proof documents</button>}
             {application.status === 'approved' && <p className="text-xs text-slate-600 dark:text-slate-300"><Clock3 className="inline w-3.5 h-3.5 mr-1" />Free trial / current validity ends: <strong>{formatDate(application.verifiedUntil || application.freeTrialEndsAt)}</strong></p>}
             {application.status === 'rejected' && <p className="text-xs text-rose-600">Review note: {application.reviewNote || 'Please contact support before reapplying.'}</p>}
             {application.status === 'approved' && new Date(application.verifiedUntil || application.freeTrialEndsAt || 0).getTime() <= Date.now() && application.paymentStatus !== 'pending' && (

@@ -46,8 +46,6 @@ service cloud.firestore {
       request.resource.data.subscriptionExpiresAt == '' &&
       request.resource.data.duplicateKeys is list &&
       request.resource.data.duplicateKeys.size() == 1 &&
-      existsAfter(/databases/$(database)/documents/owner_listing_limits/$(request.auth.uid)) &&
-      getAfter(/databases/$(database)/documents/owner_listing_limits/$(request.auth.uid)).data.get('propertyId', '') == request.resource.data.id &&
       existsAfter(/databases/$(database)/documents/property_duplicate_keys/$(request.resource.data.duplicateKeys[0])) &&
       getAfter(/databases/$(database)/documents/property_duplicate_keys/$(request.resource.data.duplicateKeys[0])).data.get('propertyId', '') == request.resource.data.id;
     }

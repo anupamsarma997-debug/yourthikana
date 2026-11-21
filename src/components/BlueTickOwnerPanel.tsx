@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, query, serverTimestamp, setDoc, updateDoc, doc, where } from 'firebase/firestore';
-import { BadgeCheck, Clock3, FileCheck2, MessageCircle, Upload, CheckCircle2, Circle, ClipboardList, CreditCard, ShieldCheck } from 'lucide-react';
+import { BadgeCheck, Clock3, FileCheck2, MessageCircle, Upload, CheckCircle2, Circle, ShieldCheck } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
 import { Property } from '../types';
 import { PaymentProofShare } from './PaymentProofShare';

@@ -27,16 +27,16 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
+  const eligibleProperties = useMemo(
+    () => properties.filter((property) => property.ownerUid === uid && property.status === 'active' && !(property.isFeatured && property.featuredUntil && Date.parse(property.featuredUntil) > Date.now())),
+    [properties, uid]
+  );
+
   useEffect(() => {
     if (selectedPropertyId && eligibleProperties.some((property) => property.id === selectedPropertyId)) {
       setPropertyId(selectedPropertyId);
     }
   }, [selectedPropertyId, eligibleProperties]);
-
-  const eligibleProperties = useMemo(
-    () => properties.filter((property) => property.ownerUid === uid && property.status === 'active' && !(property.isFeatured && property.featuredUntil && Date.parse(property.featuredUntil) > Date.now())),
-    [properties, uid]
-  );
 
   useEffect(() => {
     if (!db || !uid) {

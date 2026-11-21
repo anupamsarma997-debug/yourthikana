@@ -116,7 +116,8 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
   // Index rooms once per store update instead of rescanning all rooms for each property.
   const roomsByProperty = useMemo(() => {
     const index = new Map<string, RoomType[]>();
-    rooms.forEach((room) => {
+    (Array.isArray(rooms) ? rooms : []).forEach((room) => {
+      if (!room || typeof room.propertyId !== 'string' || !room.propertyId) return;
       const propertyRooms = index.get(room.propertyId) || [];
       propertyRooms.push(room);
       index.set(room.propertyId, propertyRooms);
@@ -132,6 +133,7 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
       const propertyRooms = roomsByProperty.get(p.id) || [];
       if (propertyRooms.length > 0) {
         const validPrices = propertyRooms
+          .filter((room) => room && typeof room === 'object')
           .map((r) => r.discountPrice || r.pricePerNight)
           .filter((price): price is number => typeof price === 'number' && !isNaN(price) && price > 0);
         priceMap[p.id] = validPrices.length > 0 ? Math.min(...validPrices) : 1500;

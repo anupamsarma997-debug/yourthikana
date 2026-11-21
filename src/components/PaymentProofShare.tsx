@@ -114,7 +114,7 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
           <input
             id={`utr-${applicationId}`}
             value={utr}
-            onChange={(event) => setUtr(event.target.value.replace(/\\s/g, '').slice(0, 30))}
+            onChange={(event) => setUtr(event.target.value.replace(/\s/g, '').slice(0, 30))}
             placeholder="GPay / PhonePe se actual UTR paste karein"
             maxLength={30}
             autoComplete="off"

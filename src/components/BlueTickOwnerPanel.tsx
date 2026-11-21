@@ -159,47 +159,47 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
   };
 
   return (
-    <section className="w-full min-w-0 overflow-hidden rounded-3xl border border-blue-200 bg-white p-4 space-y-5 dark:border-blue-900 dark:bg-slate-800 sm:p-6">
+    <section className="w-full min-w-0 overflow-hidden rounded-[24px] border border-slate-700 bg-[#0B1220] p-4 text-[#E5EAF3] shadow-xl space-y-5 sm:p-5">
       <div className="flex items-start gap-3">
-        <div className="rounded-xl bg-blue-100 dark:bg-blue-950 p-3"><BadgeCheck className="w-6 h-6 text-blue-600" /></div>
+        <div className="rounded-xl bg-[#243049] p-3"><BadgeCheck className="w-6 h-6 text-[#93C5FD]" /></div>
         <div>
-          <h3 className="text-lg font-black text-slate-900 dark:text-white">Optional Blue Tick Verification</h3>
-          <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">Normal listing bilkul free rahegi. Blue Tick sirf un owners ke liye hai jo optional verification chahte hain.</p>
+          <h3 className="text-xl font-black text-white">Apply for Blue Tick</h3>
+          <p className="mt-1 text-sm leading-5 text-[#9AA7BD]">Property verify karwayein aur listing par Blue Tick dikhayein.</p>
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-3 gap-3 text-xs">
-        <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3"><strong>1. Apply</strong><p className="mt-1 text-slate-500">Property proof submit karein.</p></div>
-        <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3"><strong>2. Payment</strong><p className="mt-1 text-slate-500">₹500/month. No free trial; admin verifies payment.</p></div>
-        <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3"><strong>3. Review</strong><p className="mt-1 text-slate-500">Badge starts only after payment and document approval.</p></div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 text-xs">
+        <div className="rounded-2xl border border-[#243049] bg-[#131C2E] p-3"><strong className="text-white">1. Apply</strong><p className="mt-1 text-[#9AA7BD]">Property proof submit karein.</p></div>
+        <div className="rounded-2xl border border-[#243049] bg-[#131C2E] p-3"><strong className="text-white">2. Payment</strong><p className="mt-1 text-[#9AA7BD]">₹500/month. No free trial; admin verifies payment.</p></div>
+        <div className="rounded-2xl border border-[#243049] bg-[#131C2E] p-3"><strong className="text-white">3. Review</strong><p className="mt-1 text-[#9AA7BD]">Badge starts only after payment and document approval.</p></div>
       </div>
 
-      <form onSubmit={submitApplication} className="space-y-3 border-t border-slate-100 dark:border-slate-700 pt-4">
-        <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Choose your property</label>
-        <select value={propertyId} onChange={(event) => setPropertyId(event.target.value)} required className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm">
+      <form onSubmit={submitApplication} className="space-y-3 rounded-2xl border border-[#243049] bg-[#131C2E] p-4">
+        <label className="block text-sm font-bold text-[#E5EAF3]">Choose your property</label>
+        <select value={propertyId} onChange={(event) => setPropertyId(event.target.value)} required className="min-h-12 w-full min-w-0 rounded-xl border border-[#3A4866] bg-[#0B1220] p-3 text-base text-white">
           <option value="">Select a property</option>
           {ownedProperties.map((property) => <option key={property.id} value={property.id}>{property.title} — {property.city}</option>)}
         </select>
         <label htmlFor="blue-tick-proof-files" className="block text-xs font-bold text-slate-700 dark:text-slate-200">Upload property proof documents (photo / PDF)</label>
-        <input id="blue-tick-proof-files" type="file" accept="image/*,application/pdf" multiple onChange={(event) => setSelectedDocuments(Array.from(event.target.files || []))} className="block min-h-12 w-full max-w-full rounded-xl border border-slate-300 bg-white p-2 text-sm text-slate-700 file:mr-2 file:min-h-10 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:font-bold file:text-blue-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:file:bg-slate-800 dark:file:text-blue-300" />
+        <input id="blue-tick-proof-files" type="file" accept="image/*,application/pdf" multiple onChange={(event) => setSelectedDocuments(Array.from(event.target.files || []))} className="block min-h-12 w-full max-w-full rounded-xl border border-dashed border-[#3A4866] bg-[#0B1220] p-2 text-sm text-[#E5EAF3] file:mr-2 file:min-h-10 file:rounded-lg file:border-0 file:bg-[#243049] file:px-3 file:font-bold file:text-[#93C5FD]" />
         {selectedDocuments.length > 0 && <p className="break-words text-xs text-emerald-700 dark:text-emerald-300">{selectedDocuments.length} file(s) selected: {selectedDocuments.map((file) => file.name).join(', ')}</p>}
         <p className="text-[11px] leading-5 text-slate-500">Trade licence, property-tax/electricity bill, lease/authorisation letter jaise proof. Maximum 5 files, 10 MB each, 20 MB total. Aadhaar aur unnecessary personal numbers hide karein. Files share sheet se WhatsApp par attach hongi; aapko Admin ko select karke Send dabana hoga.</p>
-        <button disabled={busy || !ownedProperties.length || selectedDocuments.length === 0} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-4 text-base font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"><Upload className="w-4 h-4" />{busy ? 'Submitting…' : 'Apply for Blue Tick'}</button>
+        <button disabled={busy || !ownedProperties.length || selectedDocuments.length === 0} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#3B82F6] px-4 py-4 text-base font-extrabold text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-50"><Upload className="w-4 h-4" />{busy ? 'Submitting…' : 'Apply for Blue Tick'}</button>
       </form>
 
-      {proofShareTarget && <button type="button" onClick={() => shareProofDocuments(proofShareTarget.id, proofShareTarget.title)} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-4 text-center text-base font-extrabold text-white"><MessageCircle className="w-4 h-4" />Share selected documents on WhatsApp</button>}
-      {message && <p role="status" className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 text-xs text-slate-700 dark:text-slate-200">{message}</p>}
+      {proofShareTarget && <button type="button" onClick={() => shareProofDocuments(proofShareTarget.id, proofShareTarget.title)} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-4 text-center text-base font-extrabold text-[#052E16]"><MessageCircle className="w-4 h-4" />Share selected documents on WhatsApp</button>}
+      {message && <p role="status" className="rounded-xl border border-[#3A4866] bg-[#131C2E] p-3 text-sm leading-5 text-[#E5EAF3]">{message}</p>}
 
       <div className="space-y-3">
-        <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">Your verification applications</h4>
-        {applications.length === 0 && <p className="text-xs text-slate-500">Abhi koi Blue Tick application nahi hai.</p>}
+        <h4 className="font-extrabold text-base text-white">Application status</h4>
+        {applications.length === 0 && <p className="rounded-2xl border border-dashed border-[#3A4866] p-4 text-sm text-[#9AA7BD]">Abhi koi Blue Tick application nahi hai.</p>}
         {applications.map((application) => (
-          <div key={application.id} className="min-w-0 space-y-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-700 sm:p-4">
+          <div key={application.id} className="min-w-0 space-y-3 rounded-2xl border border-[#3A4866] bg-[#131C2E] p-4">
             <div className="flex items-center justify-between gap-3">
-              <div><p className="font-bold text-sm text-slate-900 dark:text-white">{application.propertyTitle}</p><p className="text-[11px] text-slate-500">Status: {application.status} · Proof: {application.proofStatus === 'received' ? 'received' : 'send on WhatsApp'}</p></div>
-              <span className="text-[10px] uppercase font-black rounded-lg bg-slate-100 dark:bg-slate-700 px-2 py-1">{application.status}</span>
+              <div><p className="font-bold text-base text-white">{application.propertyTitle}</p><p className="mt-1 text-xs text-[#9AA7BD]">Submitted application · {application.proofStatus === 'received' ? 'Proof received' : 'Proof share required'}</p></div>
+              <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${application.status === 'approved' ? 'bg-[#0B3A33] text-[#5EEAD4]' : application.status === 'rejected' ? 'bg-[#3B1420] text-[#FCA5B5]' : 'bg-[#3A2A0B] text-[#FBBF24]'}`}>{application.status}</span>
             </div>
-            {application.status === 'pending' && application.proofStatus !== 'received' && <button type="button" onClick={() => shareProofDocuments(application.id, application.propertyTitle)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-3 py-3 text-sm font-bold text-white"><MessageCircle className="w-4 h-4" />Select/share proof documents</button>}
+            {application.status === 'pending' && application.proofStatus !== 'received' && <button type="button" onClick={() => shareProofDocuments(application.id, application.propertyTitle)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-3 py-3 text-sm font-bold text-[#052E16]"><MessageCircle className="w-4 h-4" />Select/share proof documents</button>}
             {application.status === 'pending' && application.paymentStatus !== 'verified' && <PaymentProofShare amount={500} title="Blue Tick Verification" applicationId={application.id} propertyTitle={application.propertyTitle} onShared={(utr) => markPaymentSubmitted(application, utr)} initialUtr={application.paymentUtr || ''} disabled={busy} />}
             {application.status === 'approved' && <p className="text-xs text-slate-600 dark:text-slate-300"><Clock3 className="inline w-3.5 h-3.5 mr-1" />Paid Blue Tick validity ends: <strong>{formatDate(application.verifiedUntil)}</strong></p>}
             {application.status === 'rejected' && <p className="text-xs text-rose-600">Review note: {application.reviewNote || 'Please contact support before reapplying.'}</p>}

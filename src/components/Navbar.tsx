@@ -252,10 +252,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button
                     onClick={onOpenAuth}
                     aria-label="Open account settings"
-                    className="min-w-11 min-h-11 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs hover:ring-2 hover:ring-emerald-500 transition-all overflow-hidden"
+                    className="w-11 h-11 min-w-11 min-h-11 max-w-11 max-h-11 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs hover:ring-2 hover:ring-emerald-500 transition-all overflow-hidden"
                   >
                     {user.avatar ? (
-                      <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <img src={user.avatar} alt={user.name} className="block w-full h-full max-w-full max-h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
                       user.name.charAt(0).toUpperCase()
                     )}

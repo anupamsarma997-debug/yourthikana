@@ -65,15 +65,15 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
   };
 
   return (
-    <section aria-label="Payment and proof" className="w-full min-w-0 overflow-hidden rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm dark:border-emerald-900 dark:bg-slate-950 sm:p-5">
+    <section aria-label="Payment and proof" className="w-full min-w-0 overflow-hidden rounded-2xl border border-[#243049] bg-[#131C2E] p-4 shadow-sm text-[#E5EAF3] sm:p-5">
       <div className="mb-4 flex min-w-0 items-start gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#0B3A33] text-[#5EEAD4]">
           <Smartphone className="h-6 w-6" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Secure UPI payment</p>
-          <h4 className="mt-0.5 text-xl font-black leading-tight text-slate-950 dark:text-white">Pay ₹{amount}</h4>
-          <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">Payment button alag hai. Pay karne ke baad screenshot aur asli UTR share karein.</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#5EEAD4]">Secure UPI payment</p>
+          <h4 className="mt-0.5 text-xl font-black leading-tight text-white">Pay ₹{amount}</h4>
+          <p className="mt-1 text-sm leading-5 text-[#9AA7BD]">Payment button alag hai. Pay karne ke baad screenshot aur asli UTR share karein.</p>
         </div>
       </div>
 
@@ -86,9 +86,9 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
         <span>Pay ₹{amount} now</span>
       </a>
 
-      <div className="mb-4 rounded-xl bg-slate-50 p-3 dark:bg-slate-900">
-        <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">UPI ID</p>
-        <p className="mt-1 break-all text-sm font-bold text-slate-900 dark:text-white">{UPI_ID}</p>
+      <div className="mb-4 rounded-xl bg-[#0B1220] p-3">
+        <p className="text-xs font-semibold text-[#9AA7BD]">UPI ID</p>
+        <p className="mt-1 break-all text-sm font-bold text-white">{UPI_ID}</p>
       </div>
 
       <div className="space-y-4">
@@ -101,7 +101,7 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
             type="file"
             accept="image/*"
             onChange={(event) => { const selected = event.target.files?.[0] || null; setFile(selected); if (selected && validUtr) void sendProof(selected); }}
-            className="block min-h-12 w-full max-w-full cursor-pointer rounded-xl border border-slate-300 bg-white p-2 text-sm text-slate-700 file:mr-2 file:min-h-10 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:font-bold file:text-emerald-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:file:bg-slate-800 dark:file:text-emerald-300"
+            className="block min-h-12 w-full max-w-full cursor-pointer rounded-xl border border-dashed border-[#3A4866] bg-[#0B1220] p-2 text-sm text-[#E5EAF3] file:mr-2 file:min-h-10 file:rounded-lg file:border-0 file:bg-[#243049] file:px-3 file:font-bold file:text-[#5EEAD4]"
           />
           {file && <p className="mt-2 flex items-start gap-2 break-all text-xs font-medium text-emerald-700 dark:text-emerald-300"><CheckCircle2 className="h-4 w-4 shrink-0" />Selected: {file.name}</p>}
           <p className="mt-1 text-xs leading-5 text-slate-500">Image file only, maximum 10 MB.</p>
@@ -118,7 +118,7 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
             placeholder="GPay / PhonePe se actual UTR paste karein"
             maxLength={30}
             autoComplete="off"
-            className="min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white p-3 text-base text-slate-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+            className="min-h-12 w-full min-w-0 rounded-xl border border-[#3A4866] bg-[#0B1220] p-3 text-base text-white outline-none focus:border-[#14B8A6] focus:ring-2 focus:ring-[#14B8A6]/30"
           />
           <p className="mt-1 text-xs leading-5 text-slate-500">Blank ya fake UTR accept nahi hoga. UTR apne payment app ke transaction details se copy karein.</p>
         </div>
@@ -136,11 +136,11 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
         </button>
       </div>
 
-      <div className="mt-4 flex items-start gap-2 rounded-xl bg-blue-50 p-3 dark:bg-blue-950/40">
+      <div className="mt-4 flex items-start gap-2 rounded-xl bg-[#13264F] p-3">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-blue-700 dark:text-blue-300" />
-        <p className="text-xs leading-5 text-blue-900 dark:text-blue-200">WhatsApp share sheet mein Admin +91 9101280465 select karke Send dabana hoga. Payment sirf admin ke bank-credit verification ke baad confirm hoga.</p>
+        <p className="text-xs leading-5 text-[#BFDBFE]">WhatsApp share sheet mein Admin +91 9101280465 select karke Send dabana hoga. Payment sirf admin ke bank-credit verification ke baad confirm hoga.</p>
       </div>
-      {message && <p role="status" aria-live="polite" className="mt-3 break-words rounded-xl bg-amber-50 p-3 text-sm leading-5 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{message}</p>}
+      {message && <p role="status" aria-live="polite" className="mt-3 break-words rounded-xl bg-[#3A2A0B] p-3 text-sm leading-5 text-[#FBBF24]">{message}</p>}
     </section>
   );
 };

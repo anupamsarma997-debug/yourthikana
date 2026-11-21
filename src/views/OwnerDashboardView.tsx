@@ -391,6 +391,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<'properties' | 'subscriptions' | 'leads' | 'qr-codes'>('properties');
+  const [selectedAddonPropertyId, setSelectedAddonPropertyId] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'my'>('my');
 
   React.useEffect(() => {
@@ -892,13 +893,13 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
 
       {/* Always-visible owner payment and verification panels.
           Keep these outside navigation tabs so Pay Now is never hidden behind another button. */}
-      <section aria-label="Payments and verification" className="space-y-6">
+      <section id="owner-payments" aria-label="Payments and verification" className="space-y-6">
         <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/70 dark:bg-emerald-950/20 p-4">
           <h2 className="text-base font-black text-slate-900 dark:text-white">Payments & Verification</h2>
           <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Your payment and verification options are shown directly here. Pay Now buttons are visible without opening another tab or menu.</p>
         </div>
-        <BlueTickOwnerPanel properties={properties} />
-        <SearchBoostOwnerPanel properties={properties} />
+        <BlueTickOwnerPanel properties={properties} selectedPropertyId={selectedAddonPropertyId} />
+        <SearchBoostOwnerPanel properties={properties} selectedPropertyId={selectedAddonPropertyId} />
       </section>
 
       {/* Navigation Tabs */}
@@ -1175,7 +1176,10 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                       </button>
 
                       <button
-                        onClick={() => setActiveTab('subscriptions')}
+                        onClick={() => {
+                          setSelectedAddonPropertyId(property.id);
+                          document.getElementById('owner-payments')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
                         disabled={Boolean(property.isVerified && property.verifiedUntil && Date.parse(property.verifiedUntil) > Date.now())}
                         className="flex-1 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold text-xs py-2 rounded-xl border border-blue-200 dark:border-blue-800 hover:bg-blue-100 disabled:opacity-50"
                       >
@@ -1183,7 +1187,10 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                       </button>
 
                       <button
-                        onClick={() => setActiveTab('subscriptions')}
+                        onClick={() => {
+                          setSelectedAddonPropertyId(property.id);
+                          document.getElementById('owner-payments')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
                         disabled={Boolean(property.isFeatured && property.featuredUntil && Date.parse(property.featuredUntil) > Date.now())}
                         className="flex-1 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold text-xs py-2 rounded-xl border border-amber-200 dark:border-amber-800 hover:bg-amber-100 disabled:opacity-50"
                       >

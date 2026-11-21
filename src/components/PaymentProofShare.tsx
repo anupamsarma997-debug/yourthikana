@@ -65,7 +65,7 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
   };
 
   return (
-    <section aria-label="Payment and proof" className="w-full min-w-0 overflow-hidden rounded-2xl border border-[#243049] bg-[#131C2E] p-4 shadow-sm text-[#E5EAF3] sm:p-5">
+    <section aria-label="Payment and proof" className="w-full min-w-0 overflow-hidden rounded-[18px] border border-[#243049] bg-[#131C2E] p-4 shadow-sm text-[#E5EAF3]">
       <div className="mb-4 flex min-w-0 items-start gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#0B3A33] text-[#5EEAD4]">
           <Smartphone className="h-6 w-6" />
@@ -80,7 +80,7 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
       <a
         href={upiLink}
         aria-label={`Pay ₹${amount} using UPI`}
-        className="mb-4 flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-md transition-colors hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-300"
+        className="mb-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-[#14B8A6] px-4 py-3 text-center text-base font-extrabold text-[#04201C] shadow-md transition-colors hover:brightness-105 focus:outline-none focus:ring-4 focus:ring-emerald-300"
       >
         <Smartphone className="h-5 w-5 shrink-0" />
         <span>Pay ₹{amount} now</span>
@@ -93,7 +93,7 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
 
       <div className="space-y-4">
         <div className="min-w-0">
-          <label htmlFor={`payment-file-${applicationId}`} className="mb-2 block text-sm font-bold text-slate-900 dark:text-white">
+          <label htmlFor={`payment-file-${applicationId}`} className="mb-2 block text-[13px] font-bold text-[#E5EAF3]">
             1. Payment screenshot <span className="text-rose-600">*Required</span>
           </label>
           <input
@@ -104,7 +104,7 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
             className="block min-h-12 w-full max-w-full cursor-pointer rounded-xl border border-dashed border-[#3A4866] bg-[#0B1220] p-2 text-sm text-[#E5EAF3] file:mr-2 file:min-h-10 file:rounded-lg file:border-0 file:bg-[#243049] file:px-3 file:font-bold file:text-[#5EEAD4]"
           />
           {file && <p className="mt-2 flex items-start gap-2 break-all text-xs font-medium text-emerald-700 dark:text-emerald-300"><CheckCircle2 className="h-4 w-4 shrink-0" />Selected: {file.name}</p>}
-          <p className="mt-1 text-xs leading-5 text-slate-500">Image file only, maximum 10 MB.</p>
+          <p className="mt-1 text-xs leading-5 text-[#9AA7BD]">Image file only, maximum 10 MB.</p>
         </div>
 
         <div className="min-w-0">
@@ -120,7 +120,7 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
             autoComplete="off"
             className="min-h-12 w-full min-w-0 rounded-xl border border-[#3A4866] bg-[#0B1220] p-3 text-base text-white outline-none focus:border-[#14B8A6] focus:ring-2 focus:ring-[#14B8A6]/30"
           />
-          <p className="mt-1 text-xs leading-5 text-slate-500">Blank ya fake UTR accept nahi hoga. UTR apne payment app ke transaction details se copy karein.</p>
+          <p className="mt-1 text-xs leading-5 text-[#9AA7BD]">Blank ya fake UTR accept nahi hoga. UTR apne payment app ke transaction details se copy karein.</p>
         </div>
 
         <p className="text-xs leading-5 text-slate-500">Screenshot select karte hi (agar UTR pehle se bhara hai) Android share sheet khul jayegi. WhatsApp choose karke Admin +91 9101280465 ko select karein aur Send dabayein.</p>

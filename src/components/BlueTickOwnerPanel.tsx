@@ -99,7 +99,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
       });
       setProofShareTarget({ id: applicationRef.id, title: property.title });
       setPropertyId('');
-      setMessage('Application save ho gayi. Ab neeche button dabakar selected documents WhatsApp share sheet mein bhejein. Admin ke Send karne aur manual review ke baad hi proof receive maana jayega.');
+      setMessage('Application save ho gayi. ₹500 payment proof aur property documents dono submit karein. Admin bank payment aur documents verify karne ke baad hi Blue Tick activate karega.');
     } catch (error: any) {
       console.error('Blue Tick application failed:', error);
       setMessage(error?.message || 'Application submit nahi ho payi. Please try again.');
@@ -149,8 +149,8 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
 
       <div className="grid sm:grid-cols-3 gap-3 text-xs">
         <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3"><strong>1. Apply</strong><p className="mt-1 text-slate-500">Property proof submit karein.</p></div>
-        <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3"><strong>2. Free trial</strong><p className="mt-1 text-slate-500">Approval date se 3 calendar months free.</p></div>
-        <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3"><strong>3. Renewal</strong><p className="mt-1 text-slate-500">Uske baad ₹500 per month.</p></div>
+        <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3"><strong>2. Payment</strong><p className="mt-1 text-slate-500">₹500/month. No free trial; admin verifies payment.</p></div>
+        <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3"><strong>3. Review</strong><p className="mt-1 text-slate-500">Badge starts only after payment and document approval.</p></div>
       </div>
 
       <form onSubmit={submitApplication} className="space-y-3 border-t border-slate-100 dark:border-slate-700 pt-4">
@@ -179,9 +179,10 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
               <span className="text-[10px] uppercase font-black rounded-lg bg-slate-100 dark:bg-slate-700 px-2 py-1">{application.status}</span>
             </div>
             {application.status === 'pending' && application.proofStatus !== 'received' && <button type="button" onClick={() => shareProofDocuments(application.id, application.propertyTitle)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-3 py-3 text-sm font-bold text-white"><MessageCircle className="w-4 h-4" />Select/share proof documents</button>}
-            {application.status === 'approved' && <p className="text-xs text-slate-600 dark:text-slate-300"><Clock3 className="inline w-3.5 h-3.5 mr-1" />Free trial / current validity ends: <strong>{formatDate(application.verifiedUntil || application.freeTrialEndsAt)}</strong></p>}
+            {application.status === 'pending' && application.paymentStatus !== 'verified' && <PaymentProofShare amount={500} title="Blue Tick Verification" applicationId={application.id} propertyTitle={application.propertyTitle} onShared={(utr) => markPaymentSubmitted(application, utr)} initialUtr={application.paymentUtr || ''} disabled={busy} />}
+            {application.status === 'approved' && <p className="text-xs text-slate-600 dark:text-slate-300"><Clock3 className="inline w-3.5 h-3.5 mr-1" />Paid Blue Tick validity ends: <strong>{formatDate(application.verifiedUntil)}</strong></p>}
             {application.status === 'rejected' && <p className="text-xs text-rose-600">Review note: {application.reviewNote || 'Please contact support before reapplying.'}</p>}
-            {application.status === 'approved' && new Date(application.verifiedUntil || application.freeTrialEndsAt || 0).getTime() <= Date.now() && application.paymentStatus !== 'pending' && (
+            {application.status === 'approved' && new Date(application.verifiedUntil || 0).getTime() <= Date.now() && application.paymentStatus !== 'pending' && (
               <PaymentProofShare
                 amount={500}
                 title="Blue Tick renewal"
@@ -196,7 +197,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
           </div>
         ))}
       </div>
-      <div className="text-[11px] text-slate-500 flex items-start gap-2"><FileCheck2 className="w-4 h-4 shrink-0" />Blue Tick ka matlab YourThikana ne submitted proof review kiya hai; yeh government certification nahi hai. Badge expiry par normal listing active rahegi.</div>
+      <div className="text-[11px] text-slate-500 flex items-start gap-2"><FileCheck2 className="w-4 h-4 shrink-0" />Blue Tick is a paid optional service, not a government certification. Normal property subscription remains separate.</div>
     </section>
   );
 };

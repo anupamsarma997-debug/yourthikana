@@ -32,7 +32,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
   onOpenWhatsApp,
 }) => {
   // Reuse the homepage's pre-indexed rooms to avoid rescanning all rooms per card.
-  const rooms = suppliedRooms ?? store.getRoomsByProperty(property.id);
+  const rooms = (Array.isArray(suppliedRooms) ? suppliedRooms : store.getRoomsByProperty(property.id)).filter(Boolean);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
 
   // Find lowest price room
@@ -43,8 +43,9 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
   const currentPrice = lowestPriceRoom ? (lowestPriceRoom.discountPrice || lowestPriceRoom.pricePerNight) : 1500;
   const originalPrice = lowestPriceRoom?.discountPrice ? lowestPriceRoom.pricePerNight : null;
 
-  const coverImage = property.photos && property.photos.length > 0
-    ? property.photos[activePhotoIdx] || property.photos[0]
+  const photos = Array.isArray(property.photos) ? property.photos.filter((photo) => typeof photo === 'string' && photo.length > 0) : [];
+  const coverImage = photos.length > 0
+    ? photos[activePhotoIdx] || photos[0]
     : 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80';
 
   return (
@@ -108,9 +109,9 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
         </div>
 
         {/* Photo Switcher Dots */}
-        {property.photos && property.photos.length > 1 && (
+        {photos.length > 1 && (
           <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10">
-            {property.photos.slice(0, 5).map((_, idx) => (
+            {photos.slice(0, 5).map((_, idx) => (
               <button
                 key={idx}
                 type="button"

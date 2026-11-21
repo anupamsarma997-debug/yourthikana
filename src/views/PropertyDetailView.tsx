@@ -38,7 +38,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
   onOpenGallery,
 }) => {
   const rooms = store.getRoomsByProperty(property.id);
-  const photos = property.photos || [];
+  const photos = Array.isArray(property.photos) ? property.photos.filter((photo) => typeof photo === 'string' && photo.length > 0) : [];
 
   const [selectedRoom, setSelectedRoom] = useState<RoomType | undefined>(rooms[0]);
 
@@ -259,7 +259,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
                         {/* Room Amenities Badges */}
                         <div className="flex items-center gap-1.5 flex-wrap mt-3">
-                          {room.amenities.map((am, idx) => (
+                          {(Array.isArray(room.amenities) ? room.amenities : []).map((am, idx) => (
                             <span
                               key={idx}
                               className="text-[10px] bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md font-medium"
@@ -334,7 +334,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
             <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
-                  {property.ownerName.charAt(0)}
+                  {(property.ownerName || 'P').charAt(0)}
                 </div>
                 <div>
                   <div className="flex items-center gap-1">

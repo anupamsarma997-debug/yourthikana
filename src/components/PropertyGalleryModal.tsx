@@ -16,7 +16,7 @@ export const PropertyGalleryModal: React.FC<PropertyGalleryModalProps> = ({
   const [activeTab, setActiveTab] = useState<'photos' | 'video'>('photos');
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
 
-  const photos = property?.photos || [];
+  const photos = Array.isArray(property?.photos) ? property.photos.filter((photo) => typeof photo === 'string' && photo.length > 0) : [];
 
   const handleNext = () => {
     setActivePhotoIdx((prev) => (prev + 1) % photos.length);

@@ -204,22 +204,29 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // BLUE TICK — private documents and payment proof; owner cannot approve themselves.
+    // BLUE TICK — owner applications include ₹500 payment proof; only admins approve.
     match /verificationApplications/{applicationId} {
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasAll([
-          'ownerUid', 'propertyId', 'propertyTitle', 'status',
-          'paymentStatus', 'documentCount', 'documentPaths', 'submittedAt'
+          'ownerUid', 'propertyId', 'propertyTitle', 'status', 'paymentStatus',
+          'paymentUtr', 'paymentProofPath', 'paymentAmount',
+          'documentCount', 'documentPaths', 'submittedAt'
         ]) &&
         request.resource.data.keys().hasOnly([
-          'ownerUid', 'propertyId', 'propertyTitle', 'status',
-          'paymentStatus', 'documentCount', 'documentPaths', 'submittedAt'
+          'ownerUid', 'propertyId', 'propertyTitle', 'status', 'paymentStatus',
+          'paymentUtr', 'paymentProofPath', 'paymentAmount',
+          'documentCount', 'documentPaths', 'submittedAt'
         ]) &&
         request.resource.data.ownerUid == request.auth.uid &&
         request.resource.data.propertyId is string &&
         request.resource.data.propertyTitle is string &&
         request.resource.data.status == 'pending' &&
-        request.resource.data.paymentStatus == 'not_submitted' &&
+        request.resource.data.paymentStatus == 'pending' &&
+        request.resource.data.paymentUtr is string &&
+        request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}$') &&
+        request.resource.data.paymentProofPath is string &&
+        request.resource.data.paymentProofPath.matches('^payment-proofs/' + request.auth.uid + '/[A-Za-z0-9._-]+$') &&
+        request.resource.data.paymentAmount == 500 &&
         request.resource.data.documentCount is int &&
         request.resource.data.documentCount >= 1 &&
         request.resource.data.documentCount <= 3 &&

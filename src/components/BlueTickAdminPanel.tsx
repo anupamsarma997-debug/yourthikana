@@ -70,6 +70,10 @@ export const BlueTickAdminPanel: React.FC = () => {
 
   const review = async (application: VerificationApplication, action: 'approve' | 'reject') => {
     if (!db || !auth?.currentUser) return;
+    if (action === 'approve' && (!application.paymentUtr || !application.paymentProofPath || application.paymentAmount !== 500)) {
+      setMessage('₹500 payment UTR aur screenshot proof required hai. Bank credit independently confirm karein.');
+      return;
+    }
     setBusyId(application.id);
     setMessage('');
     try {

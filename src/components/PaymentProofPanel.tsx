@@ -45,9 +45,17 @@ export const PaymentProofPanel: React.FC<Props> = ({ serviceName, amount, billin
     } finally { setBusy(false); }
   };
 
-  const share = () => {
-    const text = `Hi YourThikana, I submitted ${serviceName} payment of ₹${amount}. UTR: ${utr.trim()}. Payment screenshot has been uploaded in my application. Please verify it. I will attach the same screenshot here if required.`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+  const share = async () => {
+    const text = `Hi YourThikana, I submitted ${serviceName} payment of ₹${amount}. UTR: ${utr.trim()}. Please verify my payment proof.`;
+    try {
+      if (file && typeof navigator !== 'undefined' && 'share' in navigator && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ title: 'YourThikana payment proof', text, files: [file] });
+        return;
+      }
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return;
+    }
+    window.open(`https://wa.me/?text=${encodeURIComponent(text + ' Please attach the payment screenshot from your phone gallery.')}`, '_blank', 'noopener,noreferrer');
   };
 
   return (

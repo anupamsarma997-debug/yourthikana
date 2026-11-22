@@ -172,7 +172,7 @@ service cloud.firestore {
         request.resource.data.source in allowedSources;
     }
 
-    // SEARCH BOOST — paid owner requests require a UTR and independent admin review.
+    // SEARCH BOOST — owners submit proof; only trusted admins can activate.
     match /searchBoostApplications/{applicationId} {
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasAll([
@@ -189,18 +189,22 @@ service cloud.firestore {
         request.resource.data.status == 'pending' &&
         request.resource.data.paymentStatus == 'pending' &&
         request.resource.data.paymentUtr is string &&
-        request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}
+        request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}$') &&
+        request.resource.data.paymentProofPath is string &&
+        request.resource.data.paymentProofPath.matches('^payment-proofs/' + request.auth.uid + '/[A-Za-z0-9._-]+$') &&
+        request.resource.data.amount == 500 &&
+        request.resource.data.billingPeriod == 'month' &&
+        request.resource.data.submittedAt is timestamp &&
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
         get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '') == request.auth.uid &&
         get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('status', '') == 'active';
 
       allow read: if isAdmin() ||
         (isSignedIn() && resource.data.ownerUid == request.auth.uid);
-
       allow update, delete: if isAdmin();
     }
 
-    // OPTIONAL BLUE TICK VERIFICATION — owner-submitted applications and payment references.
+    // BLUE TICK — private documents and payment proof; owner cannot approve themselves.
     match /verificationApplications/{applicationId} {
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasAll([
@@ -238,7 +242,11 @@ service cloud.firestore {
             'paymentUtr', 'paymentProofPath', 'paymentAmount', 'paymentSubmittedAt', 'paymentStatus'
           ]) &&
           request.resource.data.paymentUtr is string &&
-          request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}
+          request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}$') &&
+          request.resource.data.paymentProofPath is string &&
+          request.resource.data.paymentProofPath.matches('^payment-proofs/' + request.auth.uid + '/[A-Za-z0-9._-]+$') &&
+          request.resource.data.paymentAmount == 500 &&
+          request.resource.data.paymentSubmittedAt is timestamp &&
           request.resource.data.paymentStatus == 'pending'
         );
 

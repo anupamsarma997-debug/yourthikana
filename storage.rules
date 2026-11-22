@@ -55,6 +55,17 @@ service firebase.storage {
       allow update: if false;
     }
 
+    match /payment-proofs/{ownerUid}/{fileName} {
+      allow create: if isOwner(ownerUid) &&
+        request.resource != null &&
+        request.resource.size > 0 &&
+        request.resource.size <= 10 * 1024 * 1024 &&
+        request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp'];
+      allow read: if isAdmin() || isOwner(ownerUid);
+      allow delete: if isAdmin() || isOwner(ownerUid);
+      allow update: if false;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

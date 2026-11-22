@@ -12,6 +12,8 @@ type VerificationApplication = {
   status: 'pending' | 'approved' | 'rejected';
   paymentStatus?: 'not_submitted' | 'pending' | 'verified' | 'rejected';
   paymentUtr?: string;
+  paymentProofPath?: string;
+  paymentAmount?: number;
   paymentSubmittedAt?: any;
   submittedAt?: any;
   documentPaths?: string[];
@@ -47,6 +49,25 @@ export const BlueTickAdminPanel: React.FC = () => {
     });
   }, []);
 
+  const openPaymentProof = async (path: string) => {
+    if (!storage) return;
+    try {
+      const blob = await getBlob(ref(storage, path));
+      const url = URL.createObjectURL(blob);
+      const opened = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!opened) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = path.split('/').pop() || 'payment-proof';
+        link.click();
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      console.error('Payment proof retrieval failed:', error);
+      setMessage('Payment screenshot open nahi hua. Storage rules / admin claim check karein.');
+    }
+  };
+
   const review = async (application: VerificationApplication, action: 'approve' | 'reject') => {
     if (!db || !auth?.currentUser) return;
     setBusyId(application.id);
@@ -68,7 +89,9 @@ export const BlueTickAdminPanel: React.FC = () => {
           approvedAt: approvedAt.toISOString(),
           freeTrialEndsAt,
           verifiedUntil: freeTrialEndsAt,
-          paymentStatus: 'not_submitted',
+          paymentStatus: 'verified',
+          paymentVerifiedAt: approvedAt.toISOString(),
+          paymentVerifiedBy: auth.currentUser.uid,
           reviewedBy: auth.currentUser.uid,
         });
         batch.update(doc(db, 'properties', application.propertyId), {
@@ -173,7 +196,7 @@ export const BlueTickAdminPanel: React.FC = () => {
       {applications.map((application) => (
         <article key={application.id} className="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-            <div><h3 className="font-extrabold text-sm text-slate-900 dark:text-white">{application.propertyTitle}</h3><p className="text-[11px] text-slate-500">Property ID: {application.propertyId} · Owner UID: {application.ownerUid}</p><p className="text-[11px] text-slate-500">Applied: {application.submittedAt?.toDate ? dateLabel(application.submittedAt.toDate().toISOString()) : 'Timestamp pending'}</p></div>
+            <div><h3 className="font-extrabold text-sm text-slate-900 dark:text-white">{application.propertyTitle}</h3><p className="text-[11px] text-slate-500">Property ID: {application.propertyId} · Owner UID: {application.ownerUid}</p>{application.paymentUtr && <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">Payment UTR: {application.paymentUtr} · ₹{application.paymentAmount || 500}</p>}{application.paymentProofPath && <button type="button" onClick={() => void openPaymentProof(application.paymentProofPath!)} className="mt-2 rounded-lg border border-emerald-600 px-3 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300">View payment screenshot</button>}<p className="text-[11px] text-slate-500">Applied: {application.submittedAt?.toDate ? dateLabel(application.submittedAt.toDate().toISOString()) : 'Timestamp pending'}</p></div>
             <span className="rounded-lg bg-slate-100 dark:bg-slate-700 px-2 py-1 text-[10px] font-black uppercase">{application.status}{application.paymentStatus === 'pending' ? ' · PAYMENT PENDING' : ''}</span>
           </div>
           <div className="flex flex-wrap gap-2">

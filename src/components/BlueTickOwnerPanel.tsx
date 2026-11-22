@@ -53,37 +53,20 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
     });
   }, [uid]);
 
-  const submitApplication = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setMessage('');
+  const submitApplication = async (utr: string, proofPath: string) => {
     const user = auth?.currentUser;
-    if (!db || !storage || !user) {
-      setMessage('Pehle apne owner Google account se sign in karein.');
-      return;
-    }
+    if (!db || !storage || !user || user.uid !== uid) throw new Error('Pehle owner account se sign in karein.');
     const property = ownedProperties.find((item) => item.id === propertyId);
-    if (!property) {
-      setMessage('Apni property select karein.');
-      return;
-    }
-    if (files.length < 1 || files.length > 3) {
-      setMessage('1 se 3 supporting documents upload karein.');
-      return;
-    }
+    if (!property) throw new Error('Apni active property select karein.');
+    if (files.length < 1 || files.length > 3) throw new Error('1 se 3 supporting documents upload karein.');
     const invalid = files.find((file) =>
       !['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(file.type) ||
       file.size <= 0 || file.size > 8 * 1024 * 1024
     );
-    if (invalid) {
-      setMessage('Sirf JPG, PNG, WEBP ya PDF file chalegi; har file 8 MB se chhoti honi chahiye.');
-      return;
-    }
-    if (applications.some((item) => item.propertyId === propertyId && item.status !== 'rejected')) {
-      setMessage('Is property ki application pehle se pending ya approved hai.');
-      return;
-    }
+    if (invalid) throw new Error('Sirf JPG, PNG, WEBP ya PDF file chalegi; har file 8 MB se chhoti honi chahiye.');
+    if (applications.some((item) => item.propertyId === propertyId && item.status !== 'rejected')) throw new Error('Is property ki application pehle se pending ya approved hai.');
 
-    setBusy(true);
+    setBusy(true); setMessage('');
     try {
       const applicationRef = doc(collection(db, 'verificationApplications'));
       const documentPaths = files.map((file, index) => {
@@ -91,14 +74,10 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
         return `verification-documents/${user.uid}/${applicationRef.id}/${index}-${safeName}`;
       });
       await setDoc(applicationRef, {
-        ownerUid: user.uid,
-        propertyId: property.id,
-        propertyTitle: property.title,
-        status: 'pending',
-        paymentStatus: 'not_submitted',
-        documentCount: files.length,
-        documentPaths,
-        submittedAt: serverTimestamp(),
+        ownerUid: user.uid, propertyId: property.id, propertyTitle: property.title,
+        status: 'pending', paymentStatus: 'pending', paymentUtr: utr,
+        paymentProofPath: proofPath, paymentAmount: 500,
+        documentCount: files.length, documentPaths, submittedAt: serverTimestamp(),
       });
       const uploadedPaths: string[] = [];
       try {
@@ -114,15 +93,12 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
         await deleteDoc(applicationRef).catch(() => undefined);
         throw uploadError;
       }
-      setFiles([]);
-      setPropertyId('');
-      setMessage('Application submit ho gayi. Admin documents review karke approval dega.');
+      setFiles([]); setPropertyId('');
+      setMessage('₹500 verification application aur payment proof submit ho gaya. Admin review ke baad hi Blue Tick activate hoga.');
     } catch (error: any) {
       console.error('Blue Tick application failed:', error);
-      setMessage(error?.message || 'Application submit nahi ho payi. Please try again.');
-    } finally {
-      setBusy(false);
-    }
+      throw error;
+    } finally { setBusy(false); }
   };
 
   const submitPayment = async (application: Application, utr: string, proofPath: string) => {
@@ -154,7 +130,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
         <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3"><strong>3. Renewal</strong><p className="mt-1 text-slate-500">Uske baad ₹500 per month.</p></div>
       </div>
 
-      <form onSubmit={submitApplication} className="space-y-3 border-t border-slate-100 dark:border-slate-700 pt-4">
+      <form onSubmit={(event) => event.preventDefault()} className="space-y-3 border-t border-slate-100 dark:border-slate-700 pt-4">
         <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Choose your property</label>
         <select value={propertyId} onChange={(event) => setPropertyId(event.target.value)} required className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm">
           <option value="">Select a property</option>
@@ -163,9 +139,10 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[] }> = ({ prope
         <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Supporting proof (1–3 files, JPG/PNG/WEBP/PDF, max 8 MB each)</label>
         <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple onChange={(event) => setFiles(Array.from(event.target.files || []).slice(0, 3))} className="w-full text-xs text-slate-600 dark:text-slate-300" />
         <p className="text-[11px] text-slate-500">Business/property ownership proof use karein. Aadhaar number ya unnecessary personal details ko hide karke upload karein. Documents private rahenge aur sirf authorized admin review karega.</p>
-        <button disabled={busy || !ownedProperties.length} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-xs font-extrabold text-white disabled:opacity-50"><Upload className="w-4 h-4" />{busy ? 'Submitting…' : 'Apply for Blue Tick'}</button>
+        <p className="text-xs font-bold text-slate-700 dark:text-slate-200">Next: complete the ₹500 verification payment below.</p>
       </form>
 
+      {propertyId && files.length > 0 && <PaymentProofPanel serviceName="Property Verification" amount={500} billingLabel="one-time" disabled={busy} onSubmit={submitApplication} />}
       {message && <p role="status" className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 text-xs text-slate-700 dark:text-slate-200">{message}</p>}
 
       <div className="space-y-3">

@@ -62,6 +62,10 @@ export const SearchBoostAdminPanel: React.FC = () => {
 
   const review = async (application: SearchBoostApplication, approve: boolean) => {
     if (!db || !auth?.currentUser) return;
+    if (approve && (!application.paymentUtr || !application.paymentProofPath)) {
+      setMessage('Payment UTR aur screenshot proof required hai. Bank credit independently confirm karein.');
+      return;
+    }
     setBusyId(application.id);
     setMessage('');
     try {

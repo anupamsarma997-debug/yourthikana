@@ -206,7 +206,7 @@ export const BlueTickAdminPanel: React.FC = () => {
           </div>
           {application.status === 'pending' && (
             <div className="flex gap-2">
-              <button type="button" disabled={busyId === application.id} onClick={() => review(application, 'approve')} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><CheckCircle2 className="w-4 h-4" />Approve — start 3-month free trial</button>
+              <button type="button" disabled={busyId === application.id} onClick={() => review(application, 'approve')} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><CheckCircle2 className="w-4 h-4" />Confirm ₹500 payment & approve</button>
               <button type="button" disabled={busyId === application.id} onClick={() => review(application, 'reject')} className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><XCircle className="w-4 h-4" />Reject</button>
             </div>
           )}
@@ -222,7 +222,7 @@ export const BlueTickAdminPanel: React.FC = () => {
           )}
         </article>
       ))}
-      <p className="text-[11px] text-slate-500"><RefreshCw className="inline w-3.5 h-3.5 mr-1" />Payment UTR is not proof by itself. Verify the ₹500 credit in your UPI/bank account before approving a renewal.</p>
+      <p className="text-[11px] text-slate-500"><RefreshCw className="inline w-3.5 h-3.5 mr-1" />UTR and screenshot are references only. Independently confirm ₹500 credit in your UPI/bank account before approving either a new verification or renewal.</p>
     </section>
   );
 };

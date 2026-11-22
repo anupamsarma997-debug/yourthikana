@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { collection, doc, getDoc, onSnapshot, writeBatch } from 'firebase/firestore';
 import { BadgePercent, CheckCircle2, XCircle } from 'lucide-react';
-import { auth, db } from '../lib/firebase';
+import { auth, db, storage } from '../lib/firebase';
+import { getBlob, ref } from 'firebase/storage';
 
 type SearchBoostApplication = {
   id: string;
@@ -11,6 +12,7 @@ type SearchBoostApplication = {
   status: 'pending' | 'approved' | 'rejected';
   paymentStatus: 'pending' | 'verified' | 'rejected';
   paymentUtr: string;
+  paymentProofPath?: string;
   submittedAt?: any;
   featuredUntil?: string;
 };
@@ -38,6 +40,25 @@ export const SearchBoostAdminPanel: React.FC = () => {
       setMessage('Search Boost requests load nahi hue. Admin claim / Firestore rules check karein.');
     });
   }, []);
+
+  const openPaymentProof = async (path: string) => {
+    if (!storage) return;
+    try {
+      const blob = await getBlob(ref(storage, path));
+      const url = URL.createObjectURL(blob);
+      const opened = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!opened) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = path.split('/').pop() || 'payment-proof';
+        link.click();
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      console.error('Payment proof open failed:', error);
+      setMessage('Payment screenshot open nahi hua. Storage rules / admin claim check karein.');
+    }
+  };
 
   const review = async (application: SearchBoostApplication, approve: boolean) => {
     if (!db || !auth?.currentUser) return;
@@ -95,7 +116,7 @@ export const SearchBoostAdminPanel: React.FC = () => {
       {applications.length === 0 && <p className="text-xs text-slate-500">No Search Boost requests received yet.</p>}
       {applications.map((application) => (
         <article key={application.id} className="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-sm font-extrabold text-slate-900 dark:text-white">{application.propertyTitle}</h3><p className="text-[11px] text-slate-500">Property: {application.propertyId} · Owner UID: {application.ownerUid}</p><p className="text-xs font-bold text-amber-700 dark:text-amber-300">Payment UTR: {application.paymentUtr}</p></div><span className="rounded-lg bg-slate-100 dark:bg-slate-700 px-2 py-1 text-[10px] font-black uppercase">{application.status} / {application.paymentStatus}</span></div>
+          <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-sm font-extrabold text-slate-900 dark:text-white">{application.propertyTitle}</h3><p className="text-[11px] text-slate-500">Property: {application.propertyId} · Owner UID: {application.ownerUid}</p><p className="text-xs font-bold text-amber-700 dark:text-amber-300">Payment UTR: {application.paymentUtr}</p>{application.paymentProofPath && <button type="button" onClick={() => void openPaymentProof(application.paymentProofPath!)} className="mt-2 rounded-lg border border-emerald-600 px-3 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300">View payment screenshot</button>}</div><span className="rounded-lg bg-slate-100 dark:bg-slate-700 px-2 py-1 text-[10px] font-black uppercase">{application.status} / {application.paymentStatus}</span></div>
           {application.status === 'pending' && <div className="flex flex-wrap gap-2"><button type="button" disabled={busyId === application.id} onClick={() => review(application, true)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><CheckCircle2 className="w-4 h-4" />Confirm ₹500 credit & activate</button><button type="button" disabled={busyId === application.id} onClick={() => review(application, false)} className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><XCircle className="w-4 h-4" />Reject</button></div>}
           {application.featuredUntil && <p className="text-xs text-slate-500">Boost valid until: {new Date(application.featuredUntil).toLocaleDateString('en-IN')}</p>}
         </article>

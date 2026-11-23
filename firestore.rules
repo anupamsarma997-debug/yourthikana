@@ -260,6 +260,660 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // MONTHLY LISTING SUBSCRIPTIONS — payment proof required; only trusted admins activate.
+    match /subscriptionApplications/{applicationId} {
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasAll([
+          'ownerUid', 'propertyId', 'propertyTitle', 'planId', 'planName',
+          'amount', 'billingPeriod', 'status', 'paymentStatus',
+          'paymentUtr', 'paymentProofPath', 'submittedAt'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'ownerUid', 'propertyId', 'propertyTitle', 'planId', 'planName',
+          'amount', 'billingPeriod', 'status', 'paymentStatus',
+          'paymentUtr', 'paymentProofPath', 'submittedAt'
+        ]) &&
+        request.resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.propertyId is string &&
+        request.resource.data.planId in ['standard_1000', 'standard_1500'] &&
+        request.resource.data.amount == (request.resource.data.planId == 'standard_1000' ? 1000 : 1500) &&
+        request.resource.data.billingPeriod == 'month' &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.paymentStatus == 'pending' &&
+        request.resource.data.paymentUtr is string &&
+        request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}
+
+    // PROPERTY LISTINGS
+    match /properties/{propertyId} {
+      allow read: if true;
+
+      allow create: if isValidProperty() &&
+        isSignedIn() &&
+        (
+          isAdmin() ||
+          (
+            request.resource.data.ownerUid == request.auth.uid &&
+            request.resource.data.keys().hasOnly([
+              'id', 'ownerId', 'ownerUid', 'ownerName',
+              'ownerPhone', 'ownerWhatsApp',
+              'title', 'description', 'propertyType',
+              'address', 'city', 'state',
+              'latitude', 'longitude', 'googleMapUrl',
+              'nearbyAttractions', 'checkInTime', 'checkOutTime',
+              'photos', 'videoUrl', 'coverImage',
+              'rating', 'reviewsCount',
+              'isVerified', 'isFeatured', 'status',
+              'subscriptionPlan', 'subscriptionPrice',
+              'subscriptionExpiresAt', 'subscriptionExpiryDate',
+              'createdAt'
+            ]) &&
+
+            (!('isVerified' in request.resource.data) ||
+              request.resource.data.isVerified == false) &&
+
+            (!('isFeatured' in request.resource.data) ||
+              request.resource.data.isFeatured == false) &&
+
+            (!('rating' in request.resource.data) ||
+              request.resource.data.rating == 0) &&
+
+            (!('reviewsCount' in request.resource.data) ||
+              request.resource.data.reviewsCount == 0) &&
+
+            (!('subscriptionPlan' in request.resource.data) ||
+              request.resource.data.subscriptionPlan == 'none') &&
+
+            (!('subscriptionPrice' in request.resource.data) ||
+              request.resource.data.subscriptionPrice == 0) &&
+
+            (!('subscriptionExpiresAt' in request.resource.data) ||
+              request.resource.data.subscriptionExpiresAt == '') &&
+
+            (!('subscriptionExpiryDate' in request.resource.data) ||
+              request.resource.data.subscriptionExpiryDate == '') &&
+
+            request.resource.data.status == 'pending'
+          )
+        );
+
+      allow update: if isValidProperty() &&
+        isSignedIn() &&
+        (
+          isAdmin() ||
+          (
+            resource.data.get('ownerUid', '') == request.auth.uid &&
+            request.resource.data.get('ownerUid', '') == resource.data.get('ownerUid', '') &&
+            request.resource.data.get('ownerId', '') == resource.data.get('ownerId', '') &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'title', 'description', 'propertyType',
+              'address', 'city', 'state',
+              'latitude', 'longitude', 'googleMapUrl',
+              'photos', 'videoUrl', 'nearbyAttractions',
+              'checkInTime', 'checkOutTime',
+              'ownerPhone', 'ownerWhatsApp'
+            ])
+          )
+        );
+
+      allow delete: if isSignedIn() &&
+        (
+          resource.data.get('ownerUid', '') == request.auth.uid ||
+          isAdmin()
+        );
+    }
+
+    // ROOMS
+    match /rooms/{roomId} {
+      allow read: if true;
+
+      allow create: if isValidRoom() &&
+        isSignedIn() &&
+        (
+          (
+            request.resource.data.get('ownerUid', '') == request.auth.uid &&
+            ownsProperty(request.resource.data.propertyId)
+          ) ||
+          isAdmin()
+        );
+
+      allow update: if isValidRoom() &&
+        isSignedIn() &&
+        (ownsProperty(resource.data.propertyId) || isAdmin()) &&
+        request.resource.data.propertyId == resource.data.propertyId &&
+        request.resource.data.get('ownerUid', '') == resource.data.get('ownerUid', '') &&
+        request.resource.data.get('ownerId', '') == resource.data.get('ownerId', '') &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'roomName', 'pricePerNight', 'discountPrice',
+          'maxGuests', 'description', 'amenities',
+          'roomSize', 'bedType', 'photos'
+        ]);
+
+      allow delete: if isSignedIn() &&
+        (ownsProperty(resource.data.propertyId) || isAdmin());
+    }
+
+    // BOOKING ENQUIRIES
+    match /enquiries/{enquiryId} {
+      allow create: if isValidEnquiry();
+
+      allow read, delete: if isAdmin() ||
+        ownsProperty(resource.data.propertyId);
+
+      // Owners can only update valid enquiry data for the same property.
+      allow update: if isAdmin() ||
+        (
+          isValidEnquiry() &&
+          ownsProperty(resource.data.propertyId) &&
+          request.resource.data.propertyId == resource.data.propertyId
+        );
+    }
+
+    // PRIVATE OWNER REPORTS — visible only to trusted admins.
+    match /enquiry_reports/{reportId} {
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasAll([
+          'enquiryId', 'propertyId', 'reporterUid', 'reason', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'enquiryId', 'propertyId', 'reporterUid', 'reason', 'createdAt'
+        ]) &&
+        request.resource.data.reporterUid == request.auth.uid &&
+        request.resource.data.enquiryId is string &&
+        request.resource.data.enquiryId.size() > 0 &&
+        request.resource.data.enquiryId.size() <= 128 &&
+        request.resource.data.propertyId is string &&
+        request.resource.data.propertyId.size() > 0 &&
+        request.resource.data.propertyId.size() <= 128 &&
+        request.resource.data.reason is string &&
+        request.resource.data.reason.size() >= 5 &&
+        request.resource.data.reason.size() <= 500 &&
+        request.resource.data.createdAt is string &&
+        request.resource.data.createdAt.size() <= 50 &&
+        ownsProperty(request.resource.data.propertyId) &&
+        exists(/databases/$(database)/documents/enquiries/$(request.resource.data.enquiryId)) &&
+        get(/databases/$(database)/documents/enquiries/$(request.resource.data.enquiryId)).data.propertyId ==
+          request.resource.data.propertyId;
+
+      allow read, update, delete: if isAdmin();
+    }
+
+    // BANNERS
+    match /banners/{bannerId} {
+      allow read: if true;
+
+      allow create: if isSignedIn() &&
+        isValidBanner() &&
+        (
+          isAdmin() ||
+          request.resource.data.get('advertiserUid', '') == request.auth.uid
+        );
+
+      allow update: if isSignedIn() &&
+        (
+          isAdmin() ||
+          (
+            isValidBanner() &&
+            resource.data.get('advertiserUid', '') == request.auth.uid &&
+            request.resource.data.get('advertiserUid', '') ==
+              resource.data.get('advertiserUid', '') &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'title', 'subtitle', 'imageUrl',
+              'targetUrl', 'ctaText', 'position', 'isActive'
+            ])
+          )
+        );
+
+      allow delete: if isSignedIn() &&
+        (
+          isAdmin() ||
+          resource.data.get('advertiserUid', '') == request.auth.uid
+        );
+    }
+
+    // PRIVATE USER DOCUMENTS
+    match /users/{userId} {
+      allow read: if isUser(userId) || isAdmin();
+
+      allow create: if isUser(userId) &&
+        isValidUserProfile() &&
+        (
+          !('role' in request.resource.data) ||
+          request.resource.data.role in ['customer', 'owner'] ||
+          isAdmin()
+        );
+
+      allow update: if isAdmin() ||
+        (
+          isUser(userId) &&
+          isValidUserProfile() &&
+          // Permit the initial profile bootstrap after Admin SDK username
+          // registration, but never let a user change an existing role/status.
+          (!('role' in resource.data) ||
+            request.resource.data.get('role', '') == resource.data.get('role', '')) &&
+          (!('status' in resource.data) ||
+            request.resource.data.get('status', '') == resource.data.get('status', '')) &&
+          (!('role' in request.resource.data) ||
+            request.resource.data.role in ['customer', 'owner']) &&
+          (!('status' in request.resource.data) ||
+            request.resource.data.status == 'active')
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    // PUBLIC PROFILES
+    match /public_profiles/{userId} {
+      allow read: if true;
+
+      allow create: if isUser(userId) &&
+        isValidPublicProfile() &&
+        (!('role' in request.resource.data) ||
+          request.resource.data.role in ['customer', 'owner'] || isAdmin());
+
+      allow update: if isUser(userId) &&
+        isValidPublicProfile() &&
+        // A missing legacy role may be initialized only as customer/owner.
+        // Admin is reserved for a trusted Auth custom claim.
+        (!('role' in request.resource.data) ||
+          request.resource.data.role in ['customer', 'owner'] || isAdmin()) &&
+        (!('role' in resource.data) ||
+          request.resource.data.get('role', '') == resource.data.get('role', ''));
+
+      allow delete: if isUser(userId) || isAdmin();
+    }
+
+    // VISITS ANALYTICS
+    match /visits/{visitId} {
+      allow create: if
+        request.resource.data.keys().hasAll([
+          'propertyId', 'refId', 'timestamp'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'id', 'propertyId', 'refId',
+          'timestamp', 'source', 'customerName'
+        ]) &&
+        request.resource.data.propertyId is string &&
+        request.resource.data.propertyId.size() > 0 &&
+        request.resource.data.propertyId.size() <= 100 &&
+        request.resource.data.refId is string &&
+        request.resource.data.refId.size() > 0 &&
+        request.resource.data.refId.size() <= 120 &&
+        request.resource.data.timestamp is string &&
+        request.resource.data.timestamp.size() <= 50 &&
+        validAnalyticsSource(['qr_referral', 'direct', 'search']) &&
+        (!('customerName' in request.resource.data) ||
+          (
+            request.resource.data.customerName is string &&
+            request.resource.data.customerName.size() <= 100
+          )) &&
+        exists(
+          /databases/$(database)/documents/properties/$(request.resource.data.propertyId)
+        );
+
+      allow read: if isAdmin() ||
+        ownsProperty(resource.data.propertyId);
+
+      allow update, delete: if isAdmin();
+    }
+
+    // LEADS ANALYTICS
+    match /leads/{leadId} {
+      allow create: if
+        request.resource.data.keys().hasAll([
+          'propertyId', 'refId', 'timestamp'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'id', 'propertyId', 'refId',
+          'timestamp', 'customerName', 'source'
+        ]) &&
+        request.resource.data.propertyId is string &&
+        request.resource.data.propertyId.size() > 0 &&
+        request.resource.data.propertyId.size() <= 100 &&
+        request.resource.data.refId is string &&
+        request.resource.data.refId.size() > 0 &&
+        request.resource.data.refId.size() <= 120 &&
+        request.resource.data.timestamp is string &&
+        request.resource.data.timestamp.size() <= 50 &&
+        validAnalyticsSource(['qr_referral', 'direct', 'whatsapp']) &&
+        (!('customerName' in request.resource.data) ||
+          (
+            request.resource.data.customerName is string &&
+            request.resource.data.customerName.size() <= 100
+          )) &&
+        exists(
+          /databases/$(database)/documents/properties/$(request.resource.data.propertyId)
+        );
+
+      allow read: if isAdmin() ||
+        ownsProperty(resource.data.propertyId);
+
+      allow update, delete: if isAdmin();
+    }
+  }
+}
+) &&
+        request.resource.data.paymentProofPath is string &&
+        request.resource.data.paymentProofPath.matches('^payment-proofs/' + request.auth.uid + '/[A-Za-z0-9._-]+
+
+    // PROPERTY LISTINGS
+    match /properties/{propertyId} {
+      allow read: if true;
+
+      allow create: if isValidProperty() &&
+        isSignedIn() &&
+        (
+          isAdmin() ||
+          (
+            request.resource.data.ownerUid == request.auth.uid &&
+            request.resource.data.keys().hasOnly([
+              'id', 'ownerId', 'ownerUid', 'ownerName',
+              'ownerPhone', 'ownerWhatsApp',
+              'title', 'description', 'propertyType',
+              'address', 'city', 'state',
+              'latitude', 'longitude', 'googleMapUrl',
+              'nearbyAttractions', 'checkInTime', 'checkOutTime',
+              'photos', 'videoUrl', 'coverImage',
+              'rating', 'reviewsCount',
+              'isVerified', 'isFeatured', 'status',
+              'subscriptionPlan', 'subscriptionPrice',
+              'subscriptionExpiresAt', 'subscriptionExpiryDate',
+              'createdAt'
+            ]) &&
+
+            (!('isVerified' in request.resource.data) ||
+              request.resource.data.isVerified == false) &&
+
+            (!('isFeatured' in request.resource.data) ||
+              request.resource.data.isFeatured == false) &&
+
+            (!('rating' in request.resource.data) ||
+              request.resource.data.rating == 0) &&
+
+            (!('reviewsCount' in request.resource.data) ||
+              request.resource.data.reviewsCount == 0) &&
+
+            (!('subscriptionPlan' in request.resource.data) ||
+              request.resource.data.subscriptionPlan == 'none') &&
+
+            (!('subscriptionPrice' in request.resource.data) ||
+              request.resource.data.subscriptionPrice == 0) &&
+
+            (!('subscriptionExpiresAt' in request.resource.data) ||
+              request.resource.data.subscriptionExpiresAt == '') &&
+
+            (!('subscriptionExpiryDate' in request.resource.data) ||
+              request.resource.data.subscriptionExpiryDate == '') &&
+
+            request.resource.data.status == 'pending'
+          )
+        );
+
+      allow update: if isValidProperty() &&
+        isSignedIn() &&
+        (
+          isAdmin() ||
+          (
+            resource.data.get('ownerUid', '') == request.auth.uid &&
+            request.resource.data.get('ownerUid', '') == resource.data.get('ownerUid', '') &&
+            request.resource.data.get('ownerId', '') == resource.data.get('ownerId', '') &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'title', 'description', 'propertyType',
+              'address', 'city', 'state',
+              'latitude', 'longitude', 'googleMapUrl',
+              'photos', 'videoUrl', 'nearbyAttractions',
+              'checkInTime', 'checkOutTime',
+              'ownerPhone', 'ownerWhatsApp'
+            ])
+          )
+        );
+
+      allow delete: if isSignedIn() &&
+        (
+          resource.data.get('ownerUid', '') == request.auth.uid ||
+          isAdmin()
+        );
+    }
+
+    // ROOMS
+    match /rooms/{roomId} {
+      allow read: if true;
+
+      allow create: if isValidRoom() &&
+        isSignedIn() &&
+        (
+          (
+            request.resource.data.get('ownerUid', '') == request.auth.uid &&
+            ownsProperty(request.resource.data.propertyId)
+          ) ||
+          isAdmin()
+        );
+
+      allow update: if isValidRoom() &&
+        isSignedIn() &&
+        (ownsProperty(resource.data.propertyId) || isAdmin()) &&
+        request.resource.data.propertyId == resource.data.propertyId &&
+        request.resource.data.get('ownerUid', '') == resource.data.get('ownerUid', '') &&
+        request.resource.data.get('ownerId', '') == resource.data.get('ownerId', '') &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'roomName', 'pricePerNight', 'discountPrice',
+          'maxGuests', 'description', 'amenities',
+          'roomSize', 'bedType', 'photos'
+        ]);
+
+      allow delete: if isSignedIn() &&
+        (ownsProperty(resource.data.propertyId) || isAdmin());
+    }
+
+    // BOOKING ENQUIRIES
+    match /enquiries/{enquiryId} {
+      allow create: if isValidEnquiry();
+
+      allow read, delete: if isAdmin() ||
+        ownsProperty(resource.data.propertyId);
+
+      // Owners can only update valid enquiry data for the same property.
+      allow update: if isAdmin() ||
+        (
+          isValidEnquiry() &&
+          ownsProperty(resource.data.propertyId) &&
+          request.resource.data.propertyId == resource.data.propertyId
+        );
+    }
+
+    // PRIVATE OWNER REPORTS — visible only to trusted admins.
+    match /enquiry_reports/{reportId} {
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasAll([
+          'enquiryId', 'propertyId', 'reporterUid', 'reason', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'enquiryId', 'propertyId', 'reporterUid', 'reason', 'createdAt'
+        ]) &&
+        request.resource.data.reporterUid == request.auth.uid &&
+        request.resource.data.enquiryId is string &&
+        request.resource.data.enquiryId.size() > 0 &&
+        request.resource.data.enquiryId.size() <= 128 &&
+        request.resource.data.propertyId is string &&
+        request.resource.data.propertyId.size() > 0 &&
+        request.resource.data.propertyId.size() <= 128 &&
+        request.resource.data.reason is string &&
+        request.resource.data.reason.size() >= 5 &&
+        request.resource.data.reason.size() <= 500 &&
+        request.resource.data.createdAt is string &&
+        request.resource.data.createdAt.size() <= 50 &&
+        ownsProperty(request.resource.data.propertyId) &&
+        exists(/databases/$(database)/documents/enquiries/$(request.resource.data.enquiryId)) &&
+        get(/databases/$(database)/documents/enquiries/$(request.resource.data.enquiryId)).data.propertyId ==
+          request.resource.data.propertyId;
+
+      allow read, update, delete: if isAdmin();
+    }
+
+    // BANNERS
+    match /banners/{bannerId} {
+      allow read: if true;
+
+      allow create: if isSignedIn() &&
+        isValidBanner() &&
+        (
+          isAdmin() ||
+          request.resource.data.get('advertiserUid', '') == request.auth.uid
+        );
+
+      allow update: if isSignedIn() &&
+        (
+          isAdmin() ||
+          (
+            isValidBanner() &&
+            resource.data.get('advertiserUid', '') == request.auth.uid &&
+            request.resource.data.get('advertiserUid', '') ==
+              resource.data.get('advertiserUid', '') &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'title', 'subtitle', 'imageUrl',
+              'targetUrl', 'ctaText', 'position', 'isActive'
+            ])
+          )
+        );
+
+      allow delete: if isSignedIn() &&
+        (
+          isAdmin() ||
+          resource.data.get('advertiserUid', '') == request.auth.uid
+        );
+    }
+
+    // PRIVATE USER DOCUMENTS
+    match /users/{userId} {
+      allow read: if isUser(userId) || isAdmin();
+
+      allow create: if isUser(userId) &&
+        isValidUserProfile() &&
+        (
+          !('role' in request.resource.data) ||
+          request.resource.data.role in ['customer', 'owner'] ||
+          isAdmin()
+        );
+
+      allow update: if isAdmin() ||
+        (
+          isUser(userId) &&
+          isValidUserProfile() &&
+          // Permit the initial profile bootstrap after Admin SDK username
+          // registration, but never let a user change an existing role/status.
+          (!('role' in resource.data) ||
+            request.resource.data.get('role', '') == resource.data.get('role', '')) &&
+          (!('status' in resource.data) ||
+            request.resource.data.get('status', '') == resource.data.get('status', '')) &&
+          (!('role' in request.resource.data) ||
+            request.resource.data.role in ['customer', 'owner']) &&
+          (!('status' in request.resource.data) ||
+            request.resource.data.status == 'active')
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    // PUBLIC PROFILES
+    match /public_profiles/{userId} {
+      allow read: if true;
+
+      allow create: if isUser(userId) &&
+        isValidPublicProfile() &&
+        (!('role' in request.resource.data) ||
+          request.resource.data.role in ['customer', 'owner'] || isAdmin());
+
+      allow update: if isUser(userId) &&
+        isValidPublicProfile() &&
+        // A missing legacy role may be initialized only as customer/owner.
+        // Admin is reserved for a trusted Auth custom claim.
+        (!('role' in request.resource.data) ||
+          request.resource.data.role in ['customer', 'owner'] || isAdmin()) &&
+        (!('role' in resource.data) ||
+          request.resource.data.get('role', '') == resource.data.get('role', ''));
+
+      allow delete: if isUser(userId) || isAdmin();
+    }
+
+    // VISITS ANALYTICS
+    match /visits/{visitId} {
+      allow create: if
+        request.resource.data.keys().hasAll([
+          'propertyId', 'refId', 'timestamp'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'id', 'propertyId', 'refId',
+          'timestamp', 'source', 'customerName'
+        ]) &&
+        request.resource.data.propertyId is string &&
+        request.resource.data.propertyId.size() > 0 &&
+        request.resource.data.propertyId.size() <= 100 &&
+        request.resource.data.refId is string &&
+        request.resource.data.refId.size() > 0 &&
+        request.resource.data.refId.size() <= 120 &&
+        request.resource.data.timestamp is string &&
+        request.resource.data.timestamp.size() <= 50 &&
+        validAnalyticsSource(['qr_referral', 'direct', 'search']) &&
+        (!('customerName' in request.resource.data) ||
+          (
+            request.resource.data.customerName is string &&
+            request.resource.data.customerName.size() <= 100
+          )) &&
+        exists(
+          /databases/$(database)/documents/properties/$(request.resource.data.propertyId)
+        );
+
+      allow read: if isAdmin() ||
+        ownsProperty(resource.data.propertyId);
+
+      allow update, delete: if isAdmin();
+    }
+
+    // LEADS ANALYTICS
+    match /leads/{leadId} {
+      allow create: if
+        request.resource.data.keys().hasAll([
+          'propertyId', 'refId', 'timestamp'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'id', 'propertyId', 'refId',
+          'timestamp', 'customerName', 'source'
+        ]) &&
+        request.resource.data.propertyId is string &&
+        request.resource.data.propertyId.size() > 0 &&
+        request.resource.data.propertyId.size() <= 100 &&
+        request.resource.data.refId is string &&
+        request.resource.data.refId.size() > 0 &&
+        request.resource.data.refId.size() <= 120 &&
+        request.resource.data.timestamp is string &&
+        request.resource.data.timestamp.size() <= 50 &&
+        validAnalyticsSource(['qr_referral', 'direct', 'whatsapp']) &&
+        (!('customerName' in request.resource.data) ||
+          (
+            request.resource.data.customerName is string &&
+            request.resource.data.customerName.size() <= 100
+          )) &&
+        exists(
+          /databases/$(database)/documents/properties/$(request.resource.data.propertyId)
+        );
+
+      allow read: if isAdmin() ||
+        ownsProperty(resource.data.propertyId);
+
+      allow update, delete: if isAdmin();
+    }
+  }
+}
+) &&
+        request.resource.data.submittedAt is timestamp &&
+        exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
+        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '') == request.auth.uid &&
+        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('status', '') == 'active';
+
+      allow read: if isAdmin() ||
+        (isSignedIn() && resource.data.ownerUid == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

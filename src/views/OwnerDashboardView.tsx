@@ -6,6 +6,7 @@ import { auth } from '../lib/firebase';
 import { uploadPropertyPhoto } from '../services/uploadPropertyImage';
 import { BlueTickOwnerPanel } from '../components/BlueTickOwnerPanel';
 import { SearchBoostOwnerPanel } from '../components/SearchBoostOwnerPanel';
+import { SubscriptionOwnerPanel } from '../components/SubscriptionOwnerPanel';
 import { AuthModal } from '../components/AuthModal';
 import { QRPerformanceCard } from '../components/QRPerformanceCard';
 import { 
@@ -1286,129 +1287,11 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       {/* Tab 3: Subscription Plans & Badges */}
       {activeTab === 'subscriptions' && (
         <div className="space-y-6">
+          <SubscriptionOwnerPanel properties={properties} />
           <BlueTickOwnerPanel properties={properties} />
           <SearchBoostOwnerPanel properties={properties} />
-          <div className="text-center max-w-xl mx-auto space-y-2">
-            <h3 className="text-xl font-black text-slate-900 dark:text-white">
-              Listing Subscriptions & Add-on Plans
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Zero Commission Model: Choose a monthly listing plan to showcase your property directly to travelers with 100% direct WhatsApp leads!
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Plan 1 */}
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-lg space-y-4 relative flex flex-col justify-between">
-              <div>
-                <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-black uppercase px-2.5 py-1 rounded-md">
-                  Standard Listing
-                </span>
-                <h4 className="text-xl font-black text-slate-900 dark:text-white mt-2">
-                  ₹1,000 / month
-                </h4>
-                <p className="text-xs text-slate-500 mt-1">
-                  Ideal for standard homestays & local guest houses.
-                </p>
-
-                <ul className="mt-4 text-xs space-y-2 text-slate-700 dark:text-slate-300">
-                  <li className="flex items-center gap-2">✓ Unlimited room types</li>
-                  <li className="flex items-center gap-2">✓ Up to 20 Photos & 10s Video</li>
-                  <li className="flex items-center gap-2">✓ Direct WhatsApp Enquiries</li>
-                  <li className="flex items-center gap-2">✓ AI Description Generator</li>
-                  <li className="flex items-center gap-2">✓ 0% Platform Commission</li>
-                </ul>
-              </div>
-
-              <button
-                onClick={() => alert('Standard Listing Plan selected (₹1000/month). Please choose your property to activate.')}
-                className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-extrabold text-xs py-3 rounded-xl hover:opacity-90 transition-all cursor-pointer"
-              >
-                Subscribe ₹1000/mo
-              </button>
-            </div>
-
-            {/* Plan 2 */}
-            <div className="bg-gradient-to-b from-emerald-900 to-slate-900 text-white p-6 rounded-3xl border-2 border-emerald-500 shadow-2xl space-y-4 relative flex flex-col justify-between">
-              <span className="absolute -top-3 right-6 bg-emerald-500 text-slate-950 text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-md">
-                Prime Choice
-              </span>
-              <div>
-                <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase px-2.5 py-1 rounded-md">
-                  Prime Location Listing
-                </span>
-                <h4 className="text-xl font-black text-white mt-2">
-                  ₹1,500 / month
-                </h4>
-                <p className="text-xs text-slate-300 mt-1">
-                  For prime tourist hubs (Manali Mall Road, Goa Beaches, Gangtok Town).
-                </p>
-
-                <ul className="mt-4 text-xs space-y-2 text-slate-200">
-                  <li className="flex items-center gap-2">✓ Priority Placement in Search</li>
-                  <li className="flex items-center gap-2">✓ Unlimited room types</li>
-                  <li className="flex items-center gap-2">✓ Full 20 Photos + Video Tour</li>
-                  <li className="flex items-center gap-2">✓ Direct WhatsApp Enquiries</li>
-                  <li className="flex items-center gap-2">✓ Priority Customer Support</li>
-                </ul>
-              </div>
-
-              <button
-                onClick={() => alert('Prime Location Plan selected (₹1500/month).')}
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs py-3 rounded-xl shadow-lg transition-transform active:scale-95 cursor-pointer"
-              >
-                Subscribe ₹1500/mo
-              </button>
-            </div>
-
-            {/* Addons */}
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-lg space-y-4 flex flex-col justify-between">
-              <div>
-                <span className="bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-black uppercase px-2.5 py-1 rounded-md">
-                  Badges & Search Boost
-                </span>
-                <h4 className="text-xl font-black text-slate-900 dark:text-white mt-2">
-                  Search Boost: ₹500 / month
-                </h4>
-                <p className="text-xs text-slate-500 mt-1">
-                  Stand out from competitors and gain guest trust.
-                </p>
-
-                <div className="mt-4 space-y-3 text-xs">
-                  <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800">
-                    <p className="font-extrabold text-blue-900 dark:text-blue-300 flex items-center gap-1">
-                      <BadgeCheck className="w-4 h-4 fill-blue-600 text-white" />
-                      Blue Tick Verification
-                    </p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      Optional proof review. 3 months free after approval, then ₹500/month. Apply in the verification panel above.
-                    </p>
-                  </div>
-
-                  <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800">
-                    <p className="font-extrabold text-amber-900 dark:text-amber-300 flex items-center gap-1">
-                      <Sparkles className="w-4 h-4 text-amber-500" />
-                      ⭐ Top Search Boost (₹500)
-                    </p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      Pins your property to top of customer searches.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setActiveTab('properties')}
-                className="w-full bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs py-3 rounded-xl hover:bg-slate-200 cursor-pointer"
-              >
-                Apply Badges to Properties
-              </button>
-            </div>
-
-          </div>
         </div>
-      )}
+      )}}
 
       {/* Tab 3: Customer WhatsApp Enquiries Lead Tracker */}
       {activeTab === 'leads' && (

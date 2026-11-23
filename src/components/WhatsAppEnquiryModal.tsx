@@ -369,7 +369,7 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
               <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
                 <span>Stay Duration:</span>
                 <span className="font-bold text-slate-900 dark:text-white">
-                  {numberOfDays} Day{numberOfDays > 1 ? 's' : ''} / {numberOfDays > 1 ? numberOfDays - 1 : 1} Night
+                  {numberOfNights} Night{numberOfNights === 1 ? '' : 's'}
                 </span>
               </div>
 

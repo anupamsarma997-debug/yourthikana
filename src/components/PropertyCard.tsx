@@ -43,17 +43,18 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
       : room.pricePerNight;
     return typeof price === 'number' && Number.isFinite(price) && price > 0;
   });
+  const effectiveRoomPrice = (room: RoomType) =>
+    typeof room.discountPrice === 'number' && room.discountPrice > 0
+      ? room.discountPrice
+      : room.pricePerNight;
   const lowestPriceRoom = pricedRooms.length > 0
-    ? pricedRooms.reduce((min, room) => {
-        const minPrice = min.discountPrice > 0 ? min.discountPrice : min.pricePerNight;
-        const roomPrice = room.discountPrice > 0 ? room.discountPrice : room.pricePerNight;
-        return roomPrice < minPrice ? room : min;
-      }, pricedRooms[0])
+    ? pricedRooms.reduce((min, room) =>
+        effectiveRoomPrice(room) < effectiveRoomPrice(min) ? room : min, pricedRooms[0])
     : null;
-  const currentPrice = lowestPriceRoom
-    ? (lowestPriceRoom.discountPrice > 0 ? lowestPriceRoom.discountPrice : lowestPriceRoom.pricePerNight)
-    : null;
-  const originalPrice = lowestPriceRoom?.discountPrice > 0 &&
+  const currentPrice = lowestPriceRoom ? effectiveRoomPrice(lowestPriceRoom) : null;
+  const originalPrice = lowestPriceRoom &&
+    typeof lowestPriceRoom.discountPrice === 'number' &&
+    lowestPriceRoom.discountPrice > 0 &&
     lowestPriceRoom.discountPrice < lowestPriceRoom.pricePerNight
     ? lowestPriceRoom.pricePerNight
     : null;

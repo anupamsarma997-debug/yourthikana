@@ -209,7 +209,9 @@ const normalizeRoom = (room: any): RoomType | null => {
     id: String(room.id),
     propertyId: String(room.propertyId),
     roomName: String(room.roomName || 'Room'),
-    pricePerNight: Number.isFinite(Number(room.pricePerNight)) ? Number(room.pricePerNight) : 1500,
+    // Zero is the internal 'not supplied' sentinel; never invent a customer-facing room price.
+    pricePerNight: Number.isFinite(Number(room.pricePerNight)) && Number(room.pricePerNight) > 0 ? Number(room.pricePerNight) : 0,
+    discountPrice: Number.isFinite(Number(room.discountPrice)) && Number(room.discountPrice) > 0 ? Number(room.discountPrice) : undefined,
     maxGuests: Number.isFinite(Number(room.maxGuests)) ? Number(room.maxGuests) : 2,
     description: String(room.description || ''),
     amenities: Array.isArray(room.amenities) ? room.amenities.filter((item: unknown): item is string => typeof item === 'string') : [],

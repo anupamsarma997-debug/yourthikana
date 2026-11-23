@@ -244,7 +244,14 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
             <div className="space-y-3">
               {rooms.map((room) => {
-                const effectivePrice = room.discountPrice || room.pricePerNight;
+                const effectivePrice = typeof room.discountPrice === 'number' && room.discountPrice > 0
+                  ? room.discountPrice
+                  : typeof room.pricePerNight === 'number' && room.pricePerNight > 0
+                    ? room.pricePerNight
+                    : null;
+                const hasValidDiscount = effectivePrice !== null &&
+                  typeof room.discountPrice === 'number' && room.discountPrice > 0 &&
+                  room.discountPrice < room.pricePerNight;
                 const isSelected = selectedRoom?.id === room.id;
 
                 return (
@@ -292,17 +299,25 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
                       <div className="shrink-0 text-left sm:text-right pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-700">
                         <div className="flex items-baseline gap-1.5 sm:justify-end">
-                          <span className="text-xl font-black text-slate-900 dark:text-white">
-                            ₹{effectivePrice}
-                          </span>
-                          {room.discountPrice && (
+                          {effectivePrice !== null ? (
+                            <span className="text-xl font-black text-slate-900 dark:text-white">
+                              ₹{effectivePrice}
+                            </span>
+                          ) : (
+                            <span className="text-sm font-bold text-slate-500 dark:text-slate-300">
+                              Price not provided
+                            </span>
+                          )}
+                          {hasValidDiscount && (
                             <span className="text-xs text-slate-400 line-through">
                               ₹{room.pricePerNight}
                             </span>
                           )}
-                          <span className="text-[10px] text-slate-400 font-medium">
-                            {property.propertyType?.toLowerCase().includes('monthly') ? '/ month' : '/ night'}
-                          </span>
+                          {effectivePrice !== null && (
+                            <span className="text-[10px] text-slate-400 dark:text-slate-300 font-medium">
+                              {property.propertyType?.toLowerCase().includes('monthly') ? '/ month' : '/ night'}
+                            </span>
+                          )}
                         </div>
 
                         <button

@@ -4,6 +4,7 @@ import { Property, User, BannerAd } from '../types';
 import { auth } from '../lib/firebase';
 import { BlueTickAdminPanel } from '../components/BlueTickAdminPanel';
 import { SearchBoostAdminPanel } from '../components/SearchBoostAdminPanel';
+import { SubscriptionAdminPanel } from '../components/SubscriptionAdminPanel';
 import { 
   ShieldCheck, 
   ShieldAlert,
@@ -37,7 +38,7 @@ export const AdminDashboardView: React.FC = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [claimDetails, setClaimDetails] = useState<string>('');
 
-  const [activeTab, setActiveTab] = useState<'properties' | 'users' | 'banners' | 'revenue' | 'verifications' | 'searchBoosts'>('properties');
+  const [activeTab, setActiveTab] = useState<'properties' | 'users' | 'banners' | 'revenue' | 'verifications' | 'searchBoosts' | 'subscriptions'>('properties');
   const [propertyFilter, setPropertyFilter] = useState<'pending' | 'all' | 'active' | 'rejected' | 'blocked'>('pending');
   const [propertyActionMessage, setPropertyActionMessage] = useState('');
   const [busyPropertyId, setBusyPropertyId] = useState('');
@@ -307,6 +308,14 @@ export const AdminDashboardView: React.FC = () => {
           Blue Tick Verification
         </button>
         <button
+          onClick={() => setActiveTab('subscriptions')}
+          className={`flex-1 py-3 text-xs font-extrabold rounded-xl transition-all ${
+            activeTab === 'subscriptions' ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-slate-600 dark:text-slate-400'
+          }`}
+        >
+          Subscription Payments
+        </button>
+        <button
           onClick={() => setActiveTab('searchBoosts')}
           className={`flex-1 py-3 text-xs font-extrabold rounded-xl transition-all ${
             activeTab === 'searchBoosts' ? 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-sm' : 'text-slate-600 dark:text-slate-400'
@@ -318,6 +327,7 @@ export const AdminDashboardView: React.FC = () => {
 
       {activeTab === 'verifications' && <BlueTickAdminPanel />}
       {activeTab === 'searchBoosts' && <SearchBoostAdminPanel />}
+      {activeTab === 'subscriptions' && <SubscriptionAdminPanel />}
 
       {/* Tab 1: Properties Table */}
       {activeTab === 'properties' && (

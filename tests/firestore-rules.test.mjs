@@ -158,6 +158,40 @@ test('Search Boost requests require an approved owned property and trusted admin
   }));
 });
 
+test('monthly subscription requests require exact plan price, payment proof, and admin-only activation', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'properties', 'subscription-property'), {
+      title: 'Published Homestay', city: 'Guwahati', ownerUid: 'subscription-owner',
+      ownerId: 'subscription-owner', status: 'active',
+    });
+  });
+  const ownerDb = testEnv.authenticatedContext('subscription-owner').firestore();
+  const application = {
+    ownerUid: 'subscription-owner',
+    propertyId: 'subscription-property',
+    propertyTitle: 'Published Homestay',
+    planId: 'standard_1000',
+    planName: 'Standard Listing',
+    amount: 1000,
+    billingPeriod: 'month',
+    status: 'pending',
+    paymentStatus: 'pending',
+    paymentUtr: 'SUBS123456789',
+    paymentProofPath: 'payment-proofs/subscription-owner/subscription.png',
+    submittedAt: new Date(),
+  };
+  const applicationRef = doc(ownerDb, 'subscriptionApplications', 'subscription-app');
+  await assertSucceeds(setDoc(applicationRef, application));
+  await assertFails(setDoc(doc(ownerDb, 'subscriptionApplications', 'wrong-price'), {
+    ...application, amount: 500,
+  }));
+  await assertFails(updateDoc(applicationRef, { status: 'approved', paymentStatus: 'verified' }));
+  const adminDb = testEnv.authenticatedContext('trusted-admin', { admin: true }).firestore();
+  await assertSucceeds(updateDoc(doc(adminDb, 'subscriptionApplications', 'subscription-app'), {
+    status: 'approved', paymentStatus: 'verified', expiresAt: '2026-12-23T00:00:00.000Z',
+  }));
+});
+
 test('public visitors can read published property listings', async () => {
   const ownerDb = await createOwnedProperty();
   const publicDb = testEnv.unauthenticatedContext().firestore();

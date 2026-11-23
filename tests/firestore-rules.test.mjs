@@ -53,7 +53,10 @@ test('owners can apply for Blue Tick only after property approval and cannot sel
     propertyId: 'blue-property',
     propertyTitle: 'Test Homestay',
     status: 'pending',
-    paymentStatus: 'not_submitted',
+    paymentStatus: 'pending',
+    paymentUtr: 'BLUE123456789',
+    paymentProofPath: 'payment-proofs/blue-owner/blue-proof.png',
+    paymentAmount: 500,
     documentCount: 1,
     documentPaths: ['verification-documents/blue-owner/app-1/0-proof.pdf'],
     submittedAt: new Date(),
@@ -96,6 +99,8 @@ test('owner can submit only a payment UTR after admin approval; cannot extend va
   });
   await assertSucceeds(updateDoc(doc(ownerDb, 'verificationApplications', 'payment-app'), {
     paymentUtr: 'ABCD12345678',
+    paymentProofPath: 'payment-proofs/payment-owner/renewal-proof.png',
+    paymentAmount: 500,
     paymentSubmittedAt: new Date(),
     paymentStatus: 'pending',
   }));
@@ -123,6 +128,9 @@ test('Search Boost requests require an approved owned property and trusted admin
     status: 'pending',
     paymentStatus: 'pending',
     paymentUtr: 'ABCD123456789012',
+    paymentProofPath: 'payment-proofs/boost-owner/boost-proof.png',
+    amount: 500,
+    billingPeriod: 'month',
     submittedAt: new Date(),
   };
   const applicationRef = doc(ownerDb, 'searchBoostApplications', 'boost-app');

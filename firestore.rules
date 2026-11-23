@@ -571,3 +571,4 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
   }
+}

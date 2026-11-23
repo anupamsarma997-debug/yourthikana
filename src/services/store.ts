@@ -198,7 +198,7 @@ const normalizeProperty = (p: any): Property => ({
   ownerPhone: String(p?.ownerPhone || ''),
   ownerWhatsApp: String(p?.ownerWhatsApp || p?.ownerPhone || ''),
   photos: Array.isArray(p?.photos) ? p.photos.filter((photo: unknown): photo is string => typeof photo === 'string' && photo.trim().length > 0) : (typeof p?.coverImage === 'string' && p.coverImage ? [p.coverImage] : []),
-  rating: typeof p?.rating === 'number' && Number.isFinite(p.rating) ? p.rating : 5.0,
+  rating: typeof p?.rating === 'number' && Number.isFinite(p.rating) && p.rating >= 0 && p.rating <= 5 ? p.rating : 0,
   reviewsCount: typeof p?.reviewsCount === 'number' && Number.isFinite(p.reviewsCount) ? p.reviewsCount : 0,
 });
 

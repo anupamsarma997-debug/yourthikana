@@ -60,14 +60,16 @@ service firebase.storage {
           request.resource.size <= 8 * 1024 * 1024 &&
           request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
       }
+      // The owner uploads the screenshot before the client moves the request
+      // from awaiting_payment/rejected into the admin-review pending state.
       allow create: if isOwner(ownerUid) &&
         applicationDoc().data.ownerUid == ownerUid &&
-        applicationDoc().data.status == 'pending' &&
+        applicationDoc().data.status in ['awaiting_payment', 'rejected'] &&
         validProof();
       allow read: if isAdmin();
       allow delete: if isAdmin() ||
         (isOwner(ownerUid) && applicationDoc().data.ownerUid == ownerUid &&
-          applicationDoc().data.status == 'pending');
+          applicationDoc().data.status in ['awaiting_payment', 'rejected']);
       allow update: if false;
     }
 

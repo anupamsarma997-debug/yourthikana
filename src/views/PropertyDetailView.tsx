@@ -40,7 +40,20 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
   const rooms = store.getRoomsByProperty(property.id);
   const photos = Array.isArray(property.photos) ? property.photos.filter((photo) => typeof photo === 'string' && photo.length > 0) : [];
 
-  const [selectedRoom, setSelectedRoom] = useState<RoomType | undefined>(rooms[0]);
+  const hasRoomPrice = (room: RoomType) => {
+    const price = typeof room.discountPrice === 'number' && room.discountPrice > 0
+      ? room.discountPrice
+      : room.pricePerNight;
+    return typeof price === 'number' && Number.isFinite(price) && price > 0;
+  };
+  const [selectedRoom, setSelectedRoom] = useState<RoomType | undefined>(
+    () => rooms.find(hasRoomPrice) || rooms[0]
+  );
+  const selectedRoomPrice = selectedRoom && hasRoomPrice(selectedRoom)
+    ? (typeof selectedRoom.discountPrice === 'number' && selectedRoom.discountPrice > 0
+        ? selectedRoom.discountPrice
+        : selectedRoom.pricePerNight)
+    : null;
 
   const handleShare = () => {
     if (navigator.share) {
@@ -109,8 +122,15 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
         <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-300 flex-wrap">
           <div className="flex items-center gap-1 font-extrabold text-slate-900 dark:text-white">
             <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-            <span>{(typeof property?.rating === 'number' ? property.rating : 5.0).toFixed(1)}</span>
-            <span className="text-slate-400 font-normal">({property?.reviewsCount ?? 0} customer reviews)</span>
+            {typeof property?.rating === 'number' && Number.isFinite(property.rating) &&
+              property.rating >= 0 && property.rating <= 5 && Number(property.reviewsCount) > 0 ? (
+                <>
+                  <span>{property.rating.toFixed(1)}</span>
+                  <span className="text-slate-400 font-normal">({property.reviewsCount} customer reviews)</span>
+                </>
+              ) : (
+                <span className="text-slate-500 dark:text-slate-300">New · No reviews yet</span>
+              )}
           </div>
 
           <div className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
@@ -321,12 +341,20 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
               </span>
 
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-black text-slate-900 dark:text-white">
-                  ₹{selectedRoom ? (selectedRoom.discountPrice || selectedRoom.pricePerNight) : 1500}
-                </span>
-                <span className="text-xs text-slate-500 font-medium">
-                  {property.propertyType?.toLowerCase().includes('monthly') ? '/ month starting rent' : '/ night starting price'}
-                </span>
+                {selectedRoomPrice !== null ? (
+                  <>
+                    <span className="text-2xl font-black text-slate-900 dark:text-white">
+                      ₹{selectedRoomPrice}
+                    </span>
+                    <span className="text-xs text-slate-500 font-medium">
+                      {property.propertyType?.toLowerCase().includes('monthly') ? '/ month' : '/ night'}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-sm font-bold text-slate-500 dark:text-slate-300">
+                    Price not provided — contact owner
+                  </span>
+                )}
               </div>
             </div>
 

@@ -77,9 +77,21 @@ export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
     }
   };
 
+  // Date difference is the number of nights for an overnight stay.
   const numberOfDays = calculateDays();
-  const roomPrice = selectedRoom ? (selectedRoom.discountPrice || selectedRoom.pricePerNight) : 1500;
-  const calculatedTotal = roomPrice * numberOfDays;
+  const numberOfNights = numberOfDays;
+  const isMonthlyProperty = property.propertyType?.toLowerCase().includes('monthly') || false;
+  const roomPrice = selectedRoom
+    ? (typeof selectedRoom.discountPrice === 'number' && selectedRoom.discountPrice > 0
+        ? selectedRoom.discountPrice
+        : typeof selectedRoom.pricePerNight === 'number' && selectedRoom.pricePerNight > 0
+          ? selectedRoom.pricePerNight
+          : null)
+    : null;
+  // Monthly rental totals depend on the host's proration policy; never invent a total.
+  const calculatedTotal = roomPrice !== null && !isMonthlyProperty
+    ? roomPrice * numberOfNights
+    : null;
 
   // Format WhatsApp Message
   const constructMessage = () => {
@@ -90,10 +102,10 @@ export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
 👤 *Name:* ${customerName || 'Guest'}
 📱 *Phone:* ${customerPhone || 'Not provided'}
 🗓️ *Check-in Date:* ${checkInDate}
-🗓️ *Check-out Date:* ${checkOutDate} (${numberOfDays} Days / ${numberOfDays > 1 ? numberOfDays - 1 : 1} Nights)
+🗓️ *Check-out Date:* ${checkOutDate} (${numberOfNights} Night${numberOfNights === 1 ? '' : 's'})
 👥 *Guests:* ${adults} Adults${children > 0 ? `, ${children} Children` : ''} (Total ${totalGuests})
-🛏️ *Room Type:* ${selectedRoom ? selectedRoom.roomName : 'Standard Room'} (₹${roomPrice}/night)
-💰 *Estimated Total:* ₹${calculatedTotal}
+🛏️ *Room Type:* ${selectedRoom ? selectedRoom.roomName : 'Standard Room'} (${roomPrice !== null ? `₹${roomPrice}/${isMonthlyProperty ? 'month' : 'night'}` : 'Rate not provided — please confirm with host'})
+💰 *Estimated Total:* ${isMonthlyProperty ? 'Please confirm monthly/prorated total with the host' : calculatedTotal !== null ? `₹${calculatedTotal}` : 'Not available — ask host for the rate'}
 
 ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want to book this room. Please confirm room availability and payment details. Thank you!`;
   };
@@ -126,8 +138,8 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
       totalGuests: adults + children,
       selectedRoomId: selectedRoom?.id || '',
       selectedRoomName: selectedRoom ? selectedRoom.roomName : 'Standard Room',
-      pricePerNight: roomPrice,
-      calculatedTotal,
+      pricePerNight: roomPrice ?? 0,
+      calculatedTotal: calculatedTotal ?? 0,
       specialRequests,
       formattedMessage: message,
     });
@@ -301,7 +313,7 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
                 >
                   {rooms.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.roomName} (₹{r.discountPrice || r.pricePerNight})
+                      {r.roomName} ({(typeof r.discountPrice === 'number' && r.discountPrice > 0) ? `₹${r.discountPrice}` : (typeof r.pricePerNight === 'number' && r.pricePerNight > 0) ? `₹${r.pricePerNight}` : 'Price not provided'})
                     </option>
                   ))}
                 </select>
@@ -364,14 +376,14 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
               <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
                 <span>Room Rate:</span>
                 <span className="font-bold text-slate-900 dark:text-white">
-                  ₹{roomPrice} / night
+                  {roomPrice !== null ? `₹${roomPrice} / ${isMonthlyProperty ? 'month' : 'night'}` : 'Price not provided — confirm with host'}
                 </span>
               </div>
 
               <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-sm">
                 <span className="font-bold text-slate-900 dark:text-white">Estimated Total:</span>
                 <span className="font-extrabold text-base text-emerald-600 dark:text-emerald-400">
-                  ₹{calculatedTotal}
+                  {isMonthlyProperty ? 'Confirm with host' : calculatedTotal !== null ? `₹${calculatedTotal}` : 'Not available'}
                 </span>
               </div>
             </div>

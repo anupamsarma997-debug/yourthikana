@@ -1291,7 +1291,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
           <BlueTickOwnerPanel properties={properties} />
           <SearchBoostOwnerPanel properties={properties} />
         </div>
-      )}}
+      )}
 
       {/* Tab 3: Customer WhatsApp Enquiries Lead Tracker */}
       {activeTab === 'leads' && (

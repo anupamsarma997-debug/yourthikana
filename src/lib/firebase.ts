@@ -45,10 +45,17 @@ if (isFirebaseConfigured) {
     // Enforcement must remain disabled in Firebase until production verification is complete.
     const appCheckSiteKey = (import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY || '').trim();
     if (appCheckSiteKey) {
-      appCheck = initializeAppCheck(app, {
-        provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
-        isTokenAutoRefreshEnabled: true,
-      });
+      try {
+        appCheck = initializeAppCheck(app, {
+          provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+          isTokenAutoRefreshEnabled: true,
+        });
+      } catch (appCheckError) {
+        // A misconfigured reCAPTCHA key must not take down sign-in or listings.
+        // Keep enforcement disabled until token acquisition is verified.
+        console.warn('Firebase App Check initialization failed; enforcement must remain disabled:', appCheckError);
+        appCheck = null;
+      }
     }
     const databaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || config.firestoreDatabaseId;
     if (databaseId && databaseId !== '(default)') {

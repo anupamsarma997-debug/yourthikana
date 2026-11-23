@@ -35,13 +35,28 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
   const rooms = (Array.isArray(suppliedRooms) ? suppliedRooms : store.getRoomsByProperty(property.id)).filter(Boolean);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
 
-  // Find lowest price room
-  const lowestPriceRoom = rooms.length > 0
-    ? rooms.reduce((min, r) => (r.pricePerNight < min.pricePerNight ? r : min), rooms[0])
+  // Only show a price when a real, positive room price is available.
+  // Compare discounted prices as customers actually pay them.
+  const pricedRooms = rooms.filter((room) => {
+    const price = typeof room.discountPrice === 'number' && room.discountPrice > 0
+      ? room.discountPrice
+      : room.pricePerNight;
+    return typeof price === 'number' && Number.isFinite(price) && price > 0;
+  });
+  const lowestPriceRoom = pricedRooms.length > 0
+    ? pricedRooms.reduce((min, room) => {
+        const minPrice = min.discountPrice > 0 ? min.discountPrice : min.pricePerNight;
+        const roomPrice = room.discountPrice > 0 ? room.discountPrice : room.pricePerNight;
+        return roomPrice < minPrice ? room : min;
+      }, pricedRooms[0])
     : null;
-
-  const currentPrice = lowestPriceRoom ? (lowestPriceRoom.discountPrice || lowestPriceRoom.pricePerNight) : 1500;
-  const originalPrice = lowestPriceRoom?.discountPrice ? lowestPriceRoom.pricePerNight : null;
+  const currentPrice = lowestPriceRoom
+    ? (lowestPriceRoom.discountPrice > 0 ? lowestPriceRoom.discountPrice : lowestPriceRoom.pricePerNight)
+    : null;
+  const originalPrice = lowestPriceRoom?.discountPrice > 0 &&
+    lowestPriceRoom.discountPrice < lowestPriceRoom.pricePerNight
+    ? lowestPriceRoom.pricePerNight
+    : null;
 
   const photos = Array.isArray(property.photos) ? property.photos.filter((photo) => typeof photo === 'string' && photo.length > 0) : [];
   const coverImage = photos.length > 0
@@ -101,11 +116,18 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           </div>
         )}
 
-        {/* Rating Badge */}
+        {/* Show only real guest ratings; never invent a five-star score. */}
         <div className="absolute bottom-3 right-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-2.5 py-1 rounded-lg text-xs font-black shadow-md flex items-center gap-1">
-          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-          <span>{(typeof property?.rating === 'number' ? property.rating : 5.0).toFixed(1)}</span>
-          <span className="text-[10px] text-slate-400 font-normal">({property?.reviewsCount ?? 0})</span>
+          {typeof property?.rating === 'number' && Number.isFinite(property.rating) &&
+            property.rating >= 0 && property.rating <= 5 && Number(property.reviewsCount) > 0 ? (
+              <>
+                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                <span>{property.rating.toFixed(1)}</span>
+                <span className="text-[10px] text-slate-400 font-normal">({property.reviewsCount})</span>
+              </>
+            ) : (
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300">New · No reviews</span>
+            )}
         </div>
 
         {/* Photo Switcher Dots */}
@@ -176,17 +198,25 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
         <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-3">
           <div>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-lg font-black text-slate-900 dark:text-white">
-                ₹{currentPrice}
-              </span>
+              {currentPrice !== null ? (
+                <span className="text-lg font-black text-slate-900 dark:text-white">
+                  ₹{currentPrice}
+                </span>
+              ) : (
+                <span className="text-sm font-bold text-slate-500 dark:text-slate-300">
+                  Price not provided
+                </span>
+              )}
               {originalPrice && (
                 <span className="text-xs text-slate-400 line-through font-medium">
                   ₹{originalPrice}
                 </span>
               )}
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                {property.propertyType?.toLowerCase().includes('monthly') ? '/ month' : '/ night'}
-              </span>
+              {currentPrice !== null && (
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                  {property.propertyType?.toLowerCase().includes('monthly') ? '/ month' : '/ night'}
+                </span>
+              )}
             </div>
             <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
               0% Commission • Direct Owner Rate

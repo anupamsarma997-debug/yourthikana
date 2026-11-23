@@ -39,7 +39,7 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('All');
   const [selectedPriceRange, setSelectedPriceRange] = useState<string>('all');
-  const [maxPrice, setMaxPrice] = useState<number>(10000);
+  const [maxPrice, setMaxPrice] = useState<number>(15000);
   const [minRating, setMinRating] = useState<number>(0);
   const [onlyVerified, setOnlyVerified] = useState<boolean>(false);
   const [onlyFeatured, setOnlyFeatured] = useState<boolean>(false);
@@ -125,21 +125,22 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
     return index;
   }, [rooms]);
 
-  // Cache minimum prices using the shared room index.
+  // Cache the lowest real room price. null means the host has not supplied a price.
   const propertyPrices = useMemo(() => {
-    const priceMap: Record<string, number> = {};
-    (properties || []).forEach((p) => {
-      if (!p || !p.id) return;
-      const propertyRooms = roomsByProperty.get(p.id) || [];
-      if (propertyRooms.length > 0) {
-        const validPrices = propertyRooms
-          .filter((room) => room && typeof room === 'object')
-          .map((r) => r.discountPrice || r.pricePerNight)
-          .filter((price): price is number => typeof price === 'number' && !isNaN(price) && price > 0);
-        priceMap[p.id] = validPrices.length > 0 ? Math.min(...validPrices) : 1500;
-      } else {
-        priceMap[p.id] = 1500;
-      }
+    const priceMap: Record<string, number | null> = {};
+    (properties || []).forEach((property) => {
+      if (!property || !property.id) return;
+      const propertyRooms = roomsByProperty.get(property.id) || [];
+      const validPrices = propertyRooms
+        .filter((room) => room && typeof room === 'object')
+        .map((room) => {
+          const price = typeof room.discountPrice === 'number' && room.discountPrice > 0
+            ? room.discountPrice
+            : room.pricePerNight;
+          return typeof price === 'number' && Number.isFinite(price) && price > 0 ? price : null;
+        })
+        .filter((price): price is number => price !== null);
+      priceMap[property.id] = validPrices.length > 0 ? Math.min(...validPrices) : null;
     });
     return priceMap;
   }, [properties, roomsByProperty]);
@@ -183,15 +184,17 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
           }
         }
 
-        // Price Range Filter Chip
-        const price = (propertyPrices && p.id && typeof propertyPrices[p.id] === 'number') ? propertyPrices[p.id] : 1500;
-        if (selectedPriceRange === 'under-1500' && price > 1500) return false;
-        if (selectedPriceRange === '1500-3000' && (price < 1500 || price > 3000)) return false;
-        if (selectedPriceRange === '3000-5000' && (price < 3000 || price > 5000)) return false;
-        if (selectedPriceRange === 'above-5000' && price < 5000) return false;
-
-        // Custom Slider Max Price Filter
-        if (price > maxPrice) return false;
+        // Unknown prices remain visible only when the customer has not applied a price filter.
+        const price = p.id ? propertyPrices[p.id] : null;
+        if (typeof price !== 'number') {
+          if (selectedPriceRange !== 'all' || maxPrice < 15000) return false;
+        } else {
+          if (selectedPriceRange === 'under-1500' && price > 1500) return false;
+          if (selectedPriceRange === '1500-3000' && (price < 1500 || price > 3000)) return false;
+          if (selectedPriceRange === '3000-5000' && (price < 3000 || price > 5000)) return false;
+          if (selectedPriceRange === 'above-5000' && price < 5000) return false;
+          if (price > maxPrice) return false;
+        }
 
         // Property Type Filter
         if (selectedType && selectedType !== 'All') {
@@ -205,8 +208,10 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
           }
         }
 
-        // Rating Filter
-        const rating = typeof p.rating === 'number' && !isNaN(p.rating) ? p.rating : 5.0;
+        // Unreviewed properties have no rating; do not assign them a fabricated 5-star score.
+        const hasRating = typeof p.rating === 'number' && Number.isFinite(p.rating) &&
+          p.rating >= 0 && p.rating <= 5 && Number(p.reviewsCount) > 0;
+        const rating = hasRating ? p.rating : 0;
         if (rating < minRating) return false;
 
         // Verified Filter
@@ -219,9 +224,12 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
       }).sort((a, b) => {
         if (isSearchBoostActive(a) && !isSearchBoostActive(b)) return -1;
         if (!isSearchBoostActive(a) && isSearchBoostActive(b)) return 1;
-        const rA = typeof a?.rating === 'number' ? a.rating : 5.0;
-        const rB = typeof b?.rating === 'number' ? b.rating : 5.0;
-        return rB - rA;
+        const hasRatingA = typeof a?.rating === 'number' && Number.isFinite(a.rating) &&
+          a.rating >= 0 && a.rating <= 5 && Number(a.reviewsCount) > 0;
+        const hasRatingB = typeof b?.rating === 'number' && Number.isFinite(b.rating) &&
+          b.rating >= 0 && b.rating <= 5 && Number(b.reviewsCount) > 0;
+        if (hasRatingA !== hasRatingB) return hasRatingA ? -1 : 1;
+        return (hasRatingB ? b.rating : 0) - (hasRatingA ? a.rating : 0);
       });
     } catch (err) {
       console.error('Error during search filtering:', err);

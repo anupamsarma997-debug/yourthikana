@@ -73,6 +73,28 @@ service firebase.storage {
       allow update: if false;
     }
 
+    // Private Monthly Subscription payment evidence.
+    match /subscription-documents/{ownerUid}/{applicationId}/{fileName} {
+      function applicationDoc() {
+        return firestore.get(/databases/(default)/documents/subscriptionApplications/$(applicationId));
+      }
+      function validProof() {
+        return request.resource != null &&
+          request.resource.size > 0 &&
+          request.resource.size <= 8 * 1024 * 1024 &&
+          request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+      }
+      allow create: if isOwner(ownerUid) &&
+        applicationDoc().data.ownerUid == ownerUid &&
+        applicationDoc().data.status in ['awaiting_payment', 'rejected'] &&
+        validProof();
+      allow read: if isAdmin();
+      allow delete: if isAdmin() ||
+        (isOwner(ownerUid) && applicationDoc().data.ownerUid == ownerUid &&
+          applicationDoc().data.status in ['awaiting_payment', 'rejected']);
+      allow update: if false;
+    }
+
     // Deny everything else by default
     match /{allPaths=**} {
       allow read, write: if false;

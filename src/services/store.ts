@@ -1216,15 +1216,37 @@ class DataStore {
 
     try {
       const update: Partial<Property> = { status };
-      if (status === 'active' && !prop.subscriptionTrialStartedAt && !prop.subscriptionTrialEndsAt) {
-        const trialStart = new Date();
-        const trialEnd = addCalendarMonths(trialStart, 6);
+      if (status === 'active' && !prop.subscriptionTrialEndsAtTimestamp) {
+        const now = new Date();
+        const parsedStart = prop.subscriptionTrialStartedAt
+          ? new Date(prop.subscriptionTrialStartedAt)
+          : null;
+        const parsedEnd = prop.subscriptionTrialEndsAt
+          ? new Date(prop.subscriptionTrialEndsAt)
+          : null;
+        const validStart = parsedStart && Number.isFinite(parsedStart.getTime()) ? parsedStart : null;
+        const validEnd = parsedEnd && Number.isFinite(parsedEnd.getTime()) ? parsedEnd : null;
+
+        // Backfill the timestamp for legacy records without extending a valid
+        // end date. A start-only record receives its six-calendar-month end;
+        // a record with no dates starts its trial at this approval time.
+        const trialStart = validStart
+          ? validStart
+          : validEnd
+            ? addCalendarMonths(validEnd, -6)
+            : now;
+        const trialEnd = validStart
+          ? addCalendarMonths(validStart, 6)
+          : validEnd
+            ? validEnd
+            : addCalendarMonths(now, 6);
+
         update.subscriptionTrialStartedAt = trialStart.toISOString();
         update.subscriptionTrialEndsAt = trialEnd.toISOString();
         update.subscriptionTrialEndsAtTimestamp = Timestamp.fromDate(trialEnd);
-        update.subscriptionStatus = 'trial';
-        update.subscriptionPlan = 'standard_1000';
-        update.subscriptionPrice = 1000;
+        update.subscriptionStatus = trialEnd.getTime() > now.getTime() ? 'trial' : 'expired';
+        update.subscriptionPlan = prop.subscriptionPlan || 'standard_1000';
+        update.subscriptionPrice = typeof prop.subscriptionPrice === 'number' ? prop.subscriptionPrice : 1000;
         update.subscriptionExpiresAt = trialEnd.toISOString();
         update.subscriptionExpiryDate = trialEnd.toISOString();
       }

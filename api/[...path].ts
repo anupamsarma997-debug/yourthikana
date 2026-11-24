@@ -1,4 +1,6 @@
-import app from '../server.ts';
+import serverModule from '../dist/server.cjs';
 
-// Vercel routes all /api/* requests through the existing Express API app.
+// The build script bundles the Express app to dist/server.cjs before Vercel
+// packages API functions. Export its Express default for the Node function.
+const app = (serverModule as any).default ?? (serverModule as any).app ?? serverModule;
 export default app;

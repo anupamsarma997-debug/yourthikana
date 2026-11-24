@@ -86,7 +86,7 @@ test('only the listing owner can create a Search Boost application', async () =>
     status: 'awaiting_payment',
     paymentStatus: 'pending',
     paymentUtr: '',
-    proofSubmissionMethod: 'app_upload',
+    proofSubmissionMethod: 'whatsapp_share',
     proofStatus: 'awaiting_payment',
     submittedAt: Timestamp.now(),
   };
@@ -107,7 +107,7 @@ test('an owner can submit a valid Search Boost UTR for review', async () => {
     status: 'awaiting_payment',
     paymentStatus: 'pending',
     paymentUtr: '',
-    proofSubmissionMethod: 'app_upload',
+    proofSubmissionMethod: 'whatsapp_share',
     proofStatus: 'awaiting_payment',
     submittedAt: Timestamp.now(),
   });
@@ -116,8 +116,8 @@ test('an owner can submit a valid Search Boost UTR for review', async () => {
     paymentStatus: 'pending',
     paymentUtr: 'TXN12345678',
     paymentSubmittedAt: Timestamp.now(),
-    proofSubmissionMethod: 'app_upload',
-    proofStatus: 'uploaded',
+    proofSubmissionMethod: 'whatsapp_share',
+    proofStatus: 'awaiting_manual_review',
   }));
 });
 
@@ -131,7 +131,7 @@ test('an invalid Search Boost UTR is rejected', async () => {
     status: 'awaiting_payment',
     paymentStatus: 'pending',
     paymentUtr: '',
-    proofSubmissionMethod: 'app_upload',
+    proofSubmissionMethod: 'whatsapp_share',
     proofStatus: 'awaiting_payment',
     submittedAt: Timestamp.now(),
   });
@@ -140,8 +140,8 @@ test('an invalid Search Boost UTR is rejected', async () => {
     paymentStatus: 'pending',
     paymentUtr: '123',
     paymentSubmittedAt: Timestamp.now(),
-    proofSubmissionMethod: 'app_upload',
-    proofStatus: 'uploaded',
+    proofSubmissionMethod: 'whatsapp_share',
+    proofStatus: 'awaiting_manual_review',
   }));
 });
 

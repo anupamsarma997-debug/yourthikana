@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, initializeFirestore } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, type AppCheck } from 'firebase/app-check';
 
 // Safely attempt to load firebase-applet-config.json if present
 let config: Record<string, any> = {};
@@ -34,11 +35,27 @@ let app: any = null;
 let db: any = null;
 let auth: any = null;
 let storage: any = null;
+let appCheck: AppCheck | null = null;
 let firebaseConfigError: string | null = null;
 
 if (isFirebaseConfigured) {
   try {
     app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    // Optional App Check initialization must happen before Firestore, Auth, or Storage.
+    // Firebase enforcement must remain OFF until a separate staging project is verified.
+    const appCheckSiteKey = (import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY || '').trim();
+    if (appCheckSiteKey) {
+      try {
+        appCheck = initializeAppCheck(app, {
+          provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+          isTokenAutoRefreshEnabled: true,
+        });
+      } catch (appCheckError) {
+        // A misconfigured key must not prevent sign-in or property browsing.
+        console.warn('Firebase App Check initialization failed; enforcement must remain disabled:', appCheckError);
+        appCheck = null;
+      }
+    }
     const databaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || config.firestoreDatabaseId;
     if (databaseId && databaseId !== '(default)') {
       try {
@@ -106,7 +123,7 @@ export const checkFirebaseDiagnostics = (): FirebaseDiagnostic => {
   };
 };
 
-export { app, db, auth, storage, firebaseConfigError };
+export { app, db, auth, storage, appCheck, firebaseConfigError };
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account',

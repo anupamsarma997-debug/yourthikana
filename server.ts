@@ -6,8 +6,9 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-async function startServer() {
-  const app = express();
+export const app = express();
+
+async function configureServer() {
   const PORT = 3000;
 
   app.use(express.json({ limit: '1mb' }));
@@ -286,24 +287,29 @@ Generate a helpful, friendly, and concise response addressing the user's query a
     }
   });
 
-  // Vite middleware for development vs production static serving
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+  // Vercel serves the static Vite build separately and invokes this Express
+  // app only for /api/* requests. Do not start a long-running listener in a
+  // serverless function.
+  if (process.env.VERCEL !== '1') {
+    if (process.env.NODE_ENV !== 'production') {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.join(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
+
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`THIKANA Server running on http://localhost:${PORT}`);
     });
   }
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`THIKANA Server running on http://localhost:${PORT}`);
-  });
 }
 
-startServer();
+void configureServer();
+export default app;

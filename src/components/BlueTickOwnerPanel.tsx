@@ -123,7 +123,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
     <section className="w-full min-w-0 space-y-4 overflow-hidden rounded-[18px] border border-[#243049] bg-[#0B1220] p-4 text-[#E5EAF3] shadow-xl">
       <header className="flex items-center gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#243049]"><BadgeCheck className="h-6 w-6 text-[#93C5FD]" /></div>
-        <div className="min-w-0 flex-1"><h2 className="text-xl font-extrabold text-white">Blue Tick Verification</h2><p className="mt-1 text-xs leading-5 text-[#9AA7BD]">₹500 · Apply, upload proofs and track status</p></div>
+        <div className="min-w-0 flex-1"><h2 className="text-xl font-extrabold text-white">Blue Tick Verification</h2><p className="mt-1 text-xs leading-5 text-[#9AA7BD]">₹500 one-time · Apply, upload proofs and track status</p></div>
       </header>
 
       {screen === 'apply' ? (
@@ -180,7 +180,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
                 </>
               )}
 
-              {application.status === 'approved' && <div className="rounded-xl border border-[#14B8A6] bg-[#0B302D] p-3 text-sm text-[#99F6E4]"><CheckCircle2 className="mr-2 inline h-4 w-4" />Blue Tick approved. Valid until {application.verifiedUntil ? new Date(application.verifiedUntil).toLocaleDateString('en-IN') : '—'}.</div>}
+              {application.status === 'approved' && <div className="rounded-xl border border-[#14B8A6] bg-[#0B302D] p-3 text-sm text-[#99F6E4]"><CheckCircle2 className="mr-2 inline h-4 w-4" />Blue Tick verification permanently active for this property.</div>}
               {application.status === 'rejected' && <div className="rounded-xl border border-[#7F1D32] bg-[#351522] p-3 text-sm text-[#FDA4AF]">Application rejected: {application.reviewNote || 'Please contact support for correction.'}</div>}
 
               <a href={supportUrl(application)} target="_blank" rel="noreferrer" className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-sm font-extrabold text-[#052E16]"><MessageCircle className="h-5 w-5" />WhatsApp Support</a>
@@ -190,7 +190,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
       )}
 
       {message && <p role="status" aria-live="polite" className="break-words rounded-xl border border-[#3A4866] bg-[#131C2E] p-3 text-sm leading-5 text-[#E5EAF3]">{message}</p>}
-      <div className="flex items-start gap-2 rounded-xl border border-[#243049] bg-[#131C2E] p-3"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#93C5FD]" /><p className="text-[11px] leading-5 text-[#9AA7BD]">₹500 payment admin ke bank-credit verification ke baad hi confirm hoga. Blue Tick paid optional service hai, government certification nahi.</p></div>
+      <div className="flex items-start gap-2 rounded-xl border border-[#243049] bg-[#131C2E] p-3"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#93C5FD]" /><p className="text-[11px] leading-5 text-[#9AA7BD]">₹500 one-time payment admin ke bank-credit verification ke baad hi confirm hoga. Blue Tick paid optional service hai, government certification nahi.</p></div>
     </section>
   );
 };

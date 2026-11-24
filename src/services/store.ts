@@ -1032,7 +1032,7 @@ class DataStore {
     const currentUser = this.getCurrentUser();
     if (verifiedPlatformOwner || currentUser?.role === 'admin') return this.properties;
     return this.properties.filter((property) =>
-      property.status === 'active' || property.ownerUid === fbUser.uid
+      (property.status === 'active' && isSubscriptionAccessActive(property)) || property.ownerUid === fbUser.uid
     );
   }
 

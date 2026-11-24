@@ -78,8 +78,14 @@ export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
   };
 
   const numberOfDays = calculateDays();
-  const roomPrice = selectedRoom ? (selectedRoom.discountPrice || selectedRoom.pricePerNight) : 1500;
-  const calculatedTotal = roomPrice * numberOfDays;
+  const roomPrice = selectedRoom
+    ? (selectedRoom.discountPrice && selectedRoom.discountPrice > 0 && selectedRoom.discountPrice < selectedRoom.pricePerNight
+        ? selectedRoom.discountPrice
+        : selectedRoom.pricePerNight > 0 ? selectedRoom.pricePerNight : 0)
+    : 0;
+  const calculatedTotal = roomPrice > 0 ? roomPrice * numberOfDays : 0;
+  const priceText = roomPrice > 0 ? `₹${roomPrice}/night` : 'Price to be confirmed by host';
+  const totalText = calculatedTotal > 0 ? `₹${calculatedTotal}` : 'To be confirmed by host';
 
   // Format WhatsApp Message
   const constructMessage = () => {
@@ -103,6 +109,11 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
 
     if (!customerName.trim() || !customerPhone.trim()) {
       alert('Please fill in your Name and Mobile Number.');
+      return;
+    }
+    const hostContact = property.ownerWhatsApp || property.ownerPhone || '';
+    if (!hostContact.replace(/\D/g, '')) {
+      alert('This host has not provided a WhatsApp contact yet. Please contact THIKANA support.');
       return;
     }
 
@@ -141,7 +152,7 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
     store.trackLead(property.id, activeRefId, customerName, source);
 
     // Clean owner phone number (remove +, spaces, leading zeros if 10 digits add 91)
-    let cleanPhone = property.ownerWhatsApp || property.ownerPhone || '919816012345';
+    let cleanPhone = hostContact;
     cleanPhone = cleanPhone.replace(/\D/g, '');
     if (cleanPhone.length === 10) {
       cleanPhone = '91' + cleanPhone;
@@ -201,7 +212,7 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 onClick={() => {
-                  let cleanPhone = property.ownerWhatsApp || property.ownerPhone || '919816012345';
+                  let cleanPhone = (property.ownerWhatsApp || property.ownerPhone || '').replace(/\D/g, '');
                   cleanPhone = cleanPhone.replace(/\D/g, '');
                   if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
                   window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(constructMessage())}`, '_blank');
@@ -301,7 +312,7 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
                 >
                   {rooms.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.roomName} (₹{r.discountPrice || r.pricePerNight})
+                      {r.roomName} ({r.discountPrice && r.discountPrice < r.pricePerNight ? `₹${r.discountPrice}` : r.pricePerNight > 0 ? `₹${r.pricePerNight}` : 'Price to confirm'})
                     </option>
                   ))}
                 </select>

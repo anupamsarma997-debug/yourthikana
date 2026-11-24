@@ -25,7 +25,7 @@ const formatDateTime = (value?: any) => {
   const date = typeof value?.toDate === 'function' ? value.toDate() : new Date(value);
   return Number.isNaN(date.getTime()) ? 'Submission time unavailable' : date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
 };
-const statusText = (application: Application) => application.status === 'approved' ? 'Approved' : application.status === 'rejected' ? 'Rejected' : 'Pending';
+const statusText = (application: Application) => application.status === 'approved' ? 'Approved' : application.status === 'rejected' ? 'Rejected' : application.status === 'awaiting_payment' ? 'Awaiting Payment' : 'Admin Review Pending';
 const supportUrl = (application: Application) => `https://wa.me/919101280465?text=${encodeURIComponent(`Hello YourThikana Support, I need help with Blue Tick application ${application.id} for ${application.propertyTitle}.`)}`;
 
 export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedPropertyId?: string }> = ({ properties, selectedPropertyId }) => {
@@ -163,7 +163,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
                 </div>
               </div>
 
-              {application.status === 'pending' && (
+              {(application.status === 'pending' || application.status === 'awaiting_payment') && (
                 <>
                   <div className="space-y-3 rounded-xl border border-[#3A4866] bg-[#0B1220] p-3">
                     <div className="flex items-center gap-2"><FileCheck2 className="h-5 w-5 text-[#93C5FD]" /><h4 className="text-sm font-bold text-white">Property Documents Upload</h4></div>

@@ -144,3 +144,14 @@ test('an invalid Search Boost UTR is rejected', async () => {
     proofStatus: 'share_sheet_opened',
   }));
 });
+
+
+test('an owner cannot extend subscription or paid badge validity', async () => {
+  const db = env.authenticatedContext('owner-1').firestore();
+  const propertyRef = doc(db, 'properties', 'active-property');
+  await assertFails(updateDoc(propertyRef, { subscriptionStatus: 'active' }));
+  await assertFails(updateDoc(propertyRef, { subscriptionExpiresAt: '2099-01-01T00:00:00.000Z' }));
+  await assertFails(updateDoc(propertyRef, { subscriptionTrialEndsAt: '2099-01-01T00:00:00.000Z' }));
+  await assertFails(updateDoc(propertyRef, { verifiedUntil: '2099-01-01T00:00:00.000Z' }));
+  await assertFails(updateDoc(propertyRef, { featuredUntil: '2099-01-01T00:00:00.000Z' }));
+});

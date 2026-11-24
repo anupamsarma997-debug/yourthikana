@@ -3,6 +3,7 @@ import { INITIAL_USERS, INITIAL_PROPERTIES, INITIAL_ROOMS, INITIAL_BANNERS, INIT
 import { db, auth, isFirebaseConfigured, firebaseConfigError } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, where, getDoc, getDocs, runTransaction, Timestamp } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { isSubscriptionAccessActive } from '../utils/subscriptionAccess';
 
 const STORAGE_KEYS = {
   USERS: 'thikana_users_v1',
@@ -1024,7 +1025,7 @@ class DataStore {
     // Apply the same visibility boundary in the UI as Firestore enforces remotely.
     if (!isFirebaseConfigured) return this.properties;
     const fbUser = auth?.currentUser;
-    if (!fbUser) return this.properties.filter((property) => property.status === 'active');
+    if (!fbUser) return this.properties.filter((property) => property.status === 'active' && isSubscriptionAccessActive(property));
     const verifiedPlatformOwner =
       fbUser.emailVerified &&
       (fbUser.email || '').toLowerCase() === 'anupamsarma997@gmail.com';

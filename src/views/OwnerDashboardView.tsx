@@ -563,9 +563,11 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
 
       const actualAmenities = Array.from(ownerAmenitiesSet);
 
+      const idToken = await auth?.currentUser?.getIdToken();
+      if (!idToken) throw new Error('Please sign in again to generate a description.');
       const res = await fetch('/api/ai/generate-description', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({
           propertyName: title.trim(),
           propertyType,

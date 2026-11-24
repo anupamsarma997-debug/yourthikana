@@ -118,11 +118,24 @@ Return ONLY a raw JSON array of 4 strings with approximate distances, for exampl
         }
       });
 
-      let json: string[] = [];
+      let json: unknown;
       try {
-        json = JSON.parse(response.text || '[]');
-      } catch (e) {
-        json = ['Local Scenic Viewpoint (2 km)', 'City Center Market (1.5 km)', 'Historical Monument (3 km)', 'Nature Trail Walk (1 km)'];
+        json = JSON.parse(response.text || 'null');
+      } catch {
+        // Never replace an invalid AI response with invented places or distances.
+        return res.status(502).json({
+          attractions: [],
+          unavailable: true,
+          message: 'Nearby attractions could not be verified. Please check with the property host.',
+        });
+      }
+
+      if (!Array.isArray(json) || json.some((item) => typeof item !== 'string' || !item.trim())) {
+        return res.status(502).json({
+          attractions: [],
+          unavailable: true,
+          message: 'Nearby attractions could not be verified. Please check with the property host.',
+        });
       }
 
       res.json({ attractions: json });
@@ -144,6 +157,12 @@ Return ONLY a raw JSON array of 4 strings with approximate distances, for exampl
           }))
         : [];
 
+      const toPositiveNumberOrNull = (value: unknown): number | null => {
+        if (value === null || value === undefined || value === '') return null;
+        const parsed = typeof value === 'number' ? value : Number(value);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+      };
+
       const candidateProperties = Array.isArray(req.body.availableProperties)
         ? req.body.availableProperties.slice(0, 6).map((p: any) => ({
             id: sanitizeInput(p.id, 50),
@@ -151,8 +170,8 @@ Return ONLY a raw JSON array of 4 strings with approximate distances, for exampl
             propertyType: sanitizeInput(p.propertyType || p.type, 50),
             city: sanitizeInput(p.city, 50),
             state: sanitizeInput(p.state, 50),
-            startingPrice: Number(p.startingPrice || p.price || 1500),
-            maxGuests: Number(p.maxGuests || p.maxCapacity || 2),
+            startingPrice: toPositiveNumberOrNull(p.startingPrice ?? p.price),
+            maxGuests: toPositiveNumberOrNull(p.maxGuests ?? p.maxCapacity),
             amenities: Array.isArray(p.amenities) ? p.amenities.slice(0, 5) : [],
             distanceNote: sanitizeInput(p.distanceNote || '', 100),
             matchReason: sanitizeInput(p.matchReason || '', 150),
@@ -175,11 +194,12 @@ PERSONALITY & TONE:
 
 CRITICAL TRUST & SAFETY RULES (ZERO HALLUCINATIONS):
 1. You MUST ONLY recommend and discuss properties that actually exist in the provided THIKANA candidate listings list below.
-2. NEVER invent fake hotels, prices, phone numbers, reviews, star ratings, or amenities.
-3. If no properties in the list match the user's requested destination/criteria, clearly state:
+2. NEVER invent fake hotels, prices, phone numbers, reviews, star ratings, amenities, guest capacities, or distances.
+3. A candidate's startingPrice or maxGuests may be null when the owner did not provide that value. Treat null as unknown: do not estimate, substitute, or infer a value. Tell the user to confirm the missing detail directly with the host.
+4. If no properties in the list match the user's requested destination/criteria, clearly state:
    "I could not find an exact match in THIKANA right now. Here are the closest available options."
-4. If the user's request is incomplete (e.g. missing guests or budget), ask ONLY the necessary question concisely without spamming.
-5. In your response:
+5. If the user's request is incomplete (e.g. missing guests or budget), ask ONLY the necessary question concisely without spamming.
+6. In your response:
    - Provide a brief 1-2 paragraph helpful overview explaining why the recommended stay(s) match the user's destination, budget, guest count, or preferences (e.g. proximity to Kaziranga Safari Gate, Living Root bridges in Sohra, or Tawang Monastery views).
    - Remind the user that they can tap "Book / Contact Host on WhatsApp" to connect directly with the local host with zero commission.`;
 
@@ -210,7 +230,7 @@ Generate a helpful, friendly, and concise response addressing the user's query a
       });
 
       res.json({
-        reply: response.text || 'Here are authentic Northeast stays on THIKANA matching your request!',
+        reply: response.text || 'I could not prepare a verified recommendation right now. Please try again or contact a property host directly.',
         modelUsed: 'gemini-3.7-flash'
       });
     } catch (error: any) {

@@ -101,7 +101,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
         const path = `verification-documents/${uid}/${application.id}/property-${Date.now()}-${safeName}`;
         await uploadBytes(ref(storage, path), file, { contentType: file.type });
       }
-      await updateDoc(doc(db, 'verificationApplications', application.id), { proofStatus: 'share_sheet_completed', proofSharedAt: serverTimestamp() });
+      await updateDoc(doc(db, 'verificationApplications', application.id), { proofStatus: 'documents_uploaded', proofSharedAt: serverTimestamp() });
       setDocumentFiles([]);
       setMessage('Property documents securely upload ho gaye. Admin review karega. WhatsApp support se bhi contact kar sakte hain.');
     } catch (error: any) {

@@ -84,7 +84,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
       await setDoc(applicationRef, {
         ownerUid: user.uid, propertyId: property.id, propertyTitle: property.title,
         status: 'awaiting_payment', paymentStatus: 'pending', paymentUtr: '',
-        proofSubmissionMethod: 'whatsapp', proofStatus: 'awaiting_payment',
+        proofSubmissionMethod: 'app_upload', proofStatus: 'awaiting_payment',
         submittedAt: serverTimestamp(),
       });
       setActiveApplicationId(applicationRef.id);
@@ -105,7 +105,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
     await updateDoc(doc(db, 'searchBoostApplications', application.id), {
       paymentUtr: utrValue, paymentSubmittedAt: serverTimestamp(),
       status: 'pending', paymentStatus: 'pending',
-      proofSubmissionMethod: 'whatsapp', proofStatus: 'share_sheet_opened',
+      proofSubmissionMethod: 'app_upload', proofStatus: 'uploaded',
     });
     setScreen('status');
   };

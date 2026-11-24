@@ -272,8 +272,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
   const [checkOutTime, setCheckOutTime] = useState('11:00 AM');
   const [photoUrlsInput, setPhotoUrlsInput] = useState<string>('');
   const [videoUrl, setVideoUrl] = useState<string>('');
-  const [ownerWhatsAppInput, setOwnerWhatsAppInput] = useState<string>('919876543210');
-  const [ownerPhoneInput, setOwnerPhoneInput] = useState<string>('+91 9876543210');
+  const [ownerWhatsAppInput, setOwnerWhatsAppInput] = useState<string>('');
+  const [ownerPhoneInput, setOwnerPhoneInput] = useState<string>('');
   const [formError, setFormError] = useState<string>('');
   const [isSavingProperty, setIsSavingProperty] = useState(false);
 
@@ -383,11 +383,11 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
   const [roomName, setRoomName] = useState('Standard Deluxe Room');
   const [pricePerNight, setPricePerNight] = useState<number | ''>('');
   const [discountPrice, setDiscountPrice] = useState<number | ''>('');
-  const [maxGuests, setMaxGuests] = useState(2);
-  const [roomDescription, setRoomDescription] = useState('Spacious pine wood room with private balcony.');
-  const [roomSize, setRoomSize] = useState('280 sq.ft.');
-  const [bedType, setBedType] = useState('King Size Bed');
-  const [roomAmenities, setRoomAmenities] = useState('Balcony View, Free High-Speed WiFi, Hot Shower, Room Heater');
+  const [maxGuests, setMaxGuests] = useState<number | ''>('');
+  const [roomDescription, setRoomDescription] = useState('');
+  const [roomSize, setRoomSize] = useState('');
+  const [bedType, setBedType] = useState('');
+  const [roomAmenities, setRoomAmenities] = useState('');
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<'properties' | 'subscriptions' | 'leads' | 'qr-codes'>('properties');
@@ -636,7 +636,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     }
 
     const numPrice = typeof pricePerNight === 'number' ? pricePerNight : (parseInt(String(pricePerNight)) || 0);
-    const numDiscount = discountPrice !== '' ? (typeof discountPrice === 'number' ? discountPrice : (parseInt(String(discountPrice)) || numPrice)) : numPrice;
+    const numDiscount = discountPrice !== '' ? (typeof discountPrice === 'number' ? discountPrice : (parseInt(String(discountPrice)) || 0)) : 0;
 
     if (!editingPropertyId) {
       if (!roomName.trim()) {
@@ -690,8 +690,12 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
 
     const ownerId = fbUser.uid;
     const ownerName = user.name;
-    const finalPhone = ownerPhoneInput.trim() || '+91 9876543210';
-    const finalWhatsApp = ownerWhatsAppInput.trim() || '919876543210';
+    const finalPhone = ownerPhoneInput.trim();
+    const finalWhatsApp = ownerWhatsAppInput.trim() || finalPhone;
+    if (!finalWhatsApp) {
+      setFormError('Please enter the host WhatsApp number so guests can contact the real property owner.');
+      return;
+    }
 
     setIsSavingProperty(true);
     setFormError('');
@@ -754,8 +758,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
             propertyId: newProp.id,
             roomName: roomName || 'Standard Room',
             pricePerNight: numPrice,
-            discountPrice: numDiscount,
-            maxGuests: maxGuests || 2,
+            discountPrice: numDiscount > 0 && numDiscount < numPrice ? numDiscount : undefined,
+            maxGuests: typeof maxGuests === 'number' && maxGuests > 0 ? maxGuests : 0,
             description: roomDescription || '',
             amenities: amList,
             roomSize: roomSize || '250 sq.ft.',
@@ -788,10 +792,10 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     setRoomName('Standard Deluxe Room');
     setPricePerNight('');
     setDiscountPrice('');
-    setMaxGuests(2);
+    setMaxGuests('');
     setRoomDescription('');
-    setRoomSize('280 sq ft');
-    setBedType('Double Bed');
+    setRoomSize('');
+    setBedType('');
     setRoomAmenities('');
   };
 
@@ -801,11 +805,11 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     setEditingRoomId(room.id);
     setRoomName(room.roomName);
     setPricePerNight(room.pricePerNight);
-    setDiscountPrice(room.discountPrice || room.pricePerNight);
-    setMaxGuests(room.maxGuests);
+    setDiscountPrice(room.discountPrice || '');
+    setMaxGuests(room.maxGuests > 0 ? room.maxGuests : '');
     setRoomDescription(room.description || '');
-    setRoomSize(room.roomSize || '250 sq ft');
-    setBedType(room.bedType || 'Double Bed');
+    setRoomSize(room.roomSize || '');
+    setBedType(room.bedType || '');
     setRoomAmenities((room.amenities || []).join(', '));
   };
 
@@ -822,6 +826,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       return;
     }
 
+    const numGuests = typeof maxGuests === 'number' && maxGuests > 0 ? maxGuests : 0;
     const amList = roomAmenities.split(',').map((s) => s.trim()).filter(Boolean);
 
     if (editingRoomId) {
@@ -829,8 +834,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       store.updateRoom(editingRoomId, {
         roomName,
         pricePerNight: numPrice,
-        discountPrice: numDiscount,
-        maxGuests,
+        discountPrice: numDiscount > 0 && numDiscount < numPrice ? numDiscount : undefined,
+        maxGuests: numGuests,
         description: roomDescription,
         amenities: amList,
         roomSize,
@@ -1109,14 +1114,14 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                           >
                             <div>
                               <p className="font-extrabold text-slate-900 dark:text-white text-xs">{r.roomName}</p>
-                              <p className="text-[10px] text-slate-500">Max {r.maxGuests} Guests • {r.bedType} • {r.roomSize || '250 sq ft'}</p>
+                              <p className="text-[10px] text-slate-500">{r.maxGuests > 0 ? `Max ${r.maxGuests} Guests` : 'Capacity not provided'}{r.bedType ? ` • ${r.bedType}` : ''}{r.roomSize ? ` • ${r.roomSize}` : ''}</p>
                             </div>
                             <div className="text-right shrink-0">
                               <div className="flex items-baseline gap-1 justify-end">
                                 <span className="font-black text-xs text-emerald-600 dark:text-emerald-400">
-                                  ₹{r.discountPrice || r.pricePerNight}
+                                  {r.pricePerNight > 0 ? `₹${r.discountPrice && r.discountPrice < r.pricePerNight ? r.discountPrice : r.pricePerNight}` : 'Price not entered'}
                                 </span>
-                                {r.discountPrice && r.discountPrice < r.pricePerNight && (
+                                {r.discountPrice && r.discountPrice > 0 && r.discountPrice < r.pricePerNight && (
                                   <span className="text-[10px] text-slate-400 line-through">
                                     ₹{r.pricePerNight}
                                   </span>
@@ -1847,7 +1852,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                       <input
                         type="number"
                         value={maxGuests}
-                        onChange={(e) => setMaxGuests(parseInt(e.target.value) || 2)}
+                        onChange={(e) => setMaxGuests(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))}
                         className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
@@ -1972,7 +1977,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                   <input
                     type="number"
                     value={maxGuests}
-                    onChange={(e) => setMaxGuests(parseInt(e.target.value) || 2)}
+                    onChange={(e) => setMaxGuests(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>

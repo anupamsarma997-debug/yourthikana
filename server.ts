@@ -1,4 +1,5 @@
 import express from 'express';
+import { createSign } from 'node:crypto';
 import path from 'path';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
@@ -31,6 +32,150 @@ async function configureServer() {
   // Health API
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', app: 'THIKANA Marketplace', time: new Date().toISOString() });
+  });
+
+  // Daily subscription expiry maintenance. The route is private to Vercel Cron
+  // and uses the existing Firebase service-account secret; no client token or
+  // owner-editable role can trigger privileged Firestore writes.
+  app.get('/api/cron/expire-subscriptions', async (req, res) => {
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      return res.status(503).json({ error: 'Subscription maintenance is not configured.' });
+    }
+    if (req.headers.authorization !== `Bearer ${cronSecret}`) {
+      return res.status(401).json({ error: 'Unauthorized.' });
+    }
+
+    const serviceAccountValue = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (!serviceAccountValue) {
+      return res.status(503).json({ error: 'Firebase service account is not configured.' });
+    }
+
+    try {
+      const serviceAccount = JSON.parse(serviceAccountValue) as {
+        project_id?: string;
+        client_email?: string;
+        private_key?: string;
+        token_uri?: string;
+      };
+      if (!serviceAccount.project_id || !serviceAccount.client_email || !serviceAccount.private_key) {
+        return res.status(503).json({ error: 'Firebase service account credentials are incomplete.' });
+      }
+
+      const issuedAt = Math.floor(Date.now() / 1000);
+      const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+      const unsignedToken = [
+        encode({ alg: 'RS256', typ: 'JWT' }),
+        encode({
+          iss: serviceAccount.client_email,
+          scope: 'https://www.googleapis.com/auth/datastore',
+          aud: serviceAccount.token_uri || 'https://oauth2.googleapis.com/token',
+          iat: issuedAt,
+          exp: issuedAt + 3600,
+        }),
+      ].join('.');
+      const signer = createSign('RSA-SHA256');
+      signer.update(unsignedToken);
+      signer.end();
+      const assertion = `${unsignedToken}.${signer.sign(serviceAccount.private_key, 'base64url')}`;
+
+      const tokenResponse = await fetch(serviceAccount.token_uri || 'https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+          assertion,
+        }),
+      });
+      if (!tokenResponse.ok) {
+        throw new Error(`Google OAuth token request failed with HTTP ${tokenResponse.status}.`);
+      }
+      const tokenPayload = await tokenResponse.json() as { access_token?: string };
+      if (!tokenPayload.access_token) throw new Error('Google OAuth did not return an access token.');
+
+      const queryUrl = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(serviceAccount.project_id)}/databases/(default)/documents:runQuery`;
+      const queryResponse = await fetch(queryUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tokenPayload.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          structuredQuery: {
+            from: [{ collectionId: 'properties' }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: 'status' },
+                op: 'EQUAL',
+                value: { stringValue: 'active' },
+              },
+            },
+          },
+        }),
+      });
+      if (!queryResponse.ok) {
+        throw new Error(`Firestore property query failed with HTTP ${queryResponse.status}.`);
+      }
+
+      const rows = await queryResponse.json() as Array<{ document?: { name?: string; fields?: Record<string, any> } }>;
+      const now = new Date();
+      let scanned = 0;
+      let expired = 0;
+      let skippedWithoutExpiry = 0;
+
+      for (const row of rows) {
+        const document = row.document;
+        if (!document?.name || !document.fields) continue;
+        scanned += 1;
+        const fields = document.fields;
+        const expiryValues = [
+          fields.subscriptionExpiresAt?.stringValue,
+          fields.subscriptionExpiryDate?.stringValue,
+          fields.subscriptionTrialEndsAtTimestamp?.timestampValue,
+          fields.subscriptionTrialEndsAt?.stringValue,
+        ];
+        let expiryMillis: number | null = null;
+        for (const value of expiryValues) {
+          if (typeof value !== 'string' || !value.trim()) continue;
+          const parsed = Date.parse(value);
+          if (Number.isFinite(parsed)) { expiryMillis = parsed; break; }
+        }
+        if (expiryMillis === null) {
+          skippedWithoutExpiry += 1;
+          continue;
+        }
+        if (expiryMillis > now.getTime()) continue;
+
+        const patchUrl = new URL(`https://firestore.googleapis.com/v1/${document.name}`);
+        patchUrl.searchParams.append('updateMask.fieldPaths', 'status');
+        patchUrl.searchParams.append('updateMask.fieldPaths', 'subscriptionStatus');
+        patchUrl.searchParams.append('updateMask.fieldPaths', 'subscriptionExpiredAt');
+        const patchResponse = await fetch(patchUrl, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${tokenPayload.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: document.name,
+            fields: {
+              status: { stringValue: 'hidden_expired' },
+              subscriptionStatus: { stringValue: 'expired' },
+              subscriptionExpiredAt: { timestampValue: now.toISOString() },
+            },
+          }),
+        });
+        if (!patchResponse.ok) {
+          throw new Error(`Could not expire property ${document.name.split('/').pop()} (HTTP ${patchResponse.status}).`);
+        }
+        expired += 1;
+      }
+
+      return res.json({ success: true, scanned, expired, skippedWithoutExpiry, checkedAt: now.toISOString() });
+    } catch (error: any) {
+      console.error('Subscription expiry maintenance failed:', error?.message || error);
+      return res.status(500).json({ error: 'Subscription expiry maintenance failed. Check server logs.' });
+    }
   });
 
   // Protect paid Gemini-backed endpoints with Firebase ID-token verification.

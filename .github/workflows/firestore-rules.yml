@@ -8,7 +8,6 @@ on:
       - 'firebase.json'
       - 'tests/firestore.rules.test.mjs'
       - 'tests/subscription.rules.test.mjs'
-      - 'tests/subscription.rules.test.mjs'
       - '.github/workflows/firestore-rules.yml'
   push:
     branches: ['**']
@@ -16,6 +15,7 @@ on:
       - 'firestore.rules'
       - 'firebase.json'
       - 'tests/firestore.rules.test.mjs'
+      - 'tests/subscription.rules.test.mjs'
       - '.github/workflows/firestore-rules.yml'
 
 permissions:

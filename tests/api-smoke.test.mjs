@@ -32,6 +32,18 @@ test('subscription expiry maintenance fails closed when CRON_SECRET is not confi
   assert.equal(response.status, 503);
 });
 
+test('subscription expiry maintenance rejects missing or invalid bearer authorization', async () => {
+  process.env.CRON_SECRET = 'ci-cron-secret';
+  delete process.env.FIREBASE_SERVICE_ACCOUNT;
+  const unauthorized = await nativeFetch(base + '/api/cron/expire-subscriptions');
+  assert.equal(unauthorized.status, 401);
+  const missingServiceAccount = await nativeFetch(base + '/api/cron/expire-subscriptions', {
+    headers: { authorization: 'Bearer ci-cron-secret' },
+  });
+  assert.equal(missingServiceAccount.status, 503);
+  delete process.env.CRON_SECRET;
+});
+
 test('health endpoint returns HTTP 200 without an authenticated session', async () => {
   const response = await nativeFetch(base + '/api/health');
   assert.equal(response.status, 200);

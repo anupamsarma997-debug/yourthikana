@@ -77,6 +77,19 @@ export const SearchBoostAdminPanel: React.FC = () => {
           isFeatured: true,
           featuredUntil,
         });
+        batch.set(doc(db, 'transactions', `search-boost-${application.id}`), {
+          id: `search-boost-${application.id}`,
+          ownerId: application.ownerUid,
+          ownerName: propertySnapshot.data().ownerName || 'Property owner',
+          propertyId: application.propertyId,
+          propertyName: application.propertyTitle,
+          type: 'search_boost',
+          planName: 'Search Boost — one calendar month',
+          amount: 500,
+          date: now.toLocaleDateString('en-IN'),
+          validUntil: featuredUntil,
+          createdAt: now.toISOString(),
+        });
       } else {
         batch.update(applicationRef, {
           status: 'rejected',

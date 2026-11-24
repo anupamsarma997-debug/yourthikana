@@ -762,8 +762,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
             maxGuests: typeof maxGuests === 'number' && maxGuests > 0 ? maxGuests : 0,
             description: roomDescription || '',
             amenities: amList,
-            roomSize: roomSize || '250 sq.ft.',
-            bedType: bedType || 'Double Bed',
+            roomSize: roomSize || '',
+            bedType: bedType || '',
           });
         }
 

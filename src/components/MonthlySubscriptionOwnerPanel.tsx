@@ -40,6 +40,7 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
 
   const trialProperties = useMemo(
     () => ownedProperties.filter(property => {
+      if (property.subscriptionStatus !== 'trial') return false;
       const end = property.subscriptionTrialEndsAtTimestamp
         ? property.subscriptionTrialEndsAtTimestamp.toDate().getTime()
         : Date.parse(property.subscriptionTrialEndsAt || '');

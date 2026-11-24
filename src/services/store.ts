@@ -194,23 +194,31 @@ const normalizeProperty = (p: any): Property => ({
   address: String(p?.address || ''),
   city: String(p?.city || ''),
   state: String(p?.state || ''),
+  latitude: typeof p?.latitude === 'number' && Number.isFinite(p.latitude) ? p.latitude : null,
+  longitude: typeof p?.longitude === 'number' && Number.isFinite(p.longitude) ? p.longitude : null,
   ownerName: String(p?.ownerName || 'Property Owner'),
   ownerPhone: String(p?.ownerPhone || ''),
   ownerWhatsApp: String(p?.ownerWhatsApp || p?.ownerPhone || ''),
   photos: Array.isArray(p?.photos) ? p.photos.filter((photo: unknown): photo is string => typeof photo === 'string' && photo.trim().length > 0) : (typeof p?.coverImage === 'string' && p.coverImage ? [p.coverImage] : []),
-  rating: typeof p?.rating === 'number' && Number.isFinite(p.rating) ? p.rating : 5.0,
+  rating: typeof p?.rating === 'number' && Number.isFinite(p.rating) && p.rating > 0 ? p.rating : 0,
   reviewsCount: typeof p?.reviewsCount === 'number' && Number.isFinite(p.reviewsCount) ? p.reviewsCount : 0,
 });
 
 const normalizeRoom = (room: any): RoomType | null => {
   if (!room || typeof room !== 'object' || !room.id || !room.propertyId) return null;
+  const basePrice = Number(room.pricePerNight);
+  const discountPrice = Number(room.discountPrice);
+  const validBasePrice = Number.isFinite(basePrice) && basePrice > 0 ? basePrice : 0;
+  const validDiscountPrice = Number.isFinite(discountPrice) && discountPrice > 0 && validBasePrice > 0 && discountPrice < validBasePrice ? discountPrice : undefined;
+  const guestCapacity = Number(room.maxGuests);
   return {
     ...room,
     id: String(room.id),
     propertyId: String(room.propertyId),
     roomName: String(room.roomName || 'Room'),
-    pricePerNight: Number.isFinite(Number(room.pricePerNight)) ? Number(room.pricePerNight) : 1500,
-    maxGuests: Number.isFinite(Number(room.maxGuests)) ? Number(room.maxGuests) : 2,
+    pricePerNight: validBasePrice,
+    discountPrice: validDiscountPrice,
+    maxGuests: Number.isFinite(guestCapacity) && guestCapacity > 0 ? guestCapacity : 0,
     description: String(room.description || ''),
     amenities: Array.isArray(room.amenities) ? room.amenities.filter((item: unknown): item is string => typeof item === 'string') : [],
     photos: Array.isArray(room.photos) ? room.photos.filter((photo: unknown): photo is string => typeof photo === 'string') : [],
@@ -242,9 +250,12 @@ class DataStore {
   }
 
   private initData() {
+    const useLocalDemoData = !(isFirebaseConfigured && db && auth);
     try {
-      const storedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
-      const rawUsers: User[] = storedUsers ? JSON.parse(storedUsers) : INITIAL_USERS;
+      // Firebase-backed deployments must start from the server as source of truth.
+      // Seed/demo accounts and sample properties are only for standalone local mode.
+      const storedUsers = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.USERS) : null;
+      const rawUsers: User[] = storedUsers ? JSON.parse(storedUsers) : (useLocalDemoData ? INITIAL_USERS : []);
       this.users = rawUsers.map((u) => {
         const userObj = { ...u };
         if ((userObj as any).password) {
@@ -262,31 +273,31 @@ class DataStore {
         return userObj;
       });
 
-      const storedProps = localStorage.getItem(STORAGE_KEYS.PROPERTIES);
-      const rawProps = storedProps ? JSON.parse(storedProps) : INITIAL_PROPERTIES;
-      this.properties = (Array.isArray(rawProps) ? rawProps : INITIAL_PROPERTIES).map(normalizeProperty);
+      const storedProps = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.PROPERTIES) : null;
+      const rawProps = storedProps ? JSON.parse(storedProps) : (useLocalDemoData ? INITIAL_PROPERTIES : []);
+      this.properties = (Array.isArray(rawProps) ? rawProps : (useLocalDemoData ? INITIAL_PROPERTIES : [])).map(normalizeProperty);
 
-      const storedRooms = localStorage.getItem(STORAGE_KEYS.ROOMS);
-      const rawRooms = storedRooms ? JSON.parse(storedRooms) : INITIAL_ROOMS;
-      this.rooms = (Array.isArray(rawRooms) ? rawRooms : INITIAL_ROOMS).map(normalizeRoom).filter((room): room is RoomType => Boolean(room));
+      const storedRooms = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.ROOMS) : null;
+      const rawRooms = storedRooms ? JSON.parse(storedRooms) : (useLocalDemoData ? INITIAL_ROOMS : []);
+      this.rooms = (Array.isArray(rawRooms) ? rawRooms : (useLocalDemoData ? INITIAL_ROOMS : [])).map(normalizeRoom).filter((room): room is RoomType => Boolean(room));
 
-      const storedBanners = localStorage.getItem(STORAGE_KEYS.BANNERS);
-      this.banners = storedBanners ? JSON.parse(storedBanners) : INITIAL_BANNERS;
+      const storedBanners = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.BANNERS) : null;
+      this.banners = storedBanners ? JSON.parse(storedBanners) : (useLocalDemoData ? INITIAL_BANNERS : []);
 
-      const storedEnquiries = localStorage.getItem(STORAGE_KEYS.ENQUIRIES);
+      const storedEnquiries = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.ENQUIRIES) : null;
       this.enquiries = storedEnquiries ? JSON.parse(storedEnquiries) : [];
 
-      const storedTx = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-      this.transactions = storedTx ? JSON.parse(storedTx) : INITIAL_TRANSACTIONS;
+      const storedTx = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.TRANSACTIONS) : null;
+      this.transactions = storedTx ? JSON.parse(storedTx) : (useLocalDemoData ? INITIAL_TRANSACTIONS : []);
 
-      const storedVisits = localStorage.getItem(STORAGE_KEYS.VISITS);
+      const storedVisits = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.VISITS) : null;
       this.visits = storedVisits ? JSON.parse(storedVisits) : [];
 
-      const storedLeads = localStorage.getItem(STORAGE_KEYS.LEADS);
+      const storedLeads = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.LEADS) : null;
       this.leads = storedLeads ? JSON.parse(storedLeads) : [];
 
-      const storedUserId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
-      this.currentUserId = storedUserId || 'customer_1';
+      const storedUserId = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID) : null;
+      this.currentUserId = useLocalDemoData ? (storedUserId || 'customer_1') : '';
 
       const storedTheme = localStorage.getItem(STORAGE_KEYS.THEME);
       this.isDarkMode = storedTheme === 'dark';
@@ -297,11 +308,15 @@ class DataStore {
       this.persist();
     } catch (e) {
       console.error('Error loading store data:', e);
-      this.users = INITIAL_USERS;
-      this.properties = INITIAL_PROPERTIES;
-      this.rooms = INITIAL_ROOMS;
-      this.banners = INITIAL_BANNERS;
-      this.transactions = INITIAL_TRANSACTIONS;
+      this.users = useLocalDemoData ? INITIAL_USERS : [];
+      this.properties = useLocalDemoData ? INITIAL_PROPERTIES : [];
+      this.rooms = useLocalDemoData ? INITIAL_ROOMS : [];
+      this.banners = useLocalDemoData ? INITIAL_BANNERS : [];
+      this.transactions = useLocalDemoData ? INITIAL_TRANSACTIONS : [];
+      this.enquiries = [];
+      this.visits = [];
+      this.leads = [];
+      this.currentUserId = useLocalDemoData ? 'customer_1' : '';
     }
   }
 
@@ -360,7 +375,10 @@ class DataStore {
           query(collection(db, 'rooms'), where('propertyId', '==', propertyId)),
           (snapshot) => {
             Array.from(remoteRooms.values()).filter((room) => room.propertyId === propertyId).forEach((room) => remoteRooms.delete(room.id));
-            snapshot.forEach((docSnap) => remoteRooms.set(docSnap.id, { id: docSnap.id, ...docSnap.data() } as RoomType));
+            snapshot.forEach((docSnap) => {
+              const normalizedRoom = normalizeRoom({ id: docSnap.id, ...docSnap.data() });
+              if (normalizedRoom) remoteRooms.set(docSnap.id, normalizedRoom);
+            });
             const allowedLocalRooms = this.rooms.filter((room) => propertyIds.has(room.propertyId));
             const merged = new Map<string, RoomType>();
             allowedLocalRooms.forEach((room) => merged.set(room.id, room));

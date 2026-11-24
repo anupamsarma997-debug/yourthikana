@@ -8,6 +8,7 @@ process.env.VITE_FIREBASE_API_KEY = 'ci-test-key';
 
 const nativeFetch = globalThis.fetch.bind(globalThis);
 const { isSubscriptionAccessActive } = await import('../src/utils/subscriptionAccess.ts');
+const { isSearchBoostActive } = await import('../src/utils/propertyBadges.ts');
 const serverModule = await import('../dist/server.cjs');
 const app = serverModule.default?.default ?? serverModule.default ?? serverModule.app ?? serverModule;
 assert.equal(typeof app, 'function', 'Express app must be exported from the production bundle');
@@ -26,6 +27,12 @@ test('subscription entitlement hides expired subscriptions and preserves future 
   assert.equal(isSubscriptionAccessActive({ subscriptionExpiresAt: '2026-12-24T00:00:00.000Z', subscriptionExpiresAtTimestamp: { toDate: () => new Date('2026-11-24T00:00:00.000Z') } }, Date.parse('2026-11-25T00:00:00.000Z')), false);
   assert.equal(isSubscriptionAccessActive({ subscriptionExpiresAt: '' }, Date.parse('2026-11-25T00:00:00.000Z')), true);
   assert.equal(isSubscriptionAccessActive({ subscriptionStatus: 'expired' }, Date.parse('2026-11-25T00:00:00.000Z')), false);
+});
+
+test('expired Search Boosts are excluded from badges and AI ranking', () => {
+  assert.equal(isSearchBoostActive({ isFeatured: true, featuredUntil: '2026-11-24T00:00:00.000Z' }), false);
+  assert.equal(isSearchBoostActive({ isFeatured: true, featuredUntil: '2026-12-24T00:00:00.000Z' }), true);
+  assert.equal(isSearchBoostActive({ isFeatured: false, featuredUntil: '2026-12-24T00:00:00.000Z' }), false);
 });
 
 test('subscription expiry maintenance fails closed when CRON_SECRET is not configured', async () => {

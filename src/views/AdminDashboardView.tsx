@@ -122,7 +122,7 @@ export const AdminDashboardView: React.FC = () => {
     // invoke this effect more than once; the transaction re-check prevents a
     // second run from resetting an already-created six-month trial.
     const legacyTrials = properties.filter(property =>
-      property.status === 'active' && !property.subscriptionTrialEndsAtTimestamp
+      property.status === 'active' && (!property.subscriptionTrialEndsAtTimestamp || !property.subscriptionExpiresAtTimestamp)
     );
 
     legacyTrials.forEach(property => {
@@ -132,7 +132,7 @@ export const AdminDashboardView: React.FC = () => {
         if (!snapshot.exists()) return;
 
         const current = snapshot.data();
-        if (current.status !== 'active' || current.subscriptionTrialEndsAtTimestamp) return;
+        if (current.status !== 'active' || current.subscriptionExpiresAtTimestamp) return;
 
         const now = new Date();
         const parsedStart = current.subscriptionTrialStartedAt
@@ -140,7 +140,7 @@ export const AdminDashboardView: React.FC = () => {
           : null;
         const parsedEnd = current.subscriptionTrialEndsAt
           ? new Date(current.subscriptionTrialEndsAt)
-          : null;
+          : current.subscriptionTrialEndsAtTimestamp?.toDate?.() || null;
         const validStart = parsedStart && Number.isFinite(parsedStart.getTime()) ? parsedStart : null;
         const validEnd = parsedEnd && Number.isFinite(parsedEnd.getTime()) ? parsedEnd : null;
 

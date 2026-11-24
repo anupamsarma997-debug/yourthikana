@@ -138,11 +138,17 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
           onClick={() => onOpenGallery(property)}
           className="md:col-span-2 aspect-[4/3] sm:aspect-[16/10] overflow-hidden rounded-2xl relative group cursor-pointer"
         >
-          <img
-            src={photos[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80'}
-            alt={property.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
+          {photos[0] ? (
+            <img
+              src={photos[0]}
+              alt={property.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-300 text-sm font-semibold">
+              Host photo not provided
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
           <div className="absolute bottom-3 left-3 bg-slate-900/80 text-white text-xs font-bold px-3 py-1.5 rounded-xl backdrop-blur-md border border-white/20">
             Cover Photo
@@ -154,11 +160,13 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
           onClick={() => onOpenGallery(property)}
           className="hidden md:block aspect-[4/3] sm:aspect-[16/10] overflow-hidden rounded-2xl relative group cursor-pointer"
         >
-          <img
-            src={photos[1] || photos[0]}
-            alt={property.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
+          {(photos[1] || photos[0]) ? (
+            <img
+              src={photos[1] || photos[0]}
+              alt={property.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          ) : <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">No additional photo</div>}
         </div>
 
         {/* Video / Gallery Trigger Photo */}
@@ -166,11 +174,13 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
           onClick={() => onOpenGallery(property)}
           className="hidden md:block aspect-[4/3] sm:aspect-[16/10] overflow-hidden rounded-2xl relative group cursor-pointer bg-slate-800"
         >
-          <img
-            src={photos[2] || photos[0]}
-            alt={property.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80"
-          />
+          {(photos[2] || photos[0]) ? (
+            <img
+              src={photos[2] || photos[0]}
+              alt={property.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80"
+            />
+          ) : <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">No additional photo</div>}
           <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] flex flex-col items-center justify-center text-center p-2">
             {property.videoUrl ? (
               <div className="space-y-1">

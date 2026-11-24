@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { store } from '../services/store';
 import { Property, User, BannerAd } from '../types';
 import { auth, db } from '../lib/firebase';
-import { collection, doc, Timestamp, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, Timestamp, updateDoc, writeBatch, runTransaction } from 'firebase/firestore';
 import { BlueTickAdminPanel } from '../components/BlueTickAdminPanel';
 import { SearchBoostAdminPanel } from '../components/SearchBoostAdminPanel';
 import { MonthlySubscriptionAdminPanel } from '../components/MonthlySubscriptionAdminPanel';
@@ -117,25 +117,58 @@ export const AdminDashboardView: React.FC = () => {
 
   React.useEffect(() => {
     if (!db || !isAuthorized) return;
+
+    // Run each migration transactionally. React StrictMode or rapid snapshots can
+    // invoke this effect more than once; the transaction re-check prevents a
+    // second run from resetting an already-created six-month trial.
     const legacyTrials = properties.filter(property =>
       property.status === 'active' && !property.subscriptionTrialEndsAtTimestamp
     );
+
     legacyTrials.forEach(property => {
-      const now = new Date();
-      const startedAt = property.subscriptionTrialStartedAt
-        ? new Date(property.subscriptionTrialStartedAt)
-        : property.subscriptionTrialEndsAt
-          ? null
-          : now;
-      const trialEnd = startedAt
-        ? addCalendarMonths(startedAt, 6)
-        : new Date(property.subscriptionTrialEndsAt || '');
-      if ((startedAt && !Number.isFinite(startedAt.getTime())) || !Number.isFinite(trialEnd.getTime())) return;
-      updateDoc(doc(db, 'properties', property.id), {
-        subscriptionTrialStartedAt: (startedAt || addCalendarMonths(trialEnd, -6)).toISOString(),
-        subscriptionTrialEndsAt: trialEnd.toISOString(),
-        subscriptionTrialEndsAtTimestamp: Timestamp.fromDate(trialEnd),
-        subscriptionStatus: trialEnd.getTime() > now.getTime() ? 'trial' : 'expired',
+      const propertyRef = doc(db, 'properties', property.id);
+      runTransaction(db, async transaction => {
+        const snapshot = await transaction.get(propertyRef);
+        if (!snapshot.exists()) return;
+
+        const current = snapshot.data();
+        if (current.status !== 'active' || current.subscriptionTrialEndsAtTimestamp) return;
+
+        const now = new Date();
+        const parsedStart = current.subscriptionTrialStartedAt
+          ? new Date(current.subscriptionTrialStartedAt)
+          : null;
+        const parsedEnd = current.subscriptionTrialEndsAt
+          ? new Date(current.subscriptionTrialEndsAt)
+          : null;
+        const validStart = parsedStart && Number.isFinite(parsedStart.getTime()) ? parsedStart : null;
+        const validEnd = parsedEnd && Number.isFinite(parsedEnd.getTime()) ? parsedEnd : null;
+
+        // Preserve a valid legacy end date. If only the start exists, derive the
+        // end at six calendar months. If neither exists, grant six months from
+        // this one-time migration.
+        const trialStart = validStart
+          ? validStart
+          : validEnd
+            ? addCalendarMonths(validEnd, -6)
+            : now;
+        const trialEnd = validStart
+          ? addCalendarMonths(validStart, 6)
+          : validEnd
+            ? validEnd
+            : addCalendarMonths(now, 6);
+        const trialStatus = trialEnd.getTime() > now.getTime() ? 'trial' : 'expired';
+
+        transaction.update(propertyRef, {
+          subscriptionTrialStartedAt: trialStart.toISOString(),
+          subscriptionTrialEndsAt: trialEnd.toISOString(),
+          subscriptionTrialEndsAtTimestamp: Timestamp.fromDate(trialEnd),
+          subscriptionStatus: trialStatus,
+          subscriptionPlan: current.subscriptionPlan || 'standard_1000',
+          subscriptionPrice: typeof current.subscriptionPrice === 'number' ? current.subscriptionPrice : 1000,
+          subscriptionExpiresAt: trialEnd.toISOString(),
+          subscriptionExpiryDate: trialEnd.toISOString(),
+        });
       }).catch(error => console.error('Legacy subscription trial migration failed:', property.id, error));
     });
   }, [properties, isAuthorized]);

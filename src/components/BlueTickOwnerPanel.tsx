@@ -73,7 +73,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
       await setDoc(applicationRef, {
         ownerUid: user.uid, propertyId: property.id, propertyTitle: property.title,
         status: 'awaiting_payment', paymentStatus: 'not_submitted',
-        documentCount: 1, documentPaths: [],
+        documentCount: 0, documentPaths: [],
         proofSubmissionMethod: 'whatsapp_share', proofStatus: 'awaiting_payment',
         submittedAt: serverTimestamp(),
       });
@@ -158,7 +158,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
                 <h4 className="mb-3 text-sm font-bold text-white">Application progress</h4>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-[#14B8A6]" /><span className="text-sm text-white">Application form submitted</span></div>
-                  <div className="flex items-center gap-3">{application.status === 'pending' ? <Clock3 className="h-5 w-5 text-[#FBBF24]" /> : <CheckCircle2 className="h-5 w-5 text-[#14B8A6]" />}<span className="text-sm text-white">Admin review: {statusText(application)}</span></div>
+                  <div className="flex items-center gap-3">{application.status === 'pending' || application.status === 'awaiting_payment' ? <Clock3 className="h-5 w-5 text-[#FBBF24]" /> : <CheckCircle2 className="h-5 w-5 text-[#14B8A6]" />}<span className="text-sm text-white">Admin review: {statusText(application)}</span></div>
                   <div className="flex items-center gap-3">{application.status === 'approved' ? <CheckCircle2 className="h-5 w-5 text-[#14B8A6]" /> : <Circle className="h-5 w-5 text-[#64748B]" />}<span className="text-sm text-white">Final decision: {application.status === 'approved' ? 'Blue Tick active' : application.status === 'rejected' ? 'Correction required' : 'Waiting for admin'}</span></div>
                 </div>
               </div>
@@ -173,10 +173,10 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
                     <button type="button" disabled={busy || !documentFiles.length} onClick={() => uploadPropertyDocuments(application)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-3 py-3 text-sm font-extrabold text-white disabled:opacity-40">{busy ? 'Uploading…' : 'Upload Property Documents'}</button>
                     {application.proofStatus === 'documents_uploaded' && <p className="text-xs text-[#5EEAD4]">Property documents uploaded.</p>}
                   </div>
-                  {application.paymentStatus !== 'verified' && (
+                  {(application.paymentStatus === 'not_submitted' || application.paymentStatus === 'rejected') && (
                     <PaymentProofShare amount={500} title="Blue Tick Verification" applicationId={application.id} propertyTitle={application.propertyTitle} onSubmitted={utr => markPaymentSubmitted(application, utr)} initialUtr={application.paymentUtr || ''} disabled={busy} />
                   )}
-                  {application.paymentStatus === 'pending' && <p className="rounded-xl bg-[#30250F] p-3 text-xs leading-5 text-[#FBBF24]">Payment proof submitted. Admin bank verification pending hai.</p>}
+                  {application.paymentStatus === 'pending' && <p className="rounded-xl bg-[#30250F] p-3 text-xs leading-5 text-[#FBBF24]">UTR submit ho gaya. WhatsApp screenshot aur bank-credit verification admin review mein hai.</p>}
                 </>
               )}
 

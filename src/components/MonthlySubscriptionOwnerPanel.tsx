@@ -37,6 +37,20 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
     [properties, uid]
   );
 
+  const trialProperties = useMemo(
+    () => ownedProperties.filter(property => {
+      const end = property.subscriptionTrialEndsAtTimestamp
+        ? property.subscriptionTrialEndsAtTimestamp.toDate().getTime()
+        : Date.parse(property.subscriptionTrialEndsAt || '');
+      return Number.isFinite(end) && end > Date.now();
+    }),
+    [ownedProperties]
+  );
+  const billableProperties = useMemo(
+    () => ownedProperties.filter(property => !trialProperties.some(trial => trial.id === property.id)),
+    [ownedProperties, trialProperties]
+  );
+
   useEffect(() => {
     if (!db || !uid) { setApplications([]); return; }
     return onSnapshot(query(collection(db, 'subscriptionApplications'), where('ownerUid', '==', uid)), snapshot => {
@@ -56,7 +70,7 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
   const submitRequest = async (event: React.FormEvent) => {
     event.preventDefault();
     const user = auth?.currentUser;
-    const property = ownedProperties.find(item => item.id === propertyId);
+    const property = billableProperties.find(item => item.id === propertyId);
     if (!db || !user || !property) { setMessage('Apne owner account se sign in karke apni active property select karein.'); return; }
     if (applications.some(item => item.propertyId === propertyId && (item.status === 'awaiting_payment' || item.status === 'pending'))) {
       setMessage('Is property ka subscription payment request pehle se pending hai. My Requests mein status dekhein.');
@@ -70,6 +84,11 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
         setMessage('Property ownership ya active status verify nahi hua. My Listings refresh karein.');
         return;
       }
+      const trialEndsAt = current.data().subscriptionTrialEndsAtTimestamp;
+      if (trialEndsAt?.toMillis && trialEndsAt.toMillis() > Date.now()) {
+        setMessage('Is property ka 6-month free subscription abhi active hai. Trial khatam hone ke baad hi payment request banegi.');
+        return;
+      }
       const applicationRef = doc(collection(db, 'subscriptionApplications'));
       await setDoc(applicationRef, {
         ownerUid: user.uid,
@@ -79,14 +98,14 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
         status: 'awaiting_payment',
         paymentStatus: 'pending',
         paymentUtr: '',
-        proofSubmissionMethod: 'app_upload',
+        proofSubmissionMethod: 'whatsapp_share',
         proofStatus: 'awaiting_payment',
         submittedAt: serverTimestamp(),
       });
       setActiveApplicationId(applicationRef.id);
       setPropertyId('');
       setScreen('payment');
-      setMessage('Monthly subscription request create ho gayi. Ab ₹1,000 payment aur proof submit karein.');
+      setMessage('Monthly subscription request create ho gayi. Ab ₹1,000 payment karein, screenshot WhatsApp par bhejein aur UTR submit karein.');
     } catch (error: any) {
       console.error('Monthly subscription request failed:', error);
       setMessage(error?.message || 'Subscription request submit nahi hui. Please retry karein.');
@@ -100,8 +119,8 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
       paymentSubmittedAt: serverTimestamp(),
       status: 'pending',
       paymentStatus: 'pending',
-      proofSubmissionMethod: 'app_upload',
-      proofStatus: 'uploaded',
+      proofSubmissionMethod: 'whatsapp_share',
+      proofStatus: 'awaiting_manual_review',
     });
     setScreen('status');
   };
@@ -110,7 +129,7 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
     <section className="w-full min-w-0 space-y-4 rounded-[18px] border border-[#243049] bg-[#0B1220] p-4 text-[#E5EAF3] shadow-xl">
       <header className="flex items-center gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#123B2B]"><CalendarClock className="h-6 w-6 text-[#5EEAD4]" /></div>
-        <div className="min-w-0 flex-1"><h2 className="text-xl font-extrabold text-white">Monthly Platform Subscription</h2><p className="mt-1 text-sm font-bold text-[#5EEAD4]">₹1,000 / property / month</p><p className="mt-1 text-xs leading-5 text-[#9AA7BD]">Payment admin ke bank-credit verification ke baad hi subscription renew/activate hoga.</p></div>
+        <div className="min-w-0 flex-1"><h2 className="text-xl font-extrabold text-white">Monthly Platform Subscription</h2><p className="mt-1 text-sm font-bold text-[#5EEAD4]">First 6 months free · Then ₹1,000 / property / month</p><p className="mt-1 text-xs leading-5 text-[#9AA7BD]">Free trial admin approval ke din se start hota hai. Trial ke dauran koi subscription payment nahi li jayegi.</p></div>
       </header>
 
       <nav aria-label="Monthly subscription pages" className="grid grid-cols-3 gap-2 rounded-xl bg-[#131C2E] p-1">
@@ -124,10 +143,12 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
           <label htmlFor="monthly-subscription-property" className="block text-sm font-bold">Select your active property</label>
           <select id="monthly-subscription-property" value={propertyId} onChange={event => setPropertyId(event.target.value)} required className="min-h-12 w-full rounded-xl border border-[#3A4866] bg-[#0B1220] p-3 text-base text-white">
             <option value="">Choose property</option>
-            {ownedProperties.map(property => <option key={property.id} value={property.id}>{property.title} — {property.city}</option>)}
+            {billableProperties.map(property => <option key={property.id} value={property.id}>{property.title} — {property.city}</option>)}
           </select>
+          {trialProperties.length > 0 && <div className="space-y-2 rounded-xl border border-emerald-800 bg-emerald-950/30 p-3"><p className="text-sm font-bold text-emerald-300">Your free 6-month trial is active</p>{trialProperties.map(property => <p key={property.id} className="text-xs text-emerald-100">{property.title}: free until {new Date(property.subscriptionTrialEndsAt || '').toLocaleDateString('en-IN')}</p>)}</div>}
+          {ownedProperties.length > 0 && billableProperties.length === 0 && <p className="rounded-xl border border-[#243049] p-3 text-xs text-[#9AA7BD]">All your active properties are currently in their free trial. No payment is due now.</p>}
           <p className="text-xs leading-5 text-[#9AA7BD]">₹1,000 per property for one calendar month. Admin verifies the actual bank credit before changing the property subscription.</p>
-          <button type="submit" disabled={busy || !propertyId} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#14B8A6] px-4 py-3 text-base font-extrabold text-[#04201C] disabled:opacity-40">{busy ? 'Creating request…' : 'Create ₹1,000 Subscription Request'} <ArrowRight className="h-5 w-5" /></button>
+          <button type="submit" disabled={busy || !propertyId || !billableProperties.length} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#14B8A6] px-4 py-3 text-base font-extrabold text-[#04201C] disabled:opacity-40">{busy ? 'Creating request…' : 'Create ₹1,000 Subscription Request'} <ArrowRight className="h-5 w-5" /></button>
           <button type="button" onClick={() => setScreen('status')} className="min-h-11 w-full rounded-xl border border-[#3A4866] text-sm font-bold text-white">View existing requests</button>
         </form>
       )}
@@ -137,8 +158,8 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
           <button type="button" onClick={() => setScreen('apply')} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#3A4866] px-3 text-sm font-bold text-white"><ArrowLeft className="h-4 w-4" /> Back</button>
           {activeApplication ? (
             activeApplication.status === 'awaiting_payment' || activeApplication.status === 'rejected' ? (
-              <PaymentProofShare amount={1000} title="Monthly Platform Subscription" applicationId={activeApplication.id} propertyTitle={activeApplication.propertyTitle} storageFolder="subscription-documents" onSubmitted={utr => markPaymentSubmitted(activeApplication, utr)} initialUtr={activeApplication.paymentUtr || ''} disabled={busy} />
-            ) : <p className="rounded-xl border border-[#243049] bg-[#131C2E] p-4 text-sm text-[#9AA7BD]">Payment proof submit ho chuka hai. Status page par admin review dekhein.</p>
+              <PaymentProofShare amount={1000} title="Monthly Platform Subscription" applicationId={activeApplication.id} propertyTitle={activeApplication.propertyTitle} onSubmitted={utr => markPaymentSubmitted(activeApplication, utr)} initialUtr={activeApplication.paymentUtr || ''} disabled={busy} />
+            ) : <p className="rounded-xl border border-[#243049] bg-[#131C2E] p-4 text-sm text-[#9AA7BD]">UTR submit ho chuka hai. Screenshot WhatsApp par manually bhejein; admin review status yahan dekhein.</p>
           ) : <p className="rounded-xl border border-dashed border-[#3A4866] p-4 text-sm text-[#9AA7BD]">Payment request load ho raha hai. Agar request nahi dikhe to My Status kholkar select karein.</p>}
         </div>
       )}

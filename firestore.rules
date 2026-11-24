@@ -95,7 +95,7 @@ service cloud.firestore {
         request.resource.data.status == 'awaiting_payment' &&
         request.resource.data.paymentStatus == 'pending' &&
         request.resource.data.paymentUtr == '' &&
-        request.resource.data.proofSubmissionMethod == 'app_upload' &&
+        request.resource.data.proofSubmissionMethod == 'whatsapp_share' &&
         request.resource.data.proofStatus == 'awaiting_payment' &&
         request.resource.data.submittedAt is timestamp &&
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
@@ -118,8 +118,8 @@ service cloud.firestore {
         request.resource.data.paymentUtr is string &&
         request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}$') &&
         request.resource.data.paymentSubmittedAt is timestamp &&
-        request.resource.data.proofSubmissionMethod == 'app_upload' &&
-        request.resource.data.proofStatus == 'uploaded'
+        request.resource.data.proofSubmissionMethod == 'whatsapp_share' &&
+        request.resource.data.proofStatus == 'awaiting_manual_review'
       );
       allow delete: if isAdmin();
     }
@@ -142,12 +142,14 @@ service cloud.firestore {
         request.resource.data.status == 'awaiting_payment' &&
         request.resource.data.paymentStatus == 'pending' &&
         request.resource.data.paymentUtr == '' &&
-        request.resource.data.proofSubmissionMethod == 'app_upload' &&
+        request.resource.data.proofSubmissionMethod == 'whatsapp_share' &&
         request.resource.data.proofStatus == 'awaiting_payment' &&
         request.resource.data.submittedAt is timestamp &&
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
         get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '') == request.auth.uid &&
-        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('status', '') == 'active';
+        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('status', '') == 'active' &&
+        'subscriptionTrialEndsAtTimestamp' in get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data &&
+        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.subscriptionTrialEndsAtTimestamp <= request.time;
 
       allow read: if isAdmin() || (signedIn() && resource.data.ownerUid == request.auth.uid);
       allow update: if isAdmin() || (
@@ -163,8 +165,8 @@ service cloud.firestore {
         request.resource.data.paymentUtr is string &&
         request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}$') &&
         request.resource.data.paymentSubmittedAt is timestamp &&
-        request.resource.data.proofSubmissionMethod == 'app_upload' &&
-        request.resource.data.proofStatus == 'uploaded'
+        request.resource.data.proofSubmissionMethod == 'whatsapp_share' &&
+        request.resource.data.proofStatus == 'awaiting_manual_review'
       );
       allow delete: if isAdmin();
     }
@@ -286,15 +288,15 @@ service cloud.firestore {
         request.resource.data.ownerUid == request.auth.uid &&
         request.resource.data.propertyId is string &&
         request.resource.data.propertyTitle is string &&
-        request.resource.data.status == 'pending' &&
+        request.resource.data.status == 'awaiting_payment' &&
         request.resource.data.paymentStatus == 'not_submitted' &&
         request.resource.data.documentCount is int &&
-        request.resource.data.documentCount >= 1 &&
+        request.resource.data.documentCount >= 0 &&
         request.resource.data.documentCount <= 5 &&
         request.resource.data.documentPaths is list &&
         request.resource.data.documentPaths.size() == 0 &&
-        request.resource.data.proofSubmissionMethod == 'device_share' &&
-        request.resource.data.proofStatus == 'awaiting_owner_share' &&
+        request.resource.data.proofSubmissionMethod == 'whatsapp_share' &&
+        request.resource.data.proofStatus == 'awaiting_payment' &&
         request.resource.data.submittedAt is timestamp &&
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
         get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '') == request.auth.uid &&
@@ -304,18 +306,23 @@ service cloud.firestore {
       allow update: if isAdmin() || (
         signedIn() &&
         resource.data.ownerUid == request.auth.uid &&
-        resource.data.status in ['pending', 'approved'] &&
+        resource.data.status in ['awaiting_payment', 'pending', 'approved', 'rejected'] &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'paymentUtr', 'paymentSubmittedAt', 'paymentStatus', 'proofSubmissionMethod', 'proofStatus', 'documentsUploadedAt'
+          'status', 'paymentUtr', 'paymentSubmittedAt', 'paymentStatus',
+          'proofSubmissionMethod', 'proofStatus', 'documentsUploadedAt'
         ]) &&
         (
           (
+            request.resource.data.status == 'pending' &&
             request.resource.data.paymentUtr is string &&
             request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}$') &&
             request.resource.data.paymentSubmittedAt is timestamp &&
-            request.resource.data.paymentStatus == 'pending'
+            request.resource.data.paymentStatus == 'pending' &&
+            request.resource.data.proofSubmissionMethod == 'whatsapp_share' &&
+            request.resource.data.proofStatus == 'awaiting_manual_review'
           ) ||
           (
+            request.resource.data.status == resource.data.status &&
             request.resource.data.proofStatus == 'documents_uploaded' &&
             request.resource.data.documentsUploadedAt is timestamp
           )
@@ -323,6 +330,7 @@ service cloud.firestore {
       );
       allow delete: if isAdmin();
     }
+
     match /users/{userId} {
       allow read: if isSelf(userId) || isAdmin();
       allow create: if isSelf(userId) &&

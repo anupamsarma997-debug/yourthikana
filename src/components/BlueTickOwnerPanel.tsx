@@ -10,7 +10,7 @@ type Application = {
   id: string;
   propertyId: string;
   propertyTitle: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'awaiting_payment' | 'pending' | 'approved' | 'rejected';
   submittedAt?: any;
   verifiedUntil?: string;
   paymentStatus?: 'not_submitted' | 'pending' | 'verified' | 'rejected';
@@ -25,7 +25,7 @@ const formatDateTime = (value?: any) => {
   const date = typeof value?.toDate === 'function' ? value.toDate() : new Date(value);
   return Number.isNaN(date.getTime()) ? 'Submission time unavailable' : date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
 };
-const statusText = (application: Application) => application.status === 'approved' ? 'Approved' : application.status === 'rejected' ? 'Rejected' : 'Pending';
+const statusText = (application: Application) => application.status === 'approved' ? 'Approved' : application.status === 'rejected' ? 'Rejected' : application.status === 'awaiting_payment' ? 'Awaiting Payment' : 'Admin Review Pending';
 const supportUrl = (application: Application) => `https://wa.me/919101280465?text=${encodeURIComponent(`Hello YourThikana Support, I need help with Blue Tick application ${application.id} for ${application.propertyTitle}.`)}`;
 
 export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedPropertyId?: string }> = ({ properties, selectedPropertyId }) => {
@@ -72,15 +72,15 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
       // The form is saved first. Evidence is uploaded separately on the next screen.
       await setDoc(applicationRef, {
         ownerUid: user.uid, propertyId: property.id, propertyTitle: property.title,
-        status: 'pending', paymentStatus: 'not_submitted',
-        documentCount: 1, documentPaths: [],
-        proofSubmissionMethod: 'device_share', proofStatus: 'awaiting_owner_share',
+        status: 'awaiting_payment', paymentStatus: 'not_submitted',
+        documentCount: 0, documentPaths: [],
+        proofSubmissionMethod: 'whatsapp_share', proofStatus: 'awaiting_payment',
         submittedAt: serverTimestamp(),
       });
       setPropertyId('');
       setDocumentFiles([]);
       setScreen('status');
-      setMessage('Application submit ho gayi. Ab alag-alag Property Documents aur Payment Screenshot upload karein.');
+      setMessage('Application draft ban gaya. Pehle screenshot WhatsApp par bhejein aur UTR submit karein; property documents alag se upload karein.');
     } catch (error: any) {
       console.error('Blue Tick submit failed:', error);
       setMessage(error?.message || 'Application submit nahi hui. Please retry karein.');
@@ -113,7 +113,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
   const markPaymentSubmitted = async (application: Application, utr: string) => {
     if (!db || !auth?.currentUser || auth.currentUser.uid !== uid) throw new Error('Please sign in again.');
     await updateDoc(doc(db, 'verificationApplications', application.id), {
-      paymentUtr: utr, paymentSubmittedAt: serverTimestamp(), paymentStatus: 'pending',
+      paymentUtr: utr, paymentSubmittedAt: serverTimestamp(), paymentStatus: 'pending', status: 'pending', proofSubmissionMethod: 'whatsapp_share', proofStatus: 'awaiting_manual_review',
     });
   };
 
@@ -123,7 +123,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
     <section className="w-full min-w-0 space-y-4 overflow-hidden rounded-[18px] border border-[#243049] bg-[#0B1220] p-4 text-[#E5EAF3] shadow-xl">
       <header className="flex items-center gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#243049]"><BadgeCheck className="h-6 w-6 text-[#93C5FD]" /></div>
-        <div className="min-w-0 flex-1"><h2 className="text-xl font-extrabold text-white">Blue Tick Verification</h2><p className="mt-1 text-xs leading-5 text-[#9AA7BD]">₹500 · Apply, upload proofs and track status</p></div>
+        <div className="min-w-0 flex-1"><h2 className="text-xl font-extrabold text-white">Blue Tick Verification</h2><p className="mt-1 text-xs leading-5 text-[#9AA7BD]">₹500 one-time · Apply, upload proofs and track status</p></div>
       </header>
 
       {screen === 'apply' ? (
@@ -158,12 +158,12 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
                 <h4 className="mb-3 text-sm font-bold text-white">Application progress</h4>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-[#14B8A6]" /><span className="text-sm text-white">Application form submitted</span></div>
-                  <div className="flex items-center gap-3">{application.status === 'pending' ? <Clock3 className="h-5 w-5 text-[#FBBF24]" /> : <CheckCircle2 className="h-5 w-5 text-[#14B8A6]" />}<span className="text-sm text-white">Admin review: {statusText(application)}</span></div>
+                  <div className="flex items-center gap-3">{application.status === 'pending' || application.status === 'awaiting_payment' ? <Clock3 className="h-5 w-5 text-[#FBBF24]" /> : <CheckCircle2 className="h-5 w-5 text-[#14B8A6]" />}<span className="text-sm text-white">Admin review: {statusText(application)}</span></div>
                   <div className="flex items-center gap-3">{application.status === 'approved' ? <CheckCircle2 className="h-5 w-5 text-[#14B8A6]" /> : <Circle className="h-5 w-5 text-[#64748B]" />}<span className="text-sm text-white">Final decision: {application.status === 'approved' ? 'Blue Tick active' : application.status === 'rejected' ? 'Correction required' : 'Waiting for admin'}</span></div>
                 </div>
               </div>
 
-              {application.status === 'pending' && (
+              {(application.status === 'pending' || application.status === 'awaiting_payment') && (
                 <>
                   <div className="space-y-3 rounded-xl border border-[#3A4866] bg-[#0B1220] p-3">
                     <div className="flex items-center gap-2"><FileCheck2 className="h-5 w-5 text-[#93C5FD]" /><h4 className="text-sm font-bold text-white">Property Documents Upload</h4></div>
@@ -173,14 +173,14 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
                     <button type="button" disabled={busy || !documentFiles.length} onClick={() => uploadPropertyDocuments(application)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-3 py-3 text-sm font-extrabold text-white disabled:opacity-40">{busy ? 'Uploading…' : 'Upload Property Documents'}</button>
                     {application.proofStatus === 'documents_uploaded' && <p className="text-xs text-[#5EEAD4]">Property documents uploaded.</p>}
                   </div>
-                  {application.paymentStatus !== 'verified' && (
-                    <PaymentProofShare amount={500} title="Blue Tick Verification" applicationId={application.id} propertyTitle={application.propertyTitle} storageFolder="verification-documents" onSubmitted={utr => markPaymentSubmitted(application, utr)} initialUtr={application.paymentUtr || ''} disabled={busy} />
+                  {(application.paymentStatus === 'not_submitted' || application.paymentStatus === 'rejected') && (
+                    <PaymentProofShare amount={500} title="Blue Tick Verification" applicationId={application.id} propertyTitle={application.propertyTitle} onSubmitted={utr => markPaymentSubmitted(application, utr)} initialUtr={application.paymentUtr || ''} disabled={busy} />
                   )}
-                  {application.paymentStatus === 'pending' && <p className="rounded-xl bg-[#30250F] p-3 text-xs leading-5 text-[#FBBF24]">Payment proof submitted. Admin bank verification pending hai.</p>}
+                  {application.paymentStatus === 'pending' && <p className="rounded-xl bg-[#30250F] p-3 text-xs leading-5 text-[#FBBF24]">UTR submit ho gaya. WhatsApp screenshot aur bank-credit verification admin review mein hai.</p>}
                 </>
               )}
 
-              {application.status === 'approved' && <div className="rounded-xl border border-[#14B8A6] bg-[#0B302D] p-3 text-sm text-[#99F6E4]"><CheckCircle2 className="mr-2 inline h-4 w-4" />Blue Tick approved. Valid until {application.verifiedUntil ? new Date(application.verifiedUntil).toLocaleDateString('en-IN') : '—'}.</div>}
+              {application.status === 'approved' && <div className="rounded-xl border border-[#14B8A6] bg-[#0B302D] p-3 text-sm text-[#99F6E4]"><CheckCircle2 className="mr-2 inline h-4 w-4" />Blue Tick verification permanently active for this property.</div>}
               {application.status === 'rejected' && <div className="rounded-xl border border-[#7F1D32] bg-[#351522] p-3 text-sm text-[#FDA4AF]">Application rejected: {application.reviewNote || 'Please contact support for correction.'}</div>}
 
               <a href={supportUrl(application)} target="_blank" rel="noreferrer" className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-sm font-extrabold text-[#052E16]"><MessageCircle className="h-5 w-5" />WhatsApp Support</a>
@@ -190,7 +190,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
       )}
 
       {message && <p role="status" aria-live="polite" className="break-words rounded-xl border border-[#3A4866] bg-[#131C2E] p-3 text-sm leading-5 text-[#E5EAF3]">{message}</p>}
-      <div className="flex items-start gap-2 rounded-xl border border-[#243049] bg-[#131C2E] p-3"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#93C5FD]" /><p className="text-[11px] leading-5 text-[#9AA7BD]">₹500 payment admin ke bank-credit verification ke baad hi confirm hoga. Blue Tick paid optional service hai, government certification nahi.</p></div>
+      <div className="flex items-start gap-2 rounded-xl border border-[#243049] bg-[#131C2E] p-3"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#93C5FD]" /><p className="text-[11px] leading-5 text-[#9AA7BD]">₹500 one-time payment admin ke bank-credit verification ke baad hi confirm hoga. Blue Tick paid optional service hai, government certification nahi.</p></div>
     </section>
   );
 };

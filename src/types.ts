@@ -1,3 +1,5 @@
+import type { Timestamp } from 'firebase/firestore';
+
 export type UserRole = 'customer' | 'owner' | 'admin';
 
 export interface User {
@@ -74,10 +76,10 @@ export interface Property {
   coverImage?: string;
   rating: number;
   reviewsCount: number;
-  isVerified: boolean; // Blue Verified Badge (₹500/mo)
+  isVerified: boolean; // One-time ₹500 property verification
   isFeatured: boolean;
   verifiedUntil?: string;
-  featuredUntil?: string; // Search Boost (₹500/mo)
+  featuredUntil?: string; // Search Boost (₹500 per calendar month)
   status: 'active' | 'pending' | 'rejected' | 'hidden_expired' | 'blocked';
   subscriptionPlan: 'standard_1000' | 'standard_1500' | 'none';
   subscriptionPrice: number;
@@ -85,6 +87,7 @@ export interface Property {
   subscriptionExpiryDate?: string;
   subscriptionTrialStartedAt?: string;
   subscriptionTrialEndsAt?: string;
+  subscriptionTrialEndsAtTimestamp?: Timestamp;
   subscriptionStatus?: 'trial' | 'active' | 'expired' | 'pending';
   createdAt: string;
 }
@@ -125,6 +128,10 @@ export interface BannerAd {
   ctaText?: string;
   position: 'home' | 'search' | 'property';
   isActive: boolean;
+  advertiserName?: string;
+  campaignAmount?: number;
+  paymentVerifiedAt?: string;
+  createdAt?: string;
 }
 
 export interface SubscriptionTransaction {
@@ -133,7 +140,7 @@ export interface SubscriptionTransaction {
   ownerName: string;
   propertyId: string;
   propertyName: string;
-  type: 'standard_1000' | 'standard_1500' | 'verified_badge' | 'search_boost';
+  type: 'standard_1000' | 'standard_1500' | 'verified_badge' | 'search_boost' | 'advertisement';
   planName: string;
   title?: string;
   amount: number;

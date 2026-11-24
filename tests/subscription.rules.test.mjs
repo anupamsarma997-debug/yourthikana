@@ -2,17 +2,14 @@ import { after, before, beforeEach, test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { doc, getDoc, setDoc, updateDoc, Timestamp, writeBatch } from 'firebase/firestore';
-import { ref, uploadBytes, getBytes } from 'firebase/storage';
 
 let env;
 const projectId = 'demo-yourthikana';
-const screenshot = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
 before(async () => {
   env = await initializeTestEnvironment({
     projectId,
     firestore: { rules: readFileSync('firestore.rules', 'utf8') },
-    storage: { rules: readFileSync('storage.rules', 'utf8') },
   });
 });
 
@@ -26,6 +23,7 @@ beforeEach(async () => {
       ownerId: 'owner-1',
       title: 'Test property',
       status: 'active',
+      subscriptionTrialEndsAtTimestamp: Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000),
     });
   });
 });
@@ -43,7 +41,7 @@ function applicationData(overrides = {}) {
     status: 'awaiting_payment',
     paymentStatus: 'pending',
     paymentUtr: '',
-    proofSubmissionMethod: 'app_upload',
+    proofSubmissionMethod: 'whatsapp_share',
     proofStatus: 'awaiting_payment',
     submittedAt: Timestamp.now(),
     ...overrides,
@@ -62,6 +60,27 @@ test('monthly subscription application rejects any amount other than ₹1,000', 
   await assertFails(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-bad'), applicationData({ amount: 1500 })));
 });
 
+test('monthly subscription cannot be requested without an expired six-month trial', async () => {
+  const ownerDb = env.authenticatedContext('owner-1').firestore();
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'properties', 'property-without-trial'), {
+      id: 'property-without-trial', ownerUid: 'owner-1', ownerId: 'owner-1',
+      title: 'No trial record', status: 'active',
+    });
+    await updateDoc(doc(context.firestore(), 'properties', 'active-property'), {
+      subscriptionTrialEndsAtTimestamp: Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000),
+    });
+  });
+  await assertFails(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-without-trial-record'), applicationData({ propertyId: 'property-without-trial' })));
+  await assertFails(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-during-trial'), applicationData()));
+  await env.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'properties', 'active-property'), {
+      subscriptionTrialEndsAtTimestamp: Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000),
+    });
+  });
+  await assertSucceeds(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-after-trial'), applicationData()));
+});
+
 test('owner can submit a valid UTR after creating a monthly subscription request', async () => {
   const ownerDb = env.authenticatedContext('owner-1').firestore();
   const applicationRef = doc(ownerDb, 'subscriptionApplications', 'sub-1');
@@ -71,35 +90,10 @@ test('owner can submit a valid UTR after creating a monthly subscription request
     paymentStatus: 'pending',
     paymentUtr: 'SUB12345678',
     paymentSubmittedAt: Timestamp.now(),
-    proofSubmissionMethod: 'app_upload',
-    proofStatus: 'uploaded',
+    proofSubmissionMethod: 'whatsapp_share',
+    proofStatus: 'awaiting_manual_review',
   }));
 });
-
-test('owner can upload private subscription payment evidence only for their application', async () => {
-  const ownerDb = env.authenticatedContext('owner-1').firestore();
-  await setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-1'), applicationData());
-  const ownerStorage = env.authenticatedContext('owner-1').storage();
-  const otherStorage = env.authenticatedContext('owner-2').storage();
-  await assertSucceeds(uploadBytes(ref(ownerStorage, 'subscription-documents/owner-1/sub-1/payment.png'), screenshot, { contentType: 'image/png' }));
-  await assertFails(uploadBytes(ref(otherStorage, 'subscription-documents/owner-1/sub-1/other.png'), screenshot, { contentType: 'image/png' }));
-});
-
-test('only the verified platform admin can read monthly subscription evidence', async () => {
-  const ownerDb = env.authenticatedContext('owner-1').firestore();
-  await setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-1'), applicationData());
-  const ownerStorage = env.authenticatedContext('owner-1').storage();
-  const path = 'subscription-documents/owner-1/sub-1/payment.png';
-  await uploadBytes(ref(ownerStorage, path), screenshot, { contentType: 'image/png' });
-  const adminStorage = env.authenticatedContext('admin-1', {
-    email: 'anupamsarma997@gmail.com',
-    email_verified: true,
-    firebase: { sign_in_provider: 'google.com' },
-  }).storage();
-  await assertFails(getBytes(ref(ownerStorage, path)));
-  await assertSucceeds(getBytes(ref(adminStorage, path)));
-});
-
 
 test('owner cannot self-activate or extend subscription and badge expiry', async () => {
   const ownerDb = env.authenticatedContext('owner-1').firestore();
@@ -111,7 +105,7 @@ test('owner cannot self-activate or extend subscription and badge expiry', async
 });
 
 
-test('Search Boost proof is marked uploaded, not falsely marked as WhatsApp-shared', async () => {
+test('Search Boost UTR submission records WhatsApp manual review state', async () => {
   const ownerDb = env.authenticatedContext('owner-1').firestore();
   const applicationRef = doc(ownerDb, 'searchBoostApplications', 'boost-1');
   await setDoc(applicationRef, {
@@ -121,7 +115,7 @@ test('Search Boost proof is marked uploaded, not falsely marked as WhatsApp-shar
     status: 'awaiting_payment',
     paymentStatus: 'pending',
     paymentUtr: '',
-    proofSubmissionMethod: 'app_upload',
+    proofSubmissionMethod: 'whatsapp_share',
     proofStatus: 'awaiting_payment',
     submittedAt: Timestamp.now(),
   });
@@ -130,8 +124,8 @@ test('Search Boost proof is marked uploaded, not falsely marked as WhatsApp-shar
     paymentStatus: 'pending',
     paymentUtr: 'BOOST12345678',
     paymentSubmittedAt: Timestamp.now(),
-    proofSubmissionMethod: 'app_upload',
-    proofStatus: 'uploaded',
+    proofSubmissionMethod: 'whatsapp_share',
+    proofStatus: 'awaiting_manual_review',
   }));
 });
 
@@ -144,7 +138,7 @@ test('another owner cannot create a Search Boost application for someone else pr
     status: 'awaiting_payment',
     paymentStatus: 'pending',
     paymentUtr: '',
-    proofSubmissionMethod: 'app_upload',
+    proofSubmissionMethod: 'whatsapp_share',
     proofStatus: 'awaiting_payment',
     submittedAt: Timestamp.now(),
   }));
@@ -154,7 +148,7 @@ test('only the verified platform admin can activate a paid subscription and writ
   const ownerDb = env.authenticatedContext('owner-1').firestore();
   const applicationRef = doc(ownerDb, 'subscriptionApplications', 'sub-admin-test');
   await setDoc(applicationRef, applicationData());
-  await assertSucceeds(updateDoc(applicationRef, { status: 'pending', paymentStatus: 'pending', paymentUtr: 'ADMIN12345678', paymentSubmittedAt: Timestamp.now(), proofSubmissionMethod: 'app_upload', proofStatus: 'uploaded' }));
+  await assertSucceeds(updateDoc(applicationRef, { status: 'pending', paymentStatus: 'pending', paymentUtr: 'ADMIN12345678', paymentSubmittedAt: Timestamp.now(), proofSubmissionMethod: 'whatsapp_share', proofStatus: 'awaiting_manual_review' }));
   await assertFails(updateDoc(applicationRef, { status: 'approved', verifiedUntil: '2026-12-24T00:00:00.000Z' }));
   await assertFails(setDoc(doc(ownerDb, 'transactions', 'subscription-sub-admin-test'), { amount: 1000 }));
 
@@ -191,8 +185,8 @@ test('owner cannot self-verify or self-approve a monthly subscription payment', 
     paymentStatus: 'pending',
     paymentUtr: 'OWNER12345678',
     paymentSubmittedAt: Timestamp.now(),
-    proofSubmissionMethod: 'app_upload',
-    proofStatus: 'uploaded',
+    proofSubmissionMethod: 'whatsapp_share',
+    proofStatus: 'awaiting_manual_review',
   }));
   await assertFails(updateDoc(applicationRef, { paymentStatus: 'verified' }));
   await assertFails(updateDoc(applicationRef, { status: 'approved', verifiedUntil: '2026-12-24T00:00:00.000Z' }));

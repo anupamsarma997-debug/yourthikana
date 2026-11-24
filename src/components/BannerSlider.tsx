@@ -18,33 +18,22 @@ export const BannerSlider: React.FC<BannerSliderProps> = ({ position, onOwnerCli
   }, [position]);
 
   if (!banners || banners.length === 0) {
-    // Default fallback advertisement card encouraging hotel/homestay owners
     return (
-      <div className="w-full bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-2xl p-4 sm:p-6 shadow-md border border-emerald-500/30 my-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="w-full rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-950 p-4 text-white shadow-md sm:p-6 my-4 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
-            <Megaphone className="w-6 h-6 animate-pulse" />
+            <Megaphone className="w-6 h-6" />
           </div>
           <div>
-            <span className="bg-emerald-500 text-slate-950 font-black text-[10px] uppercase px-2 py-0.5 rounded-full tracking-wider">
-              Advertisement Spot
-            </span>
-            <h4 className="font-extrabold text-base sm:text-lg text-white mt-1">
-              Are you a Hotel or Homestay Owner?
-            </h4>
-            <p className="text-xs text-slate-300">
-              List your property on THIKANA for ₹1000–₹1500/month & receive 100% direct WhatsApp bookings without paying any commission!
-            </p>
+            <span className="bg-emerald-500 text-slate-950 font-black text-[10px] uppercase px-2 py-0.5 rounded-full tracking-wider">Advertise on YourThikana</span>
+            <h4 className="font-extrabold text-base sm:text-lg text-white mt-1">Promote your travel-related business</h4>
+            <p className="text-xs text-slate-300">Ask about available banner placements, campaign duration and pricing. Ads are published only after terms and payment are confirmed.</p>
           </div>
         </div>
-
-        <button
-          onClick={onOwnerClick}
-          className="shrink-0 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center gap-1.5 cursor-pointer"
-        >
-          <span>List Your Property</span>
+        <a href="https://wa.me/919101280465?text=Hello%20YourThikana%2C%20I%20want%20to%20advertise.%20Please%20share%20available%20placements%2C%20campaign%20duration%20and%20pricing." target="_blank" rel="noreferrer" className="shrink-0 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl shadow-lg transition-transform active:scale-95 flex items-center gap-1.5">
+          <span>Enquire for Ads</span>
           <ExternalLink className="w-3.5 h-3.5" />
-        </button>
+        </a>
       </div>
     );
   }

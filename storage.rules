@@ -40,60 +40,17 @@ service firebase.storage {
       }
       allow create: if isOwner(ownerUid) &&
         applicationDoc().data.ownerUid == ownerUid &&
-        applicationDoc().data.status == 'pending' &&
+        applicationDoc().data.status in ['awaiting_payment', 'pending'] &&
         validProof();
       allow read: if isAdmin();
       allow delete: if isAdmin() ||
         (isOwner(ownerUid) && applicationDoc().data.ownerUid == ownerUid &&
-          applicationDoc().data.status == 'pending');
+          applicationDoc().data.status in ['awaiting_payment', 'pending']);
       allow update: if false;
     }
 
-    // Private Search Boost evidence: only the verified platform admin can read.
-    match /search-boost-documents/{ownerUid}/{applicationId}/{fileName} {
-      function applicationDoc() {
-        return firestore.get(/databases/(default)/documents/searchBoostApplications/$(applicationId));
-      }
-      function validProof() {
-        return request.resource != null &&
-          request.resource.size > 0 &&
-          request.resource.size <= 8 * 1024 * 1024 &&
-          request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-      }
-      // The owner uploads the screenshot before the client moves the request
-      // from awaiting_payment/rejected into the admin-review pending state.
-      allow create: if isOwner(ownerUid) &&
-        applicationDoc().data.ownerUid == ownerUid &&
-        applicationDoc().data.status in ['awaiting_payment', 'rejected'] &&
-        validProof();
-      allow read: if isAdmin();
-      allow delete: if isAdmin() ||
-        (isOwner(ownerUid) && applicationDoc().data.ownerUid == ownerUid &&
-          applicationDoc().data.status in ['awaiting_payment', 'rejected']);
-      allow update: if false;
-    }
-
-    // Private Monthly Subscription payment evidence.
-    match /subscription-documents/{ownerUid}/{applicationId}/{fileName} {
-      function applicationDoc() {
-        return firestore.get(/databases/(default)/documents/subscriptionApplications/$(applicationId));
-      }
-      function validProof() {
-        return request.resource != null &&
-          request.resource.size > 0 &&
-          request.resource.size <= 8 * 1024 * 1024 &&
-          request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-      }
-      allow create: if isOwner(ownerUid) &&
-        applicationDoc().data.ownerUid == ownerUid &&
-        applicationDoc().data.status in ['awaiting_payment', 'rejected'] &&
-        validProof();
-      allow read: if isAdmin();
-      allow delete: if isAdmin() ||
-        (isOwner(ownerUid) && applicationDoc().data.ownerUid == ownerUid &&
-          applicationDoc().data.status in ['awaiting_payment', 'rejected']);
-      allow update: if false;
-    }
+    // Payment screenshots are shared directly from the owner's device to WhatsApp.
+    // They are intentionally not uploaded to Firebase Storage.
 
     // Deny everything else by default
     match /{allPaths=**} {

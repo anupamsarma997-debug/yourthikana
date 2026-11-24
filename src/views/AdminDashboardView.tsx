@@ -86,9 +86,9 @@ export const AdminDashboardView: React.FC = () => {
   // Banner Form State
   const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
   const [bannerTitle, setBannerTitle] = useState('Promote Your Homestay with THIKANA Ads');
-  const [bannerSubtitle, setBannerSubtitle] = useState('Reach over 50,000 monthly travelers searching for authentic local stays.');
-  const [bannerImageUrl, setBannerImageUrl] = useState('https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=80');
-  const [bannerTargetUrl, setBannerTargetUrl] = useState('#owner');
+  const [bannerSubtitle, setBannerSubtitle] = useState('Promote your travel-related business to people exploring stays on YourThikana.');
+  const [bannerImageUrl, setBannerImageUrl] = useState('');
+  const [bannerTargetUrl, setBannerTargetUrl] = useState('https://mythikana.vercel.app/');
   const [bannerCtaText, setBannerCtaText] = useState('Advertise Now');
   const [bannerPosition, setBannerPosition] = useState<'home' | 'search' | 'property'>('home');
 

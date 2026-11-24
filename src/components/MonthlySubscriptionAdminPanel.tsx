@@ -81,7 +81,7 @@ export const MonthlySubscriptionAdminPanel: React.FC = () => {
       const property = propertySnapshot.data();
       const now = new Date();
       const existingExpiry = property.subscriptionExpiresAt || property.subscriptionExpiryDate;
-      const parsedExpiry = existingExpiry ? new Date(existingExpiry) : now;
+      const parsedExpiry = property.subscriptionExpiresAtTimestamp?.toDate?.() || (existingExpiry ? new Date(existingExpiry) : now);
       const renewalBase = Number.isFinite(parsedExpiry.getTime()) && parsedExpiry.getTime() > now.getTime() ? parsedExpiry : now;
       const nextExpiry = addCalendarMonths(renewalBase, 1).toISOString();
       const batch = writeBatch(db);

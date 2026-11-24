@@ -129,7 +129,7 @@ export const AdminDashboardView: React.FC = () => {
         : new Date(property.subscriptionTrialEndsAt || '');
       if ((startedAt && !Number.isFinite(startedAt.getTime())) || !Number.isFinite(trialEnd.getTime())) return;
       updateDoc(doc(db, 'properties', property.id), {
-        subscriptionTrialStartedAt: (startedAt || new Date(trialEnd.getTime() - 6 * 30 * 24 * 60 * 60 * 1000)).toISOString(),
+        subscriptionTrialStartedAt: (startedAt || addCalendarMonths(trialEnd, -6)).toISOString(),
         subscriptionTrialEndsAt: trialEnd.toISOString(),
         subscriptionTrialEndsAtTimestamp: Timestamp.fromDate(trialEnd),
         subscriptionStatus: trialEnd.getTime() > now.getTime() ? 'trial' : 'expired',

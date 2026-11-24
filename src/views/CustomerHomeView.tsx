@@ -210,7 +210,7 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
         }
 
         // Rating Filter
-        const rating = typeof p.rating === 'number' && !isNaN(p.rating) && p.rating > 0 && p.reviewsCount > 0 ? p.rating : 0;
+        const rating = typeof p.rating === 'number' && Number.isFinite(p.rating) && p.rating > 0 && p.rating <= 5 && Number(p.reviewsCount) > 0 ? p.rating : 0;
         if (rating < minRating) return false;
 
         // Verified Filter
@@ -223,8 +223,8 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
       }).sort((a, b) => {
         if (isSearchBoostActive(a) && !isSearchBoostActive(b)) return -1;
         if (!isSearchBoostActive(a) && isSearchBoostActive(b)) return 1;
-        const rA = typeof a?.rating === 'number' && a.rating > 0 && a.reviewsCount > 0 ? a.rating : 0;
-        const rB = typeof b?.rating === 'number' && b.rating > 0 && b.reviewsCount > 0 ? b.rating : 0;
+        const rA = typeof a?.rating === 'number' && Number.isFinite(a.rating) && a.rating > 0 && a.rating <= 5 && Number(a.reviewsCount) > 0 ? a.rating : 0;
+        const rB = typeof b?.rating === 'number' && Number.isFinite(b.rating) && b.rating > 0 && b.rating <= 5 && Number(b.reviewsCount) > 0 ? b.rating : 0;
         return rB - rA;
       });
     } catch (err) {

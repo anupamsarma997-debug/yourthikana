@@ -115,7 +115,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
         <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-300 flex-wrap">
           <div className="flex items-center gap-1 font-extrabold text-slate-900 dark:text-white">
-            {property?.rating > 0 && property?.reviewsCount > 0 ? (
+            {typeof property?.rating === 'number' && Number.isFinite(property.rating) && property.rating > 0 && property.rating <= 5 && Number(property.reviewsCount) > 0 ? (
               <>
                 <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                 <span>{property.rating.toFixed(1)}</span>

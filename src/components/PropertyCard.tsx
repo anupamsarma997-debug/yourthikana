@@ -35,10 +35,16 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
   const rooms = (Array.isArray(suppliedRooms) ? suppliedRooms : store.getRoomsByProperty(property.id)).filter(Boolean);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
 
-  // Only compare rooms with a real owner-entered price; unknown prices stay unknown.
+  // Compare the actual customer price (valid discount first), not only the base rate.
+  const effectiveRoomPrice = (room: RoomType) =>
+    room.discountPrice && room.discountPrice > 0 &&
+    room.pricePerNight > 0 && room.discountPrice < room.pricePerNight
+      ? room.discountPrice
+      : room.pricePerNight;
   const pricedRooms = rooms.filter((room) => Number.isFinite(room.pricePerNight) && room.pricePerNight > 0);
   const lowestPriceRoom = pricedRooms.length > 0
-    ? pricedRooms.reduce((min, room) => (room.pricePerNight < min.pricePerNight ? room : min), pricedRooms[0])
+    ? pricedRooms.reduce((min, room) =>
+        effectiveRoomPrice(room) < effectiveRoomPrice(min) ? room : min, pricedRooms[0])
     : null;
   const primaryRoom = lowestPriceRoom || rooms[0] || null;
   const currentPrice = lowestPriceRoom
@@ -114,7 +120,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 
         {/* Show a rating only when real reviews exist. */}
         <div className="absolute bottom-3 right-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-2.5 py-1 rounded-lg text-[10px] font-bold shadow-md">
-          {property?.rating > 0 && property?.reviewsCount > 0 ? (
+          {typeof property?.rating === 'number' && Number.isFinite(property.rating) && property.rating > 0 && property.rating <= 5 && Number(property.reviewsCount) > 0 ? (
             <span className="flex items-center gap-1 text-xs font-black">
               <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
               {property.rating.toFixed(1)} ({property.reviewsCount})

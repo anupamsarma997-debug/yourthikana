@@ -1,4 +1,6 @@
-import app from '../../server.ts';
+import serverModule from '../../dist/server.cjs';
 
-// Route this AI endpoint through the authenticated Express API middleware.
+// The build script bundles the Express app to dist/server.cjs before Vercel
+// packages API functions. Export its Express default for the Node function.
+const app = (serverModule as any).default ?? (serverModule as any).app ?? serverModule;
 export default app;

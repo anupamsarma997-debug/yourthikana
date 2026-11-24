@@ -15,7 +15,6 @@ before(async () => {
 
 beforeEach(async () => {
   await env.clearFirestore();
-  await env.clearStorage();
   await env.withSecurityRulesDisabled(async context => {
     await setDoc(doc(context.firestore(), 'properties', 'active-property'), {
       id: 'active-property',

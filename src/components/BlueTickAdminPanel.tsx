@@ -53,7 +53,6 @@ export const BlueTickAdminPanel: React.FC = () => {
   const [message, setMessage] = useState('');
   const [proofChecked, setProofChecked] = useState<Record<string, boolean>>({});
   const [paymentChecked, setPaymentChecked] = useState<Record<string, boolean>>({});
-  const [paymentChecked, setPaymentChecked] = useState<Record<string, boolean>>({});
   const [evidenceCounts, setEvidenceCounts] = useState<Record<string, { propertyDocs: number }>>({});
   const updateEvidenceCounts = React.useCallback((id: string, counts: { propertyDocs: number }) => {
     setEvidenceCounts(old => old[id]?.propertyDocs === counts.propertyDocs ? old : { ...old, [id]: counts });

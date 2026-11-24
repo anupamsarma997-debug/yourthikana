@@ -15,7 +15,7 @@ const base = 'http://127.0.0.1:' + server.address().port;
 const endpoints = ['/api/ai/generate-description', '/api/ai/nearby-attractions', '/api/ai/travel-assistant'];
 
 async function post(path, token, body = {}) {
-  return nativeFetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify({}) });
+  return nativeFetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify(body) });
 }
 
 test('health endpoint returns HTTP 200 without an authenticated session', async () => {

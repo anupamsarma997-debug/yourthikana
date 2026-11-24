@@ -40,7 +40,14 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
   const rooms = store.getRoomsByProperty(property.id);
   const photos = Array.isArray(property.photos) ? property.photos.filter((photo) => typeof photo === 'string' && photo.length > 0) : [];
 
-  const [selectedRoom, setSelectedRoom] = useState<RoomType | undefined>(rooms[0]);
+  const [selectedRoom, setSelectedRoom] = useState<RoomType | undefined>(rooms.find((room) => room.pricePerNight > 0) || rooms[0]);
+  const getRoomPrice = (room?: RoomType): number | null => {
+    if (!room) return null;
+    if (room.discountPrice && room.discountPrice > 0 && room.pricePerNight > 0 && room.discountPrice < room.pricePerNight) return room.discountPrice;
+    return room.pricePerNight > 0 ? room.pricePerNight : null;
+  };
+  const sidebarRoom = selectedRoom || rooms.find((room) => room.pricePerNight > 0) || rooms[0];
+  const sidebarPrice = getRoomPrice(sidebarRoom);
 
   const handleShare = () => {
     if (navigator.share) {
@@ -108,9 +115,13 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
         <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-300 flex-wrap">
           <div className="flex items-center gap-1 font-extrabold text-slate-900 dark:text-white">
-            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-            <span>{(typeof property?.rating === 'number' ? property.rating : 5.0).toFixed(1)}</span>
-            <span className="text-slate-400 font-normal">({property?.reviewsCount ?? 0} customer reviews)</span>
+            {property?.rating > 0 && property?.reviewsCount > 0 ? (
+              <>
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                <span>{property.rating.toFixed(1)}</span>
+                <span className="text-slate-400 font-normal">({property.reviewsCount} customer reviews)</span>
+              </>
+            ) : <span className="text-slate-400 font-normal">No ratings yet</span>}
           </div>
 
           <div className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
@@ -224,7 +235,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
             <div className="space-y-3">
               {rooms.map((room) => {
-                const effectivePrice = room.discountPrice || room.pricePerNight;
+                const effectivePrice = getRoomPrice(room);
                 const isSelected = selectedRoom?.id === room.id;
 
                 return (
@@ -254,7 +265,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
                         <div className="flex items-center gap-3 mt-2 text-xs text-slate-500 dark:text-slate-400">
                           <span>🛏️ {room.bedType}</span>
-                          <span>👥 Max {room.maxGuests} Guests</span>
+                          <span>👥 {room.maxGuests > 0 ? `Max ${room.maxGuests} Guests` : 'Guest capacity not provided'}</span>
                         </div>
 
                         {/* Room Amenities Badges */}
@@ -273,9 +284,9 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
                       <div className="shrink-0 text-left sm:text-right pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-700">
                         <div className="flex items-baseline gap-1.5 sm:justify-end">
                           <span className="text-xl font-black text-slate-900 dark:text-white">
-                            ₹{effectivePrice}
+                            {effectivePrice !== null ? `₹${effectivePrice}` : 'Price on request'}
                           </span>
-                          {room.discountPrice && (
+                          {room.discountPrice && room.discountPrice < room.pricePerNight && (
                             <span className="text-xs text-slate-400 line-through">
                               ₹{room.pricePerNight}
                             </span>
@@ -322,7 +333,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
               <div className="mt-3 flex items-baseline gap-2">
                 <span className="text-2xl font-black text-slate-900 dark:text-white">
-                  ₹{selectedRoom ? (selectedRoom.discountPrice || selectedRoom.pricePerNight) : 1500}
+                  {sidebarPrice !== null ? `₹${sidebarPrice}` : 'Price on request'}
                 </span>
                 <span className="text-xs text-slate-500 font-medium">
                   {property.propertyType?.toLowerCase().includes('monthly') ? '/ month starting rent' : '/ night starting price'}
@@ -354,7 +365,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
               <div className="text-xs text-slate-600 dark:text-slate-300 space-y-1">
                 <p className="flex items-center gap-2">
                   <Phone className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{property.ownerPhone}</span>
+                  <span>{property.ownerPhone || 'Phone number not provided'}</span>
                 </p>
                 <p className="flex items-center gap-2">
                   <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />

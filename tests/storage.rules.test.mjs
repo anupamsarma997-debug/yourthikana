@@ -91,3 +91,16 @@ test('unsupported file content types are rejected for private evidence', async (
   const storage = env.authenticatedContext('owner-1').storage();
   await assertFails(uploadBytes(ref(storage, 'verification-documents/owner-1/verify-1/script.txt'), image, { contentType: 'text/plain' }));
 });
+
+test('Search Boost payment evidence is private to the verified platform admin', async () => {
+  const ownerStorage = env.authenticatedContext('owner-1').storage();
+  const path = 'search-boost-documents/owner-1/boost-1/payment.png';
+  await uploadBytes(ref(ownerStorage, path), image, { contentType: 'image/png' });
+  const adminStorage = env.authenticatedContext('admin-1', {
+    email: 'anupamsarma997@gmail.com',
+    email_verified: true,
+    firebase: { sign_in_provider: 'google.com' },
+  }).storage();
+  await assertFails(getBytes(ref(ownerStorage, path)));
+  await assertSucceeds(getBytes(ref(adminStorage, path)));
+});

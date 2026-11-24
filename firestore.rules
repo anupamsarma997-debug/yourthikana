@@ -95,7 +95,7 @@ service cloud.firestore {
         request.resource.data.status == 'awaiting_payment' &&
         request.resource.data.paymentStatus == 'pending' &&
         request.resource.data.paymentUtr == '' &&
-        request.resource.data.proofSubmissionMethod == 'whatsapp' &&
+        request.resource.data.proofSubmissionMethod == 'app_upload' &&
         request.resource.data.proofStatus == 'awaiting_payment' &&
         request.resource.data.submittedAt is timestamp &&
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
@@ -118,8 +118,8 @@ service cloud.firestore {
         request.resource.data.paymentUtr is string &&
         request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}$') &&
         request.resource.data.paymentSubmittedAt is timestamp &&
-        request.resource.data.proofSubmissionMethod == 'whatsapp' &&
-        request.resource.data.proofStatus == 'share_sheet_opened'
+        request.resource.data.proofSubmissionMethod == 'app_upload' &&
+        request.resource.data.proofStatus == 'uploaded'
       );
       allow delete: if isAdmin();
     }
@@ -142,7 +142,7 @@ service cloud.firestore {
         request.resource.data.status == 'awaiting_payment' &&
         request.resource.data.paymentStatus == 'pending' &&
         request.resource.data.paymentUtr == '' &&
-        request.resource.data.proofSubmissionMethod == 'whatsapp' &&
+        request.resource.data.proofSubmissionMethod == 'app_upload' &&
         request.resource.data.proofStatus == 'awaiting_payment' &&
         request.resource.data.submittedAt is timestamp &&
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
@@ -163,8 +163,8 @@ service cloud.firestore {
         request.resource.data.paymentUtr is string &&
         request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}$') &&
         request.resource.data.paymentSubmittedAt is timestamp &&
-        request.resource.data.proofSubmissionMethod == 'whatsapp' &&
-        request.resource.data.proofStatus == 'share_sheet_opened'
+        request.resource.data.proofSubmissionMethod == 'app_upload' &&
+        request.resource.data.proofStatus == 'uploaded'
       );
       allow delete: if isAdmin();
     }
@@ -316,7 +316,7 @@ service cloud.firestore {
             request.resource.data.paymentStatus == 'pending'
           ) ||
           (
-            request.resource.data.proofStatus == 'share_sheet_completed' &&
+            request.resource.data.proofStatus == 'documents_uploaded' &&
             request.resource.data.proofSharedAt is timestamp
           )
         )

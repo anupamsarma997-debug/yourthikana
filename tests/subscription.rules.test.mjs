@@ -79,8 +79,8 @@ test('owner can submit a valid UTR after creating a monthly subscription request
 test('owner can upload private subscription payment evidence only for their application', async () => {
   const ownerDb = env.authenticatedContext('owner-1').firestore();
   await setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-1'), applicationData());
-  const ownerStorage = env.authenticatedContext('owner-1').storage();
-  const otherStorage = env.authenticatedContext('owner-2').storage();
+  const ownerStorage = env.authenticatedContext('owner-1').storage('gs://demo-yourthikana.appspot.com');
+  const otherStorage = env.authenticatedContext('owner-2').storage('gs://demo-yourthikana.appspot.com');
   await assertSucceeds(uploadBytes(ref(ownerStorage, 'subscription-documents/owner-1/sub-1/payment.png'), screenshot, { contentType: 'image/png' }));
   await assertFails(uploadBytes(ref(otherStorage, 'subscription-documents/owner-1/sub-1/other.png'), screenshot, { contentType: 'image/png' }));
 });
@@ -88,14 +88,14 @@ test('owner can upload private subscription payment evidence only for their appl
 test('only the verified platform admin can read monthly subscription evidence', async () => {
   const ownerDb = env.authenticatedContext('owner-1').firestore();
   await setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-1'), applicationData());
-  const ownerStorage = env.authenticatedContext('owner-1').storage();
+  const ownerStorage = env.authenticatedContext('owner-1').storage('gs://demo-yourthikana.appspot.com');
   const path = 'subscription-documents/owner-1/sub-1/payment.png';
   await uploadBytes(ref(ownerStorage, path), screenshot, { contentType: 'image/png' });
   const adminStorage = env.authenticatedContext('admin-1', {
     email: 'anupamsarma997@gmail.com',
     email_verified: true,
     firebase: { sign_in_provider: 'google.com' },
-  }).storage();
+  }).storage('gs://demo-yourthikana.appspot.com');
   await assertFails(getBytes(ref(ownerStorage, path)));
   await assertSucceeds(getBytes(ref(adminStorage, path)));
 });

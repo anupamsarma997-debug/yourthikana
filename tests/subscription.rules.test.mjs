@@ -43,7 +43,7 @@ function applicationData(overrides = {}) {
     status: 'awaiting_payment',
     paymentStatus: 'pending',
     paymentUtr: '',
-    proofSubmissionMethod: 'whatsapp',
+    proofSubmissionMethod: 'app_upload',
     proofStatus: 'awaiting_payment',
     submittedAt: Timestamp.now(),
     ...overrides,
@@ -71,8 +71,8 @@ test('owner can submit a valid UTR after creating a monthly subscription request
     paymentStatus: 'pending',
     paymentUtr: 'SUB12345678',
     paymentSubmittedAt: Timestamp.now(),
-    proofSubmissionMethod: 'whatsapp',
-    proofStatus: 'share_sheet_opened',
+    proofSubmissionMethod: 'app_upload',
+    proofStatus: 'uploaded',
   }));
 });
 

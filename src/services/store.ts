@@ -1121,7 +1121,12 @@ class DataStore {
       }
       const code = err?.code || 'unknown';
       const detail = err?.message || String(err);
-      throw new Error(`Firestore save failed [${code}]: ${detail}`);
+      // Preserve Firebase's structured error code so the UI can display the
+      // real permission-denied/network error instead of replacing it with "unknown".
+      const wrappedError = new Error(`Firestore save failed [${code}]: ${detail}`);
+      (wrappedError as Error & { code?: string; cause?: unknown }).code = code;
+      (wrappedError as Error & { cause?: unknown }).cause = err;
+      throw wrappedError;
     }
 
     const existingIdx = this.properties.findIndex((p) => p.id === newProp.id);

@@ -62,6 +62,24 @@ test('monthly subscription application rejects any amount other than ₹1,000', 
   await assertFails(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-bad'), applicationData({ amount: 1500 })));
 });
 
+test('monthly subscription cannot be requested during the six-month free trial', async () => {
+  const ownerDb = env.authenticatedContext('owner-1').firestore();
+  const propertyRef = doc(ownerDb, 'properties', 'active-property');
+  await env.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'properties', 'active-property'), {
+      subscriptionTrialEndsAtTimestamp: Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)),
+    });
+  });
+  await assertFails(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-during-trial'), applicationData()));
+
+  await env.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'properties', 'active-property'), {
+      subscriptionTrialEndsAtTimestamp: Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000)),
+    });
+  });
+  await assertSucceeds(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-after-trial'), applicationData()));
+});
+
 test('owner can submit a valid UTR after creating a monthly subscription request', async () => {
   const ownerDb = env.authenticatedContext('owner-1').firestore();
   const applicationRef = doc(ownerDb, 'subscriptionApplications', 'sub-1');

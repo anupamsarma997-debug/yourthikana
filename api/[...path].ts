@@ -1,3 +1,4 @@
+// @ts-expect-error The Vercel build creates this bundled CommonJS file before packaging API functions.
 import serverModule from '../dist/server.cjs';
 
 // The build script bundles the Express app to dist/server.cjs before Vercel

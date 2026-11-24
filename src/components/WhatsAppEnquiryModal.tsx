@@ -28,9 +28,7 @@ export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  if (!isOpen || !property) return null;
-
-  const rooms = store.getRoomsByProperty(property.id);
+  const rooms = property ? store.getRoomsByProperty(property.id) : [];
   const currentUser = store.getCurrentUser();
 
   // Form States
@@ -85,7 +83,9 @@ export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
     : 0;
   const calculatedTotal = roomPrice > 0 ? roomPrice * numberOfDays : 0;
   const priceText = roomPrice > 0 ? `₹${roomPrice}/night` : 'Price to be confirmed by host';
-  const totalText = calculatedTotal > 0 ? `${totalText}` : 'To be confirmed by host';
+  const totalText = calculatedTotal > 0 ? `₹${calculatedTotal.toLocaleString('en-IN')}` : 'To be confirmed by host';
+
+  if (!isOpen || !property) return null;
 
   // Format WhatsApp Message
   const constructMessage = () => {

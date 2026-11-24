@@ -170,3 +170,28 @@ test('only the verified platform admin can activate a paid subscription and writ
   batch.set(doc(adminDb, 'transactions', 'subscription-sub-admin-test'), { id: 'subscription-sub-admin-test', ownerId: 'owner-1', propertyId: 'active-property', amount: 1000, type: 'standard_1000' });
   await assertSucceeds(batch.commit());
 });
+
+test('monthly subscription application is private to its owner and platform admin', async () => {
+  const ownerDb = env.authenticatedContext('owner-1').firestore();
+  const otherDb = env.authenticatedContext('owner-2').firestore();
+  const applicationRef = doc(ownerDb, 'subscriptionApplications', 'sub-private');
+  await setDoc(applicationRef, applicationData());
+  await assertSucceeds(getDoc(applicationRef));
+  await assertFails(getDoc(doc(otherDb, 'subscriptionApplications', 'sub-private')));
+});
+
+test('owner cannot self-verify or self-approve a monthly subscription payment', async () => {
+  const ownerDb = env.authenticatedContext('owner-1').firestore();
+  const applicationRef = doc(ownerDb, 'subscriptionApplications', 'sub-self-approve');
+  await setDoc(applicationRef, applicationData());
+  await assertSucceeds(updateDoc(applicationRef, {
+    status: 'pending',
+    paymentStatus: 'pending',
+    paymentUtr: 'OWNER12345678',
+    paymentSubmittedAt: Timestamp.now(),
+    proofSubmissionMethod: 'app_upload',
+    proofStatus: 'uploaded',
+  }));
+  await assertFails(updateDoc(applicationRef, { paymentStatus: 'verified' }));
+  await assertFails(updateDoc(applicationRef, { status: 'approved', verifiedUntil: '2026-12-24T00:00:00.000Z' }));
+});

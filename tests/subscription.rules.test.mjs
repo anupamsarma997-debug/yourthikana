@@ -163,7 +163,7 @@ test('only the verified platform admin can activate a paid subscription and writ
   const expiry = '2026-12-24T00:00:00.000Z';
   const batch = writeBatch(adminDb);
   batch.update(doc(adminDb, 'subscriptionApplications', 'sub-admin-test'), { status: 'approved', verifiedUntil: expiry, reviewedAt: Timestamp.now(), reviewedBy: 'admin-1' });
-  batch.update(doc(adminDb, 'properties', 'active-property'), { subscriptionStatus: 'active', subscriptionPlan: 'standard_1000', subscriptionPrice: 1000, subscriptionExpiresAt: expiry, subscriptionExpiryDate: expiry });
+  batch.update(doc(adminDb, 'properties', 'active-property'), { subscriptionStatus: 'active', subscriptionPlan: 'standard_1000', subscriptionPrice: 1000, subscriptionExpiresAt: expiry, subscriptionExpiresAtTimestamp: Timestamp.fromDate(new Date(expiry)), subscriptionExpiryDate: expiry });
   batch.set(doc(adminDb, 'transactions', 'subscription-sub-admin-test'), { id: 'subscription-sub-admin-test', ownerId: 'owner-1', propertyId: 'active-property', amount: 1000, type: 'standard_1000' });
   await assertSucceeds(batch.commit());
 });

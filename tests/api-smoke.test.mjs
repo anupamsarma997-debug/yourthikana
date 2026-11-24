@@ -23,6 +23,7 @@ async function post(path, token, body = {}) {
 test('subscription entitlement hides expired subscriptions and preserves future or unmigrated records', () => {
   assert.equal(isSubscriptionAccessActive({ subscriptionExpiresAt: '2026-11-24T00:00:00.000Z' }, Date.parse('2026-11-25T00:00:00.000Z')), false);
   assert.equal(isSubscriptionAccessActive({ subscriptionExpiresAt: '2026-12-24T00:00:00.000Z' }, Date.parse('2026-11-25T00:00:00.000Z')), true);
+  assert.equal(isSubscriptionAccessActive({ subscriptionExpiresAt: '2026-12-24T00:00:00.000Z', subscriptionExpiresAtTimestamp: { toDate: () => new Date('2026-11-24T00:00:00.000Z') } }, Date.parse('2026-11-25T00:00:00.000Z')), false);
   assert.equal(isSubscriptionAccessActive({ subscriptionExpiresAt: '' }, Date.parse('2026-11-25T00:00:00.000Z')), true);
   assert.equal(isSubscriptionAccessActive({ subscriptionStatus: 'expired' }, Date.parse('2026-11-25T00:00:00.000Z')), false);
 });

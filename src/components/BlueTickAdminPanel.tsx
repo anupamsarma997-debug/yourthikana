@@ -44,15 +44,6 @@ function EvidenceFiles({ application, onEvidenceCounts }: { application: Verific
   );
 }
 
-function addCalendarMonths(date: Date, months: number): Date {
-  const result = new Date(date);
-  const day = result.getDate();
-  result.setDate(1);
-  result.setMonth(result.getMonth() + months);
-  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
-  result.setDate(Math.min(day, lastDay));
-  return result;
-}
 
 const dateLabel = (value?: string) => value ? new Date(value).toLocaleString('en-IN') : '—';
 

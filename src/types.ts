@@ -76,10 +76,10 @@ export interface Property {
   coverImage?: string;
   rating: number;
   reviewsCount: number;
-  isVerified: boolean; // Blue Verified Badge (₹500/mo)
+  isVerified: boolean; // One-time ₹500 property verification
   isFeatured: boolean;
   verifiedUntil?: string;
-  featuredUntil?: string; // Search Boost (₹500/mo)
+  featuredUntil?: string; // Search Boost (₹500 per calendar month)
   status: 'active' | 'pending' | 'rejected' | 'hidden_expired' | 'blocked';
   subscriptionPlan: 'standard_1000' | 'standard_1500' | 'none';
   subscriptionPrice: number;

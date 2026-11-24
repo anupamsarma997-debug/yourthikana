@@ -67,6 +67,7 @@ test('monthly subscription cannot be requested during the six-month free trial',
   const propertyRef = doc(ownerDb, 'properties', 'active-property');
   await env.withSecurityRulesDisabled(async context => {
     await updateDoc(doc(context.firestore(), 'properties', 'active-property'), {
+      subscriptionTrialEndsAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       subscriptionTrialEndsAtTimestamp: Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000)),
     });
   });
@@ -74,6 +75,7 @@ test('monthly subscription cannot be requested during the six-month free trial',
 
   await env.withSecurityRulesDisabled(async context => {
     await updateDoc(doc(context.firestore(), 'properties', 'active-property'), {
+      subscriptionTrialEndsAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
       subscriptionTrialEndsAtTimestamp: Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000)),
     });
   });

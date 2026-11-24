@@ -157,6 +157,67 @@ test('an owner cannot extend subscription or paid badge validity', async () => {
 });
 
 
+test('only the active property owner can create a monthly subscription request', async () => {
+  const ownerDb = env.authenticatedContext('owner-1').firestore();
+  const otherDb = env.authenticatedContext('owner-2').firestore();
+  const application = {
+    ownerUid: 'owner-1',
+    propertyId: 'active-property',
+    propertyTitle: 'Original listing',
+    amount: 1000,
+    status: 'awaiting_payment',
+    paymentStatus: 'pending',
+    paymentUtr: '',
+    proofSubmissionMethod: 'app_upload',
+    proofStatus: 'awaiting_payment',
+    submittedAt: Timestamp.now(),
+  };
+
+  await assertSucceeds(setDoc(doc(ownerDb, 'subscriptionApplications', 'monthly-1'), application));
+  await assertFails(setDoc(doc(otherDb, 'subscriptionApplications', 'monthly-2'), {
+    ...application,
+    ownerUid: 'owner-2',
+  }));
+  await assertFails(setDoc(doc(ownerDb, 'subscriptionApplications', 'monthly-wrong-amount'), {
+    ...application,
+    amount: 500,
+  }));
+  await assertFails(setDoc(doc(ownerDb, 'subscriptionApplications', 'monthly-private-property'), {
+    ...application,
+    propertyId: 'private-property',
+  }));
+});
+
+test('monthly subscription owner can submit a UTR but cannot approve payment', async () => {
+  const db = env.authenticatedContext('owner-1').firestore();
+  const applicationRef = doc(db, 'subscriptionApplications', 'monthly-utr-1');
+  await setDoc(applicationRef, {
+    ownerUid: 'owner-1',
+    propertyId: 'active-property',
+    propertyTitle: 'Original listing',
+    amount: 1000,
+    status: 'awaiting_payment',
+    paymentStatus: 'pending',
+    paymentUtr: '',
+    proofSubmissionMethod: 'app_upload',
+    proofStatus: 'awaiting_payment',
+    submittedAt: Timestamp.now(),
+  });
+
+  await assertSucceeds(updateDoc(applicationRef, {
+    status: 'pending',
+    paymentStatus: 'pending',
+    paymentUtr: 'UTR123456789',
+    paymentSubmittedAt: Timestamp.now(),
+    proofSubmissionMethod: 'app_upload',
+    proofStatus: 'uploaded',
+  }));
+  await assertFails(updateDoc(applicationRef, {
+    status: 'approved',
+    paymentStatus: 'verified',
+  }));
+});
+
 test('an owner can atomically create a pending property and its duplicate fingerprint', async () => {
   const db = env.authenticatedContext('owner-1').firestore();
   const propertyId = 'prop-atomic-test';

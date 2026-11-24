@@ -115,22 +115,24 @@ export const AdminDashboardView: React.FC = () => {
   React.useEffect(() => {
     if (!db || !isAuthorized) return;
     const legacyTrials = properties.filter(property =>
-      property.status === 'active' &&
-      Boolean(property.subscriptionTrialEndsAt) &&
-      !property.subscriptionTrialEndsAtTimestamp
+      property.status === 'active' && !property.subscriptionTrialEndsAtTimestamp
     );
     legacyTrials.forEach(property => {
+      const now = new Date();
       const startedAt = property.subscriptionTrialStartedAt
         ? new Date(property.subscriptionTrialStartedAt)
-        : new Date(property.subscriptionTrialEndsAt || '');
-      if (!Number.isFinite(startedAt.getTime())) return;
-      const trialEnd = property.subscriptionTrialStartedAt
+        : property.subscriptionTrialEndsAt
+          ? null
+          : now;
+      const trialEnd = startedAt
         ? addCalendarMonths(startedAt, 6)
         : new Date(property.subscriptionTrialEndsAt || '');
-      if (!Number.isFinite(trialEnd.getTime())) return;
+      if ((startedAt && !Number.isFinite(startedAt.getTime())) || !Number.isFinite(trialEnd.getTime())) return;
       updateDoc(doc(db, 'properties', property.id), {
+        subscriptionTrialStartedAt: (startedAt || new Date(trialEnd.getTime() - 6 * 30 * 24 * 60 * 60 * 1000)).toISOString(),
         subscriptionTrialEndsAt: trialEnd.toISOString(),
         subscriptionTrialEndsAtTimestamp: Timestamp.fromDate(trialEnd),
+        subscriptionStatus: trialEnd.getTime() > now.getTime() ? 'trial' : 'expired',
       }).catch(error => console.error('Legacy subscription trial migration failed:', property.id, error));
     });
   }, [properties, isAuthorized]);

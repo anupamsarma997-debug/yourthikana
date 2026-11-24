@@ -128,6 +128,10 @@ export interface BannerAd {
   ctaText?: string;
   position: 'home' | 'search' | 'property';
   isActive: boolean;
+  advertiserName?: string;
+  campaignAmount?: number;
+  paymentVerifiedAt?: string;
+  createdAt?: string;
 }
 
 export interface SubscriptionTransaction {
@@ -136,7 +140,7 @@ export interface SubscriptionTransaction {
   ownerName: string;
   propertyId: string;
   propertyName: string;
-  type: 'standard_1000' | 'standard_1500' | 'verified_badge' | 'search_boost';
+  type: 'standard_1000' | 'standard_1500' | 'verified_badge' | 'search_boost' | 'advertisement';
   planName: string;
   title?: string;
   amount: number;

@@ -89,7 +89,8 @@ export const SearchBoostAdminPanel: React.FC = () => {
     }
   };
 
-  const reviewable = applications.filter((item) => item.status !== 'awaiting_payment');
+  // Admin application records are typed as pending/rejected/approved; awaiting_payment is owner-side only.
+  const reviewable = applications;
   const pending = applications.filter((item) => item.status === 'pending');
   const active = applications.filter((item) => item.status === 'approved' && item.featuredUntil && Date.parse(item.featuredUntil) > Date.now());
   return (

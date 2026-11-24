@@ -1,7 +1,7 @@
 import { after, before, beforeEach, test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, Timestamp, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getBytes } from 'firebase/storage';
 
 let env;
@@ -148,4 +148,24 @@ test('another owner cannot create a Search Boost application for someone else pr
     proofStatus: 'awaiting_payment',
     submittedAt: Timestamp.now(),
   }));
+});
+
+test('only the verified platform admin can activate a paid subscription and write its transaction', async () => {
+  const ownerDb = env.authenticatedContext('owner-1').firestore();
+  const applicationRef = doc(ownerDb, 'subscriptionApplications', 'sub-admin-test');
+  await setDoc(applicationRef, applicationData({ status: 'pending', paymentUtr: 'ADMIN12345678', proofStatus: 'uploaded' }));
+  await assertFails(updateDoc(applicationRef, { status: 'approved', verifiedUntil: '2026-12-24T00:00:00.000Z' }));
+  await assertFails(setDoc(doc(ownerDb, 'transactions', 'subscription-sub-admin-test'), { amount: 1000 }));
+
+  const adminDb = env.authenticatedContext('admin-1', {
+    email: 'anupamsarma997@gmail.com',
+    email_verified: true,
+    firebase: { sign_in_provider: 'google.com' },
+  }).firestore();
+  const expiry = '2026-12-24T00:00:00.000Z';
+  const batch = writeBatch(adminDb);
+  batch.update(doc(adminDb, 'subscriptionApplications', 'sub-admin-test'), { status: 'approved', verifiedUntil: expiry, reviewedAt: Timestamp.now(), reviewedBy: 'admin-1' });
+  batch.update(doc(adminDb, 'properties', 'active-property'), { subscriptionStatus: 'active', subscriptionPlan: 'standard_1000', subscriptionPrice: 1000, subscriptionExpiresAt: expiry, subscriptionExpiryDate: expiry });
+  batch.set(doc(adminDb, 'transactions', 'subscription-sub-admin-test'), { id: 'subscription-sub-admin-test', ownerId: 'owner-1', propertyId: 'active-property', amount: 1000, type: 'standard_1000' });
+  await assertSucceeds(batch.commit());
 });

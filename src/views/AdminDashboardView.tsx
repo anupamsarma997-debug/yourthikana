@@ -167,6 +167,7 @@ export const AdminDashboardView: React.FC = () => {
           subscriptionPlan: current.subscriptionPlan || 'standard_1000',
           subscriptionPrice: typeof current.subscriptionPrice === 'number' ? current.subscriptionPrice : 1000,
           subscriptionExpiresAt: trialEnd.toISOString(),
+          subscriptionExpiresAtTimestamp: Timestamp.fromDate(trialEnd),
           subscriptionExpiryDate: trialEnd.toISOString(),
         });
       }).catch(error => console.error('Legacy subscription trial migration failed:', property.id, error));

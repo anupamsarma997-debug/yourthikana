@@ -35,7 +35,7 @@ beforeEach(async () => {
     await setDoc(doc(context.firestore(), 'verificationApplications', 'verify-1'), {
       ownerUid: 'owner-1',
       propertyId: 'active-property',
-      status: 'pending',
+      status: 'awaiting_payment',
     });
   });
 });
@@ -54,7 +54,7 @@ test('another account cannot upload a property photo into the owner path', async
   await assertFails(uploadBytes(ref(storage, 'properties/owner-1/active-property/room.png'), image, { contentType: 'image/png' }));
 });
 
-test('owner can upload Blue Tick property documents for a pending application', async () => {
+test('owner can upload Blue Tick property documents while payment is awaiting', async () => {
   const storage = env.authenticatedContext('owner-1').storage();
   await assertSucceeds(uploadBytes(ref(storage, 'verification-documents/owner-1/verify-1/licence.png'), image, { contentType: 'image/png' }));
 });

@@ -78,7 +78,7 @@ export const BlueTickAdminPanel: React.FC = () => {
 
   const review = async (application: VerificationApplication, action: 'approve' | 'reject') => {
     if (!db || !auth?.currentUser) return;
-    if (action === 'approve' && !(evidenceCounts[application.id]?.propertyDocs > 0) || !(evidenceCounts[application.id]?.paymentProofs > 0)) {
+    if (action === 'approve' && (!(evidenceCounts[application.id]?.propertyDocs > 0) || !(evidenceCounts[application.id]?.paymentProofs > 0))) {
       setMessage('Property documents pehle upload aur admin ke dwara check hone chahiye.');
       return;
     }

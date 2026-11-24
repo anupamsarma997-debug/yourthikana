@@ -35,18 +35,23 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
   const rooms = (Array.isArray(suppliedRooms) ? suppliedRooms : store.getRoomsByProperty(property.id)).filter(Boolean);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
 
-  // Find lowest price room
-  const lowestPriceRoom = rooms.length > 0
-    ? rooms.reduce((min, r) => (r.pricePerNight < min.pricePerNight ? r : min), rooms[0])
+  // Only compare rooms with a real owner-entered price; unknown prices stay unknown.
+  const pricedRooms = rooms.filter((room) => Number.isFinite(room.pricePerNight) && room.pricePerNight > 0);
+  const lowestPriceRoom = pricedRooms.length > 0
+    ? pricedRooms.reduce((min, room) => (room.pricePerNight < min.pricePerNight ? room : min), pricedRooms[0])
+    : null;
+  const primaryRoom = lowestPriceRoom || rooms[0] || null;
+  const currentPrice = lowestPriceRoom
+    ? (lowestPriceRoom.discountPrice && lowestPriceRoom.discountPrice > 0 && lowestPriceRoom.discountPrice < lowestPriceRoom.pricePerNight
+        ? lowestPriceRoom.discountPrice
+        : lowestPriceRoom.pricePerNight)
+    : null;
+  const originalPrice = lowestPriceRoom?.discountPrice && lowestPriceRoom.discountPrice < lowestPriceRoom.pricePerNight
+    ? lowestPriceRoom.pricePerNight
     : null;
 
-  const currentPrice = lowestPriceRoom ? (lowestPriceRoom.discountPrice || lowestPriceRoom.pricePerNight) : 1500;
-  const originalPrice = lowestPriceRoom?.discountPrice ? lowestPriceRoom.pricePerNight : null;
-
   const photos = Array.isArray(property.photos) ? property.photos.filter((photo) => typeof photo === 'string' && photo.length > 0) : [];
-  const coverImage = photos.length > 0
-    ? photos[activePhotoIdx] || photos[0]
-    : 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80';
+  const coverImage = photos.length > 0 ? (photos[activePhotoIdx] || photos[0]) : null;
 
   return (
     <div
@@ -56,17 +61,23 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
       
       {/* Top Media Banner */}
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-900">
-        <img
-          src={coverImage}
-          alt={property.title ? `Photo of ${property.title}` : 'Property accommodation photo'}
-          width={800}
-          height={500}
-          decoding="async"
-          fetchPriority={isPriority ? "high" : "auto"}
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          loading={isPriority ? "eager" : "lazy"}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-        />
+        {coverImage ? (
+          <img
+            src={coverImage}
+            alt={property.title ? `Photo of ${property.title}` : 'Property accommodation photo'}
+            width={800}
+            height={500}
+            decoding="async"
+            fetchPriority={isPriority ? "high" : "auto"}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            loading={isPriority ? "eager" : "lazy"}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-300 text-xs font-semibold">
+            Host photo not provided
+          </div>
+        )}
 
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
@@ -101,11 +112,14 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           </div>
         )}
 
-        {/* Rating Badge */}
-        <div className="absolute bottom-3 right-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-2.5 py-1 rounded-lg text-xs font-black shadow-md flex items-center gap-1">
-          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-          <span>{(typeof property?.rating === 'number' ? property.rating : 5.0).toFixed(1)}</span>
-          <span className="text-[10px] text-slate-400 font-normal">({property?.reviewsCount ?? 0})</span>
+        {/* Show a rating only when real reviews exist. */}
+        <div className="absolute bottom-3 right-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-2.5 py-1 rounded-lg text-[10px] font-bold shadow-md">
+          {property?.rating > 0 && property?.reviewsCount > 0 ? (
+            <span className="flex items-center gap-1 text-xs font-black">
+              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              {property.rating.toFixed(1)} ({property.reviewsCount})
+            </span>
+          ) : 'No ratings yet'}
         </div>
 
         {/* Photo Switcher Dots */}
@@ -158,7 +172,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1">
                 <Users className="w-3.5 h-3.5 text-slate-400" />
-                <span>Max {lowestPriceRoom?.maxGuests || 2} Guests</span>
+                <span>{primaryRoom?.maxGuests > 0 ? `Max ${primaryRoom.maxGuests} Guests` : 'Guest capacity not provided'}</span>
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5 text-slate-400" />
@@ -177,7 +191,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           <div>
             <div className="flex items-baseline gap-1.5">
               <span className="text-lg font-black text-slate-900 dark:text-white">
-                ₹{currentPrice}
+                {currentPrice ? `₹${currentPrice}` : 'Price on request'}
               </span>
               {originalPrice && (
                 <span className="text-xs text-slate-400 line-through font-medium">
@@ -201,7 +215,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
               Details
             </button>
             <button
-              onClick={() => onOpenWhatsApp(property, lowestPriceRoom || undefined)}
+              onClick={() => onOpenWhatsApp(property, primaryRoom || undefined)}
               className="min-h-11 min-w-11 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl shadow-md transition-transform active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <MessageCircle className="w-3.5 h-3.5 fill-white text-emerald-600" />

@@ -25,7 +25,7 @@ export const Footer: React.FC<FooterProps> = ({ onRoleChange, onOpenAddProperty 
                 Hotel & Homestay Owners
               </span>
               <h4 className="text-lg font-black text-white mt-1">
-                List Your Property on THIKANA for ₹1000–₹1500/month
+                List Your Property on THIKANA for ₹1,000/property/month
               </h4>
               <p className="text-xs text-slate-300">
                 Receive 100% direct guest enquiries on WhatsApp with ZERO commission or hidden fees!
@@ -56,7 +56,7 @@ export const Footer: React.FC<FooterProps> = ({ onRoleChange, onOpenAddProperty 
               <span className="text-lg font-black text-white tracking-tight">THIKANA</span>
             </div>
             <p className="text-slate-400 leading-relaxed">
-              India's premier Zero Commission WhatsApp-First Hotel & Homestay Marketplace. Connecting travelers directly with authentic local hosts.
+              A zero-commission discovery platform for hotels, homestays, hostels, PGs and rental rooms across India. Guests contact property hosts directly.
             </p>
             <div className="flex items-center gap-2 text-[10px] text-emerald-400 font-bold bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-800 w-fit">
               <MessageCircle className="w-3.5 h-3.5" />
@@ -86,9 +86,8 @@ export const Footer: React.FC<FooterProps> = ({ onRoleChange, onOpenAddProperty 
               Owner Pricing & Badges
             </h5>
             <ul className="space-y-2 text-slate-400">
-              <li>Standard Listing: ₹1000/month</li>
-              <li>Prime Location Listing: ₹1500/month</li>
-              <li className="text-blue-400 font-medium">Blue Verified Tick: ₹500/month</li>
+              <li>Platform Subscription: ₹1,000/property/month</li>
+              <li className="text-blue-400 font-medium">Blue Tick Verification: ₹500/month</li>
               <li className="text-amber-400 font-medium">⭐ Search Boost Placement: ₹500/month</li>
               <li>Banner Advertisements</li>
             </ul>

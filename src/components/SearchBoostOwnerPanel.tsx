@@ -84,7 +84,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
       await setDoc(applicationRef, {
         ownerUid: user.uid, propertyId: property.id, propertyTitle: property.title,
         status: 'awaiting_payment', paymentStatus: 'pending', paymentUtr: '',
-        proofSubmissionMethod: 'whatsapp', proofStatus: 'awaiting_payment',
+        proofSubmissionMethod: 'app_upload', proofStatus: 'awaiting_payment',
         submittedAt: serverTimestamp(),
       });
       setActiveApplicationId(applicationRef.id);
@@ -105,7 +105,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
     await updateDoc(doc(db, 'searchBoostApplications', application.id), {
       paymentUtr: utrValue, paymentSubmittedAt: serverTimestamp(),
       status: 'pending', paymentStatus: 'pending',
-      proofSubmissionMethod: 'whatsapp', proofStatus: 'share_sheet_opened',
+      proofSubmissionMethod: 'app_upload', proofStatus: 'uploaded',
     });
     setScreen('status');
   };
@@ -146,7 +146,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
             <>
               <div className="rounded-[18px] border border-[#14B8A6] bg-[#131C2E] p-4"><p className="text-xs font-bold uppercase tracking-wide text-[#5EEAD4]">Payment page</p><h4 className="mt-1 break-words text-lg font-extrabold text-white">{activeApplication.propertyTitle}</h4><p className="mt-1 text-xs text-[#9AA7BD]">Request ID: {activeApplication.id}</p></div>
               {activeApplication.status === 'approved' && <p className="rounded-xl bg-emerald-950 p-3 text-sm text-emerald-200">Search Boost already active hai.</p>}
-              {activeApplication.status !== 'approved' && <PaymentProofShare key={activeApplication.id} amount={500} title="Search Boost" applicationId={activeApplication.id} propertyTitle={activeApplication.propertyTitle} onShared={utr => markPaymentSubmitted(activeApplication, utr)} initialUtr={activeApplication.paymentUtr || ''} disabled={busy || activeApplication.status === 'pending'} />}
+              {activeApplication.status !== 'approved' && <PaymentProofShare key={activeApplication.id} amount={500} title="Search Boost" applicationId={activeApplication.id} propertyTitle={activeApplication.propertyTitle} storageFolder="search-boost-documents" onSubmitted={utr => markPaymentSubmitted(activeApplication, utr)} initialUtr={activeApplication.paymentUtr || ''} disabled={busy || activeApplication.status === 'pending'} />}
               {activeApplication.status === 'pending' && <p className="rounded-xl bg-[#30250F] p-3 text-sm text-[#FBBF24]">Payment proof submitted. Admin bank verification pending hai. Status page par tracking dekhein.</p>}
             </>
           )}

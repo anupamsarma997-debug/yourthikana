@@ -4,6 +4,7 @@ import { Property, User, BannerAd } from '../types';
 import { auth } from '../lib/firebase';
 import { BlueTickAdminPanel } from '../components/BlueTickAdminPanel';
 import { SearchBoostAdminPanel } from '../components/SearchBoostAdminPanel';
+import { MonthlySubscriptionAdminPanel } from '../components/MonthlySubscriptionAdminPanel';
 import { isBlueTickActive, isSearchBoostActive } from '../utils/propertyBadges';
 import { 
   ShieldCheck, 
@@ -32,7 +33,7 @@ export const AdminDashboardView: React.FC = () => {
   const [users, setUsers] = useState<User[]>(store.getUsers());
   const [banners, setBanners] = useState<BannerAd[]>(store.getAllBanners());
   const [transactions, setTransactions] = useState(store.getTransactions());
-  const [activeTab, setActiveTab] = useState<'properties' | 'users' | 'banners' | 'revenue' | 'verifications' | 'searchBoosts'>('properties');
+  const [activeTab, setActiveTab] = useState<'properties' | 'users' | 'banners' | 'revenue' | 'verifications' | 'searchBoosts' | 'subscriptionApps'>('properties');
 
   // Only the founder's verified Firebase account may enter the admin dashboard.
   const [isVerifying, setIsVerifying] = useState(true);
@@ -276,11 +277,13 @@ export const AdminDashboardView: React.FC = () => {
         >
           Revenue Log ({transactions.length})
         </button>
+        <button onClick={() => setActiveTab('subscriptionApps')} className={`flex-1 py-3 text-xs font-extrabold rounded-xl transition-all ${activeTab === 'subscriptionApps' ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}>Monthly Subscriptions</button>
         <button onClick={() => setActiveTab('verifications')} className={`flex-1 py-3 text-xs font-extrabold rounded-xl transition-all ${activeTab === 'verifications' ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}>Blue Tick Verification</button>
         <button onClick={() => setActiveTab('searchBoosts')} className={`flex-1 py-3 text-xs font-extrabold rounded-xl transition-all ${activeTab === 'searchBoosts' ? 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}>Search Boost Review</button>
       </div>
 
-      {activeTab === 'verifications' && <BlueTickAdminPanel />}
+      {activeTab === 'subscriptionApps' && <MonthlySubscriptionAdminPanel />}
+      {activeTab === 'verifications' && <BlueTickAdminPanel />
       {activeTab === 'searchBoosts' && <SearchBoostAdminPanel />}
 
       {/* Tab 1: Properties Table */}

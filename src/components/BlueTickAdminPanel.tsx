@@ -9,7 +9,7 @@ type VerificationApplication = {
   ownerUid: string;
   propertyId: string;
   propertyTitle: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'awaiting_payment' | 'pending' | 'approved' | 'rejected';
   paymentStatus?: 'not_submitted' | 'pending' | 'verified' | 'rejected';
   paymentUtr?: string;
   paymentSubmittedAt?: any;

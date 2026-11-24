@@ -74,7 +74,7 @@ export const MonthlySubscriptionAdminPanel: React.FC = () => {
     try {
       const propertyRef = doc(db, 'properties', application.propertyId);
       const propertySnapshot = await getDoc(propertyRef);
-      if (!propertySnapshot.exists() || propertySnapshot.data().ownerUid !== application.ownerUid || propertySnapshot.data().status !== 'active') {
+      if (!propertySnapshot.exists() || propertySnapshot.data().ownerUid !== application.ownerUid || !['active', 'hidden_expired'].includes(propertySnapshot.data().status)) {
         setMessage('Property missing, not active, or owner mismatch. Subscription cannot be approved.');
         return;
       }

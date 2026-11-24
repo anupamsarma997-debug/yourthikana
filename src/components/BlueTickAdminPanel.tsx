@@ -18,7 +18,7 @@ type VerificationApplication = {
   freeTrialEndsAt?: string;
 };
 
-function EvidenceFiles({ application, onEvidenceCounts }: { application: VerificationApplication; onEvidenceCounts: (applicationId: string, counts: { propertyDocs: number; paymentProofs: number }) => void }) {
+function EvidenceFiles({ application, onEvidenceCounts }: { application: VerificationApplication; onEvidenceCounts: (applicationId: string, counts: { propertyDocs: number }) => void }) {
   const [files, setFiles] = useState<{ name: string; url: string }[]>([]);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -27,16 +27,16 @@ function EvidenceFiles({ application, onEvidenceCounts }: { application: Verific
     const folder = ref(storage, `verification-documents/${application.ownerUid}/${application.id}`);
     listAll(folder).then(async result => {
       const items = await Promise.all(result.items.map(async item => ({ name: item.name, url: await getDownloadURL(item) })));
-      if (active) { setFiles(items); onEvidenceCounts(application.id, { propertyDocs: items.filter(item => item.name.startsWith('property-')).length, paymentProofs: items.filter(item => item.name.startsWith('payment-')).length }); }
+      if (active) { setFiles(items); onEvidenceCounts(application.id, { propertyDocs: items.filter(item => item.name.startsWith('property-')).length }); }
     }).catch(err => {
       console.error('Could not load private verification evidence:', err);
-      if (active) { setError('Evidence list available nahi hai. Admin Storage permission check karein.'); onEvidenceCounts(application.id, { propertyDocs: 0, paymentProofs: 0 }); }
+      if (active) { setError('Evidence list available nahi hai. Admin Storage permission check karein.'); onEvidenceCounts(application.id, { propertyDocs: 0 }); }
     });
     return () => { active = false; };
   }, [application.ownerUid, application.id, onEvidenceCounts]);
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-      <p className="text-xs font-bold">Uploaded payment screenshot & property documents</p>
+      <p className="text-xs font-bold">Property documents (payment screenshot is shared on WhatsApp)</p>
       {files.map(file => <a key={file.url} href={file.url} target="_blank" rel="noreferrer" className="flex min-h-10 items-center gap-2 break-all text-xs font-semibold text-blue-700 dark:text-blue-300"><FileImage className="h-4 w-4 shrink-0" />{file.name}</a>)}
       {!files.length && !error && <p className="text-[11px] text-slate-500">No uploaded files yet.</p>}
       {error && <p className="text-[11px] text-rose-600">{error}</p>}
@@ -52,8 +52,8 @@ export const BlueTickAdminPanel: React.FC = () => {
   const [busyId, setBusyId] = useState('');
   const [message, setMessage] = useState('');
   const [proofChecked, setProofChecked] = useState<Record<string, boolean>>({});
-  const [evidenceCounts, setEvidenceCounts] = useState<Record<string, { propertyDocs: number; paymentProofs: number }>>({});
-  const updateEvidenceCounts = React.useCallback((id: string, counts: { propertyDocs: number; paymentProofs: number }) => {
+  const [evidenceCounts, setEvidenceCounts] = useState<Record<string, { propertyDocs: number; paymentProofs?: number }>>({});
+  const updateEvidenceCounts = React.useCallback((id: string, counts: { propertyDocs: number }) => {
     setEvidenceCounts(old => old[id]?.propertyDocs === counts.propertyDocs && old[id]?.paymentProofs === counts.paymentProofs ? old : { ...old, [id]: counts });
   }, []);
 
@@ -69,7 +69,7 @@ export const BlueTickAdminPanel: React.FC = () => {
 
   const review = async (application: VerificationApplication, action: 'approve' | 'reject') => {
     if (!db || !auth?.currentUser) return;
-    if (action === 'approve' && (!(evidenceCounts[application.id]?.propertyDocs > 0) || !(evidenceCounts[application.id]?.paymentProofs > 0))) {
+    if (action === 'approve' && (!(evidenceCounts[application.id]?.propertyDocs > 0))) {
       setMessage('Property documents pehle upload aur admin ke dwara check hone chahiye.');
       return;
     }
@@ -114,7 +114,7 @@ export const BlueTickAdminPanel: React.FC = () => {
 
   const verifyPayment = async (application: VerificationApplication, approve: boolean) => {
     if (!db || !auth?.currentUser || !application.paymentUtr) return;
-    if (approve && !(evidenceCounts[application.id]?.paymentProofs > 0)) { setMessage('Payment screenshot pehle upload hona chahiye.'); return; }
+    if (approve && !paymentChecked[application.id]) { setMessage('WhatsApp screenshot dekhkar actual bank/UPI credit independently confirm karein.'); return; }
     setBusyId(application.id); setMessage('');
     try {
       if (approve && application.status === 'approved') {
@@ -156,6 +156,7 @@ export const BlueTickAdminPanel: React.FC = () => {
     } finally { setBusyId(''); }
   };
 
+  const visibleApplications = applications.filter(item => item.status !== 'awaiting_payment');
   const pending = applications.filter(item => item.status === 'pending');
   const paymentPending = applications.filter(item => (item.status === 'pending' || item.status === 'approved') && item.paymentStatus === 'pending');
 
@@ -164,13 +165,13 @@ export const BlueTickAdminPanel: React.FC = () => {
       <div className="flex items-center gap-3"><div className="rounded-xl bg-blue-100 dark:bg-blue-950 p-3"><BadgeCheck className="w-6 h-6 text-blue-600" /></div><div><h2 className="text-lg font-black text-slate-900 dark:text-white">Blue Tick Verification Review</h2><p className="text-xs text-slate-500">₹500 one-time verification · Pending applications: {pending.length} · Payment checks: {paymentPending.length}</p></div></div>
       {message && <p role="status" className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 text-xs">{message}</p>}
       {applications.length === 0 && <p className="text-xs text-slate-500">No verification applications received yet.</p>}
-      {applications.map(application => (
+      {visibleApplications.map(application => (
         <article key={application.id} className="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2"><div><h3 className="font-extrabold text-sm text-slate-900 dark:text-white">{application.propertyTitle}</h3><p className="text-[11px] text-slate-500">Property ID: {application.propertyId} · Owner UID: {application.ownerUid}</p><p className="text-[11px] text-slate-500">Applied: {application.submittedAt?.toDate ? dateLabel(application.submittedAt.toDate().toISOString()) : 'Timestamp pending'}</p><p className="text-[11px] text-slate-500">Application ID: {application.id}</p></div><span className="rounded-lg bg-slate-100 dark:bg-slate-700 px-2 py-1 text-[10px] font-black uppercase">{application.status}{application.paymentStatus === 'pending' ? ' · PAYMENT PENDING' : ''}</span></div>
           <EvidenceFiles application={application} onEvidenceCounts={updateEvidenceCounts} />
-          <p className="text-[11px] text-slate-500">Property documents: {evidenceCounts[application.id]?.propertyDocs || 0} · Payment screenshots: {evidenceCounts[application.id]?.paymentProofs || 0}</p>
-          <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 space-y-2"><p className="text-xs font-bold">WhatsApp Support</p><a href={`https://wa.me/919101280465?text=${encodeURIComponent('Please check Blue Tick proof for application '+application.id)}`} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-1 text-xs font-bold text-green-700"><MessageCircle className="w-4 h-4" />Open WhatsApp</a>{application.status === 'pending' && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={!!proofChecked[application.id]} onChange={event => setProofChecked(old => ({...old,[application.id]:event.target.checked}))} />I received and checked the property proof documents.</label>}</div>
-          {application.status === 'pending' && <div className="flex flex-wrap gap-2"><button type="button" disabled={busyId === application.id || !proofChecked[application.id] || application.paymentStatus !== 'verified' || !(evidenceCounts[application.id]?.propertyDocs > 0) || !(evidenceCounts[application.id]?.paymentProofs > 0)} onClick={() => review(application, 'approve')} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><CheckCircle2 className="w-4 h-4" />Approve paid Blue Tick</button><button type="button" disabled={busyId === application.id} onClick={() => review(application, 'reject')} className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><XCircle className="w-4 h-4" />Reject</button></div>}
+          <p className="text-[11px] text-slate-500">Property documents: {evidenceCounts[application.id]?.propertyDocs || 0} · Payment screenshot: owner must send it to WhatsApp support.</p>
+          <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 space-y-2"><p className="text-xs font-bold">WhatsApp Support</p><a href={`https://wa.me/919101280465?text=${encodeURIComponent('Please check Blue Tick proof for application '+application.id)}`} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-1 text-xs font-bold text-green-700"><MessageCircle className="w-4 h-4" />Open WhatsApp</a>{application.status === 'pending' && <><label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={!!proofChecked[application.id]} onChange={event => setProofChecked(old => ({...old,[application.id]:event.target.checked}))} />I received and checked the property proof documents.</label><label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={!!paymentChecked[application.id]} onChange={event => setPaymentChecked(old => ({...old,[application.id]:event.target.checked}))} />I checked the payment screenshot on WhatsApp and independently confirmed ₹500 bank/UPI credit.</label></>}}</div>
+          {application.status === 'pending' && <div className="flex flex-wrap gap-2"><button type="button" disabled={busyId === application.id || !proofChecked[application.id] || application.paymentStatus !== 'verified' || !(evidenceCounts[application.id]?.propertyDocs > 0) || !paymentChecked[application.id]} onClick={() => review(application, 'approve')} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><CheckCircle2 className="w-4 h-4" />Approve paid Blue Tick</button><button type="button" disabled={busyId === application.id} onClick={() => review(application, 'reject')} className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><XCircle className="w-4 h-4" />Reject</button></div>}
           {application.status === 'approved' && <p className="text-xs text-slate-600 dark:text-slate-300">Blue Tick valid until: <strong>{dateLabel(application.verifiedUntil || application.freeTrialEndsAt)}</strong></p>}
           {(application.status === 'pending' || application.status === 'approved') && application.paymentStatus === 'pending' && <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2"><p className="text-xs font-bold text-amber-900 dark:text-amber-200">Payment UTR: {application.paymentUtr}</p><div className="flex flex-wrap gap-2"><button type="button" disabled={busyId === application.id || !(evidenceCounts[application.id]?.paymentProofs > 0)} onClick={() => verifyPayment(application, true)} className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">Confirm ₹500 bank credit</button><button type="button" disabled={busyId === application.id} onClick={() => verifyPayment(application, false)} className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">Reject UTR</button></div></div>}
         </article>

@@ -11,12 +11,12 @@ type Props = {
   applicationId: string;
   propertyTitle: string;
   storageFolder: 'verification-documents' | 'search-boost-documents' | 'subscription-documents';
-  onShared: (utr: string) => Promise<void>;
+  onSubmitted: (utr: string) => Promise<void>;
   disabled?: boolean;
   initialUtr?: string;
 };
 
-export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationId, propertyTitle, storageFolder, onShared, disabled, initialUtr = '' }) => {
+export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationId, propertyTitle, storageFolder, onSubmitted, disabled, initialUtr = '' }) => {
   const [file, setFile] = useState<File | null>(null);
   const [utr, setUtr] = useState(initialUtr);
   const [busy, setBusy] = useState(false);
@@ -44,7 +44,7 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const path = `${storageFolder}/${user.uid}/${applicationId}/payment-${Date.now()}-${safeName}`;
       await uploadBytes(ref(storage, path), file, { contentType: file.type });
-      await onShared(cleanUtr);
+      await onSubmitted(cleanUtr);
       setProofUploaded(true);
       setMessage('Payment screenshot securely upload ho gaya aur UTR submit ho gaya. Ab WhatsApp par proof share kar sakte hain. Admin bank credit verify karega; tab tak payment Pending rahega.');
     } catch (error: any) {

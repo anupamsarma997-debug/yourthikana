@@ -52,7 +52,7 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
       console.error('Native payment proof sharing failed:', error);
     }
     const whatsappText = messageText + '\nPlease attach the selected screenshot from your phone gallery before sending.';
-    window.open(`https://wa.me/919101280465?text=${encodeURIComponent(whatsappText)}`, '_blank', 'noopener,noreferrer');
+    window.location.href = `https://wa.me/919101280465?text=${encodeURIComponent(whatsappText)}`;
     setShareNotice('WhatsApp chat khul rahi hai. Browser screenshot attach nahi kar sakta—WhatsApp mein gallery se screenshot manually attach karke Send dabayein.');
   };
 

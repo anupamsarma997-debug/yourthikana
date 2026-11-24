@@ -1270,6 +1270,7 @@ class DataStore {
         update.subscriptionPlan = prop.subscriptionPlan || 'standard_1000';
         update.subscriptionPrice = typeof prop.subscriptionPrice === 'number' ? prop.subscriptionPrice : 1000;
         update.subscriptionExpiresAt = trialEnd.toISOString();
+        update.subscriptionExpiresAtTimestamp = Timestamp.fromDate(trialEnd);
         update.subscriptionExpiryDate = trialEnd.toISOString();
       }
       await setDoc(doc(db, 'properties', id), update, { merge: true });

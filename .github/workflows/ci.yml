@@ -30,3 +30,5 @@ jobs:
         run: bun run lint
       - name: Production build
         run: bun run build
+      - name: API request smoke tests
+        run: bun test tests/api-smoke.test.mjs

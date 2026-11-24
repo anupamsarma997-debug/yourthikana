@@ -3,6 +3,7 @@ import { after, test } from 'node:test';
 
 process.env.VERCEL = '1';
 delete process.env.GEMINI_API_KEY;
+delete process.env.CRON_SECRET;
 process.env.VITE_FIREBASE_API_KEY = 'ci-test-key';
 
 const nativeFetch = globalThis.fetch.bind(globalThis);
@@ -17,6 +18,11 @@ const endpoints = ['/api/ai/generate-description', '/api/ai/nearby-attractions',
 async function post(path, token, body = {}) {
   return nativeFetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify(body) });
 }
+
+test('subscription expiry maintenance fails closed when CRON_SECRET is not configured', async () => {
+  const response = await nativeFetch(base + '/api/cron/expire-subscriptions');
+  assert.equal(response.status, 503);
+});
 
 test('health endpoint returns HTTP 200 without an authenticated session', async () => {
   const response = await nativeFetch(base + '/api/health');

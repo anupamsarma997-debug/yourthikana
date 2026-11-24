@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Property, RoomType } from '../types';
 import { store } from '../services/store';
+import { auth } from '../lib/firebase';
 import { 
   extractCriteriaFromText, 
   searchAndRankProperties, 
@@ -207,9 +208,11 @@ Tell me where you want to travel, your budget, or who is travelling with you! *(
       // Call server-side AI Travel Assistant
       let aiExplanation = searchResult.explanation;
       try {
+        const idToken = await auth?.currentUser?.getIdToken();
+        if (!idToken) throw new Error('Please sign in to use AI Mitra.');
         const res = await fetch('/api/ai/travel-assistant', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
           body: JSON.stringify({
             query: userMessageText,
             criteria: updatedCriteria,

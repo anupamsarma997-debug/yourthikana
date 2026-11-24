@@ -211,9 +211,11 @@ service cloud.firestore {
           request.resource.data.ownerUid == resource.data.ownerUid &&
           request.resource.data.ownerId == resource.data.ownerId &&
           !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-            'isVerified', 'isFeatured', 'rating', 'reviewsCount',
-            'subscriptionPlan', 'subscriptionPrice', 'subscriptionExpiresAt',
-            'subscriptionExpiryDate', 'ownerUid', 'ownerId', 'ownerEmail', 'status'
+            'isVerified', 'isFeatured', 'verifiedUntil', 'featuredUntil',
+            'rating', 'reviewsCount', 'subscriptionPlan', 'subscriptionPrice',
+            'subscriptionStatus', 'subscriptionExpiresAt', 'subscriptionExpiryDate',
+            'subscriptionTrialStartedAt', 'subscriptionTrialEndsAt',
+            'ownerUid', 'ownerId', 'ownerEmail', 'status'
           ])
         );
       allow delete: if isAdmin() ||

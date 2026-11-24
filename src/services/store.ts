@@ -375,7 +375,10 @@ class DataStore {
           query(collection(db, 'rooms'), where('propertyId', '==', propertyId)),
           (snapshot) => {
             Array.from(remoteRooms.values()).filter((room) => room.propertyId === propertyId).forEach((room) => remoteRooms.delete(room.id));
-            snapshot.forEach((docSnap) => remoteRooms.set(docSnap.id, { id: docSnap.id, ...docSnap.data() } as RoomType));
+            snapshot.forEach((docSnap) => {
+              const normalizedRoom = normalizeRoom({ id: docSnap.id, ...docSnap.data() });
+              if (normalizedRoom) remoteRooms.set(docSnap.id, normalizedRoom);
+            });
             const allowedLocalRooms = this.rooms.filter((room) => propertyIds.has(room.propertyId));
             const merged = new Map<string, RoomType>();
             allowedLocalRooms.forEach((room) => merged.set(room.id, room));

@@ -70,6 +70,7 @@ test('monthly subscription cannot be requested without an expired six-month tria
     });
     await updateDoc(doc(context.firestore(), 'properties', 'active-property'), {
       subscriptionTrialEndsAtTimestamp: Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000),
+      subscriptionExpiresAtTimestamp: Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000),
     });
   });
   await assertFails(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-without-trial-record'), applicationData({ propertyId: 'property-without-trial' })));

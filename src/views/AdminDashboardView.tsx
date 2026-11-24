@@ -222,7 +222,7 @@ export const AdminDashboardView: React.FC = () => {
             {totalVerifiedCount}
           </p>
           <p className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold mt-1">
-            ₹500/mo Active Blue Ticks
+            ₹500 one-time verification fee
           </p>
         </div>
 

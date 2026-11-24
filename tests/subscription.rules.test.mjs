@@ -65,6 +65,7 @@ test('monthly subscription application rejects any amount other than ₹1,000', 
 test('monthly subscription cannot be requested during the six-month free trial', async () => {
   const ownerDb = env.authenticatedContext('owner-1').firestore();
   const propertyRef = doc(ownerDb, 'properties', 'active-property');
+  await assertFails(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-without-trial-record'), applicationData()));
   await env.withSecurityRulesDisabled(async context => {
     await updateDoc(doc(context.firestore(), 'properties', 'active-property'), {
       subscriptionTrialEndsAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),

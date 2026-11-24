@@ -48,3 +48,6 @@ jobs:
             }
             console.log('All Vercel AI API entry points load the Express app.');
           "
+
+      - name: API request smoke tests
+        run: bun --test tests/api-smoke.test.mjs

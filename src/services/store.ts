@@ -1491,18 +1491,34 @@ class DataStore {
   public addBanner(banner: Omit<BannerAd, 'id'>): BannerAd {
     const newBanner: BannerAd = {
       ...banner,
-      id: 'banner_' + Date.now(),
+      id: 'banner_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
     };
     this.banners.push(newBanner);
     this.notify();
+    if (db) {
+      setDoc(doc(db, 'banners', newBanner.id), sanitizeForFirestore(newBanner))
+        .catch(error => {
+          this.banners = this.banners.filter(item => item.id !== newBanner.id);
+          this.firestoreError = error?.message || String(error);
+          this.notify();
+          console.error('Firestore addBanner failed:', error);
+        });
+    }
     return newBanner;
   }
 
   public toggleBannerStatus(id: string) {
     const idx = this.banners.findIndex((b) => b.id === id);
     if (idx !== -1) {
-      this.banners[idx].isActive = !this.banners[idx].isActive;
+      const nextStatus = !this.banners[idx].isActive;
+      this.banners[idx].isActive = nextStatus;
       this.notify();
+      if (db) setDoc(doc(db, 'banners', id), { isActive: nextStatus }, { merge: true })
+        .catch(error => {
+          this.firestoreError = error?.message || String(error);
+          this.notify();
+          console.error('Firestore toggleBannerStatus failed:', error);
+        });
     }
   }
 
@@ -1511,12 +1527,23 @@ class DataStore {
     if (idx !== -1) {
       this.banners[idx] = { ...this.banners[idx], ...updates };
       this.notify();
+      if (db) setDoc(doc(db, 'banners', id), sanitizeForFirestore(updates), { merge: true })
+        .catch(error => {
+          this.firestoreError = error?.message || String(error);
+          this.notify();
+          console.error('Firestore updateBanner failed:', error);
+        });
     }
   }
 
   public deleteBanner(id: string) {
     this.banners = this.banners.filter((b) => b.id !== id);
     this.notify();
+    if (db) deleteDoc(doc(db, 'banners', id)).catch(error => {
+      this.firestoreError = error?.message || String(error);
+      this.notify();
+      console.error('Firestore deleteBanner failed:', error);
+    });
   }
 
   // Transactions & Revenue

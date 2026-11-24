@@ -3,7 +3,7 @@ import { getDownloadURL, listAll, ref } from 'firebase/storage';
 import { FileImage } from 'lucide-react';
 import { storage } from '../lib/firebase';
 
-export const SearchBoostEvidenceFiles: React.FC<{ ownerUid: string; applicationId: string; onCount: (count: number) => void }> = ({ ownerUid, applicationId, onCount }) => {
+export const SearchBoostEvidenceFiles: React.FC<{ ownerUid: string; applicationId: string; onCount: (applicationId: string, count: number) => void }> = ({ ownerUid, applicationId, onCount }) => {
   const [files, setFiles] = useState<{ name: string; url: string }[]>([]);
   const [error, setError] = useState('');
 
@@ -16,11 +16,11 @@ export const SearchBoostEvidenceFiles: React.FC<{ ownerUid: string; applicationI
           name: item.name,
           url: await getDownloadURL(item),
         })));
-        if (active) { setFiles(entries); onCount(entries.filter(file => file.name.startsWith('payment-')).length); }
+        if (active) { setFiles(entries); onCount(applicationId, entries.filter(file => file.name.startsWith('payment-')).length); }
       })
       .catch(error => {
         console.error('Could not load Search Boost payment evidence:', error);
-        if (active) { setError('Payment screenshot load nahi hua. Admin Storage permission check karein.'); onCount(0); }
+        if (active) { setError('Payment screenshot load nahi hua. Admin Storage permission check karein.'); onCount(applicationId, 0); }
       });
     return () => { active = false; };
   }, [ownerUid, applicationId, onCount]);

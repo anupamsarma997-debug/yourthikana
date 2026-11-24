@@ -10,7 +10,7 @@ type Props = {
   title: string;
   applicationId: string;
   propertyTitle: string;
-  storageFolder: 'verification-documents' | 'search-boost-documents';
+  storageFolder: 'verification-documents' | 'search-boost-documents' | 'subscription-documents';
   onShared: (utr: string) => Promise<void>;
   disabled?: boolean;
   initialUtr?: string;

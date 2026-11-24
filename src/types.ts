@@ -1,3 +1,5 @@
+import type { Timestamp } from 'firebase/firestore';
+
 export type UserRole = 'customer' | 'owner' | 'admin';
 
 export interface User {
@@ -85,6 +87,7 @@ export interface Property {
   subscriptionExpiryDate?: string;
   subscriptionTrialStartedAt?: string;
   subscriptionTrialEndsAt?: string;
+  subscriptionTrialEndsAtTimestamp?: Timestamp;
   subscriptionStatus?: 'trial' | 'active' | 'expired' | 'pending';
   createdAt: string;
 }

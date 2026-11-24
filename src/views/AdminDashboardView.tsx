@@ -178,7 +178,7 @@ export const AdminDashboardView: React.FC = () => {
   // Compute Revenue Stats
   const totalRevenue = transactions.reduce((acc, t) => acc + t.amount, 0);
   const totalVerifiedCount = properties.filter((p) => p.isVerified).length;
-  const totalFeaturedCount = properties.filter((p) => p.isFeatured).length;
+  const totalFeaturedCount = properties.filter((p) => isSearchBoostActive(p)).length;
 
   const handlePropertyStatus = async (propertyId: string, status: Property['status']) => {
     const result = await store.setPropertyStatus(propertyId, status);

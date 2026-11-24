@@ -101,7 +101,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
         const path = `verification-documents/${uid}/${application.id}/property-${Date.now()}-${safeName}`;
         await uploadBytes(ref(storage, path), file, { contentType: file.type });
       }
-      await updateDoc(doc(db, 'verificationApplications', application.id), { proofStatus: 'documents_uploaded', proofSharedAt: serverTimestamp() });
+      await updateDoc(doc(db, 'verificationApplications', application.id), { proofStatus: 'documents_uploaded', documentsUploadedAt: serverTimestamp() });
       setDocumentFiles([]);
       setMessage('Property documents securely upload ho gaye. Admin review karega. WhatsApp support se bhi contact kar sakte hain.');
     } catch (error: any) {
@@ -171,7 +171,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
                     <input type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={e => setDocumentFiles(Array.from(e.target.files || []))} className="block min-h-12 w-full rounded-xl border border-dashed border-[#3A4866] bg-[#131C2E] p-2 text-xs file:mr-2 file:min-h-10 file:rounded-lg file:border-0 file:bg-[#243049] file:px-3 file:font-bold file:text-[#5EEAD4]" />
                     {documentFiles.length > 0 && <p className="break-words text-xs text-[#5EEAD4]">{documentFiles.length} file(s) selected</p>}
                     <button type="button" disabled={busy || !documentFiles.length} onClick={() => uploadPropertyDocuments(application)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-3 py-3 text-sm font-extrabold text-white disabled:opacity-40">{busy ? 'Uploading…' : 'Upload Property Documents'}</button>
-                    {application.proofStatus === 'share_sheet_completed' && <p className="text-xs text-[#5EEAD4]">Property documents uploaded.</p>}
+                    {application.proofStatus === 'documents_uploaded' && <p className="text-xs text-[#5EEAD4]">Property documents uploaded.</p>}
                   </div>
                   {application.paymentStatus !== 'verified' && (
                     <PaymentProofShare amount={500} title="Blue Tick Verification" applicationId={application.id} propertyTitle={application.propertyTitle} storageFolder="verification-documents" onSubmitted={utr => markPaymentSubmitted(application, utr)} initialUtr={application.paymentUtr || ''} disabled={busy} />

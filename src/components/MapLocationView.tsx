@@ -7,7 +7,11 @@ interface MapLocationViewProps {
 }
 
 export const MapLocationView: React.FC<MapLocationViewProps> = ({ property }) => {
-  const googleMapSearchUrl = property.googleMapUrl || `https://maps.google.com/?q=${property.latitude},${property.longitude}`;
+  const hasCoordinates = typeof property.latitude === 'number' && Number.isFinite(property.latitude) && typeof property.longitude === 'number' && Number.isFinite(property.longitude);
+  const locationQuery = [property.address, property.city, property.state].filter(Boolean).join(', ');
+  const googleMapSearchUrl = property.googleMapUrl || (hasCoordinates
+    ? `https://maps.google.com/?q=${property.latitude},${property.longitude}`
+    : `https://maps.google.com/?q=${encodeURIComponent(locationQuery)}`);
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 space-y-4">
@@ -42,10 +46,10 @@ export const MapLocationView: React.FC<MapLocationViewProps> = ({ property }) =>
           </div>
           <div>
             <p className="font-extrabold text-sm text-slate-900 dark:text-white">
-              Lat: {property.latitude} • Lng: {property.longitude}
+              {hasCoordinates ? `Lat: ${property.latitude} • Lng: ${property.longitude}` : 'Exact map coordinates not provided'}
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Interactive map pins available on Google Maps
+              {hasCoordinates ? 'Map coordinates supplied for this property' : 'Directions open using the host-entered address'}
             </p>
           </div>
 

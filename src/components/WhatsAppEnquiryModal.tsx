@@ -76,14 +76,21 @@ export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
   };
 
   const numberOfDays = calculateDays();
+  const numberOfNights = numberOfDays;
+  const isMonthlyProperty = property.propertyType?.toLowerCase().includes('monthly') || false;
   const roomPrice = selectedRoom
     ? (selectedRoom.discountPrice && selectedRoom.discountPrice > 0 && selectedRoom.discountPrice < selectedRoom.pricePerNight
         ? selectedRoom.discountPrice
         : selectedRoom.pricePerNight > 0 ? selectedRoom.pricePerNight : 0)
     : 0;
-  const calculatedTotal = roomPrice > 0 ? roomPrice * numberOfDays : 0;
-  const priceText = roomPrice > 0 ? `₹${roomPrice}/night` : 'Price to be confirmed by host';
-  const totalText = calculatedTotal > 0 ? `₹${calculatedTotal.toLocaleString('en-IN')}` : 'To be confirmed by host';
+  // A monthly rent must never be multiplied by the number of nights.
+  const calculatedTotal = roomPrice > 0 && !isMonthlyProperty ? roomPrice * numberOfNights : 0;
+  const priceText = roomPrice > 0
+    ? `₹${roomPrice}/${isMonthlyProperty ? 'month' : 'night'}`
+    : 'Price to be confirmed by host';
+  const totalText = isMonthlyProperty
+    ? 'Please confirm monthly or prorated rent with the host'
+    : calculatedTotal > 0 ? `₹${calculatedTotal.toLocaleString('en-IN')}` : 'To be confirmed by host';
 
   if (!isOpen || !property) return null;
 
@@ -96,7 +103,7 @@ export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
 👤 *Name:* ${customerName || 'Guest'}
 📱 *Phone:* ${customerPhone || 'Not provided'}
 🗓️ *Check-in Date:* ${checkInDate}
-🗓️ *Check-out Date:* ${checkOutDate} (${numberOfDays} Days / ${numberOfDays > 1 ? numberOfDays - 1 : 1} Nights)
+🗓️ *Check-out Date:* ${checkOutDate} (${isMonthlyProperty ? 'Monthly rental period' : `${numberOfNights} Night${numberOfNights === 1 ? '' : 's'}`})
 👥 *Guests:* ${adults} Adults${children > 0 ? `, ${children} Children` : ''} (Total ${totalGuests})
 🛏️ *Room Type:* ${selectedRoom ? selectedRoom.roomName : 'Standard Room'} (${priceText})
 💰 *Estimated Total:* ${totalText}
@@ -137,7 +144,7 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
       totalGuests: adults + children,
       selectedRoomId: selectedRoom?.id || '',
       selectedRoomName: selectedRoom ? selectedRoom.roomName : 'Standard Room',
-      pricePerNight: roomPrice,
+      pricePerNight: isMonthlyProperty ? 0 : roomPrice,
       calculatedTotal,
       specialRequests,
       formattedMessage: message,
@@ -367,21 +374,21 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
               <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
                 <span>Stay Duration:</span>
                 <span className="font-bold text-slate-900 dark:text-white">
-                  {numberOfDays} Day{numberOfDays > 1 ? 's' : ''} / {numberOfDays > 1 ? numberOfDays - 1 : 1} Night
+                  {isMonthlyProperty ? 'Monthly rental period' : `${numberOfNights} Night${numberOfNights === 1 ? '' : 's'}`}
                 </span>
               </div>
 
               <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
                 <span>Room Rate:</span>
                 <span className="font-bold text-slate-900 dark:text-white">
-                  ₹{roomPrice} / night
+                  {priceText}
                 </span>
               </div>
 
               <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-sm">
                 <span className="font-bold text-slate-900 dark:text-white">Estimated Total:</span>
                 <span className="font-extrabold text-base text-emerald-600 dark:text-emerald-400">
-                  ₹{calculatedTotal}
+                  {totalText}
                 </span>
               </div>
             </div>

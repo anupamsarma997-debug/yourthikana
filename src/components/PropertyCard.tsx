@@ -51,9 +51,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
     : null;
 
   const photos = Array.isArray(property.photos) ? property.photos.filter((photo) => typeof photo === 'string' && photo.length > 0) : [];
-  const coverImage = photos.length > 0
-    ? photos[activePhotoIdx] || photos[0]
-    : 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80';
+  const coverImage = photos.length > 0 ? (photos[activePhotoIdx] || photos[0]) : null;
 
   return (
     <div
@@ -63,17 +61,23 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
       
       {/* Top Media Banner */}
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-900">
-        <img
-          src={coverImage}
-          alt={property.title ? `Photo of ${property.title}` : 'Property accommodation photo'}
-          width={800}
-          height={500}
-          decoding="async"
-          fetchPriority={isPriority ? "high" : "auto"}
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          loading={isPriority ? "eager" : "lazy"}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-        />
+        {coverImage ? (
+          <img
+            src={coverImage}
+            alt={property.title ? `Photo of ${property.title}` : 'Property accommodation photo'}
+            width={800}
+            height={500}
+            decoding="async"
+            fetchPriority={isPriority ? "high" : "auto"}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            loading={isPriority ? "eager" : "lazy"}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-300 text-xs font-semibold">
+            Host photo not provided
+          </div>
+        )}
 
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />

@@ -36,6 +36,6 @@ jobs:
       - name: Install project dependencies
         run: bun install --frozen-lockfile
       - name: Install rules test helper
-        run: npm install --no-save @firebase/rules-unit-testing
+        run: npm install --no-save @firebase/rules-unit-testing@5
       - name: Run Firestore rules tests in emulator
         run: npx --yes firebase-tools@latest emulators:exec --only firestore --project demo-yourthikana --non-interactive "node --test tests/firestore.rules.test.mjs"

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, doc, getDoc, onSnapshot, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
+import { Timestamp } from 'firebase/firestore';
 import { CalendarClock, CheckCircle2, Clock3, MessageCircle, XCircle } from 'lucide-react';
 
 type Application = {

@@ -18,7 +18,7 @@ type VerificationApplication = {
   freeTrialEndsAt?: string;
 };
 
-function EvidenceFiles({ application, onPropertyDocsCount }: { application: VerificationApplication; onEvidenceCounts: (counts: { propertyDocs: number; paymentProofs: number }) => void }) {
+function EvidenceFiles({ application, onPropertyDocsCount }: { application: VerificationApplication; onEvidenceCounts: (applicationId: string, counts: { propertyDocs: number; paymentProofs: number }) => void }) {
   const [files, setFiles] = useState<{ name: string; url: string }[]>([]);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -27,10 +27,10 @@ function EvidenceFiles({ application, onPropertyDocsCount }: { application: Veri
     const folder = ref(storage, `verification-documents/${application.ownerUid}/${application.id}`);
     listAll(folder).then(async result => {
       const items = await Promise.all(result.items.map(async item => ({ name: item.name, url: await getDownloadURL(item) })));
-      if (active) { setFiles(items); onEvidenceCounts({ propertyDocs: items.filter(item => item.name.startsWith('property-')).length, paymentProofs: items.filter(item => item.name.startsWith('payment-')).length }); }
+      if (active) { setFiles(items); onEvidenceCounts(application.id, { propertyDocs: items.filter(item => item.name.startsWith('property-')).length, paymentProofs: items.filter(item => item.name.startsWith('payment-')).length }); }
     }).catch(err => {
       console.error('Could not load private verification evidence:', err);
-      if (active) { setError('Evidence list available nahi hai. Admin Storage permission check karein.'); onEvidenceCounts({ propertyDocs: 0, paymentProofs: 0 }); }
+      if (active) { setError('Evidence list available nahi hai. Admin Storage permission check karein.'); onEvidenceCounts(application.id, { propertyDocs: 0, paymentProofs: 0 }); }
     });
     return () => { active = false; };
   }, [application.ownerUid, application.id, onEvidenceCounts]);
@@ -155,7 +155,7 @@ export const BlueTickAdminPanel: React.FC = () => {
       {applications.map(application => (
         <article key={application.id} className="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2"><div><h3 className="font-extrabold text-sm text-slate-900 dark:text-white">{application.propertyTitle}</h3><p className="text-[11px] text-slate-500">Property ID: {application.propertyId} · Owner UID: {application.ownerUid}</p><p className="text-[11px] text-slate-500">Applied: {application.submittedAt?.toDate ? dateLabel(application.submittedAt.toDate().toISOString()) : 'Timestamp pending'}</p><p className="text-[11px] text-slate-500">Application ID: {application.id}</p></div><span className="rounded-lg bg-slate-100 dark:bg-slate-700 px-2 py-1 text-[10px] font-black uppercase">{application.status}{application.paymentStatus === 'pending' ? ' · PAYMENT PENDING' : ''}</span></div>
-          <EvidenceFiles application={application} onEvidenceCounts={counts => updateEvidenceCounts(application.id, counts)} />
+          <EvidenceFiles application={application} onEvidenceCounts={updateEvidenceCounts} />
           <p className="text-[11px] text-slate-500">Property documents: {evidenceCounts[application.id]?.propertyDocs || 0} · Payment screenshots: {evidenceCounts[application.id]?.paymentProofs || 0}</p>
           <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 space-y-2"><p className="text-xs font-bold">WhatsApp Support</p><a href={`https://wa.me/919101280465?text=${encodeURIComponent('Please check Blue Tick proof for application '+application.id)}`} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-1 text-xs font-bold text-green-700"><MessageCircle className="w-4 h-4" />Open WhatsApp</a>{application.status === 'pending' && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={!!proofChecked[application.id]} onChange={event => setProofChecked(old => ({...old,[application.id]:event.target.checked}))} />I received and checked the property proof documents.</label>}</div>
           {application.status === 'pending' && <div className="flex flex-wrap gap-2"><button type="button" disabled={busyId === application.id || !proofChecked[application.id] || application.paymentStatus !== 'verified' || !(evidenceCounts[application.id]?.propertyDocs > 0) || !(evidenceCounts[application.id]?.paymentProofs > 0)} onClick={() => review(application, 'approve')} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><CheckCircle2 className="w-4 h-4" />Approve paid Blue Tick</button><button type="button" disabled={busyId === application.id} onClick={() => review(application, 'reject')} className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><XCircle className="w-4 h-4" />Reject</button></div>}

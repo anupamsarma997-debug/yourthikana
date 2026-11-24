@@ -213,7 +213,6 @@ ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want t
               <button
                 onClick={() => {
                   let cleanPhone = (property.ownerWhatsApp || property.ownerPhone || '').replace(/\D/g, '');
-                  cleanPhone = cleanPhone.replace(/\D/g, '');
                   if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
                   window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(constructMessage())}`, '_blank');
                 }}

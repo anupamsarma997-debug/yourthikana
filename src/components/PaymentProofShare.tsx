@@ -1,30 +1,29 @@
 import React, { useState } from 'react';
 import { Smartphone, Copy, ImagePlus, CheckCircle2, Share2 } from 'lucide-react';
-import { auth, storage } from '../lib/firebase';
-import { ref, uploadBytes } from 'firebase/storage';
 
 const UPI_ID = 'anupamsarma997-1@okhdfcbank';
+const SUPPORT_NUMBER = '+91 9101280465';
 
 type Props = {
   amount: number;
   title: string;
   applicationId: string;
   propertyTitle: string;
-  storageFolder: 'verification-documents' | 'search-boost-documents' | 'subscription-documents';
   onSubmitted: (utr: string) => Promise<void>;
   disabled?: boolean;
   initialUtr?: string;
 };
 
-export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationId, propertyTitle, storageFolder, onSubmitted, disabled, initialUtr = '' }) => {
+export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationId, propertyTitle, onSubmitted, disabled, initialUtr = '' }) => {
   const [file, setFile] = useState<File | null>(null);
   const [utr, setUtr] = useState(initialUtr);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [copied, setCopied] = useState(false);
-  const [proofUploaded, setProofUploaded] = useState(false);
+  const [shareNotice, setShareNotice] = useState('');
   const cleanUtr = utr.trim();
   const validUtr = /^[A-Za-z0-9-]{8,30}$/.test(cleanUtr);
+  const validFile = !!file && ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) && file.size > 0 && file.size <= 8 * 1024 * 1024;
   const encodedQuery = new URLSearchParams({ pa: UPI_ID, pn: 'YourThikana', am: String(amount), cu: 'INR', tn: `${title} - ${propertyTitle}` }).toString();
   const upiIntent = `intent://pay?${encodedQuery}#Intent;scheme=upi;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end`;
 
@@ -33,48 +32,51 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
     window.location.href = upiIntent;
   };
 
-  const uploadProof = async () => {
-    const user = auth?.currentUser;
-    if (!user || !storage) { setMessage('Sign in ya Firebase Storage available nahi hai.'); return; }
-    if (!file || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setMessage('JPG, PNG ya WEBP payment screenshot select karein.'); return; }
-    if (file.size > 8 * 1024 * 1024) { setMessage('Screenshot 8 MB se chhota hona chahiye.'); return; }
-    if (!validUtr) { setMessage('Payment app se asli 8–30 character UTR / Transaction ID dalein.'); return; }
-    setBusy(true); setMessage('');
-    try {
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const path = `${storageFolder}/${user.uid}/${applicationId}/payment-${Date.now()}-${safeName}`;
-      await uploadBytes(ref(storage, path), file, { contentType: file.type });
-      await onSubmitted(cleanUtr);
-      setProofUploaded(true);
-      setMessage('Payment screenshot securely upload ho gaya aur UTR submit ho gaya. Ab WhatsApp par proof share kar sakte hain. Admin bank credit verify karega; tab tak payment Pending rahega.');
-    } catch (error: any) {
-      console.error('Payment proof upload failed:', error);
-      setMessage(error?.message || 'Screenshot upload nahi hua. Firebase Storage rules check karke retry karein.');
-    } finally { setBusy(false); }
-  };
-
   const shareProof = async () => {
-    if (!file || !proofUploaded) return;
-    const messageText = `Hello YourThikana Support, I submitted ${title} payment of ₹${amount} for ${propertyTitle}. Application ID: ${applicationId}. UTR: ${cleanUtr}. Please verify the payment proof.`;
+    if (!validFile || !file) {
+      setMessage('JPG, PNG ya WEBP payment screenshot select karein (maximum 8 MB).');
+      return;
+    }
+    const messageText = `YourThikana payment proof\nService: ${title}\nAmount: ₹${amount}\nProperty: ${propertyTitle}\nApplication ID: ${applicationId}\nUTR: ${cleanUtr || 'Please add after sharing'}\nPlease send this screenshot to YourThikana Support ${SUPPORT_NUMBER} on WhatsApp.`;
     try {
-      if (typeof navigator !== 'undefined' && 'share' in navigator && navigator.canShare?.({ files: [file] })) {
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ title: 'YourThikana payment proof', text: messageText, files: [file] });
+        setShareNotice('Android share menu band ho gaya. Agar WhatsApp mein recipient select karke Send nahi dabaya, to WhatsApp dobara kholkar screenshot bhejein. Share menu se send hone ki automatic confirmation website ko nahi milti.');
         return;
       }
     } catch (error: any) {
-      if (error?.name === 'AbortError') return;
+      if (error?.name === 'AbortError') {
+        setShareNotice('Sharing cancel ho gayi. Screenshot WhatsApp par manually bhejein.');
+        return;
+      }
+      console.error('Native payment proof sharing failed:', error);
     }
-    window.open(`https://wa.me/919101280465?text=${encodeURIComponent(messageText + ' Please attach the payment screenshot from your phone gallery.')}`, '_blank', 'noopener,noreferrer');
+    const whatsappText = messageText + '\nPlease attach the selected screenshot from your phone gallery before sending.';
+    window.open(`https://wa.me/919101280465?text=${encodeURIComponent(whatsappText)}`, '_blank', 'noopener,noreferrer');
+    setShareNotice('WhatsApp chat khul rahi hai. Browser screenshot attach nahi kar sakta—WhatsApp mein gallery se screenshot manually attach karke Send dabayein.');
+  };
+
+  const submitUtr = async () => {
+    if (!validFile) { setMessage('Pehle payment screenshot select karein. Screenshot Storage mein upload nahi hoga; ise WhatsApp share menu se bhejein.'); return; }
+    if (!validUtr) { setMessage('Payment app se asli 8–30 character UTR / Transaction ID dalein.'); return; }
+    setBusy(true); setMessage('');
+    try {
+      await onSubmitted(cleanUtr);
+      setMessage('UTR admin review ke liye submit ho gaya. Screenshot WhatsApp par manually Send karna zaroori hai. Admin actual bank credit independently verify karega.');
+    } catch (error: any) {
+      console.error('Payment UTR submission failed:', error);
+      setMessage(error?.message || 'UTR submit nahi hua. Please retry karein.');
+    } finally { setBusy(false); }
   };
 
   return (
-    <section aria-label="Payment and screenshot upload" className="w-full min-w-0 space-y-4 rounded-[18px] border border-[#243049] bg-[#131C2E] p-4 text-[#E5EAF3]">
+    <section aria-label="UPI payment and WhatsApp proof sharing" className="w-full min-w-0 space-y-4 rounded-[18px] border border-[#243049] bg-[#131C2E] p-4 text-[#E5EAF3]">
       <div>
         <p className="text-xs font-bold uppercase tracking-wide text-[#5EEAD4]">UPI payment</p>
         <h4 className="mt-1 text-xl font-black text-white">Pay ₹{amount}</h4>
-        <p className="mt-1 text-sm leading-5 text-[#9AA7BD]">Pay button se UPI app kholein. Payment hone ke baad screenshot yahin upload karein.</p>
+        <p className="mt-1 text-sm leading-5 text-[#9AA7BD]">Payment karne ke baad screenshot select karein, WhatsApp par bhejein aur UTR submit karein. Screenshot Firebase Storage mein save nahi hoga.</p>
       </div>
-      <button type="button" onClick={openUpi} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-[14px] bg-[#14B8A6] px-4 py-3 text-base font-extrabold text-[#04201C]">
+      <button type="button" onClick={openUpi} disabled={disabled || busy} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-[14px] bg-[#14B8A6] px-4 py-3 text-base font-extrabold text-[#04201C] disabled:opacity-40">
         <Smartphone className="h-5 w-5" /> Open GPay / PhonePe / UPI App
       </button>
       <div className="flex min-w-0 items-center gap-2 rounded-xl border border-[#3A4866] bg-[#0B1220] p-3">
@@ -82,15 +84,16 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
         <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(UPI_ID); setCopied(true); } catch { setMessage('UPI ID ko long-press karke copy karein.'); } }} className="flex min-h-11 shrink-0 items-center gap-1 rounded-lg border border-[#3A4866] px-3 text-xs font-bold text-[#5EEAD4]"><Copy className="h-4 w-4" />{copied ? 'Copied' : 'Copy ID'}</button>
       </div>
       <div className="space-y-2">
-        <label htmlFor={`payment-proof-${applicationId}`} className="block text-sm font-bold">1. Payment screenshot upload <span className="text-rose-400">*Required</span></label>
-        <input id={`payment-proof-${applicationId}`} type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setFile(e.target.files?.[0] || null)} disabled={disabled || busy || proofUploaded} className="block min-h-12 w-full rounded-xl border border-dashed border-[#3A4866] bg-[#0B1220] p-2 text-sm file:mr-2 file:min-h-10 file:rounded-lg file:border-0 file:bg-[#243049] file:px-3 file:font-bold file:text-[#5EEAD4]" />
-        {file && <p className="flex items-center gap-2 break-all text-xs text-[#5EEAD4]"><CheckCircle2 className="h-4 w-4 shrink-0" />{file.name}</p>}
+        <label htmlFor={`payment-proof-${applicationId}`} className="block text-sm font-bold">1. Select payment screenshot <span className="text-rose-400">*Required</span></label>
+        <input id={`payment-proof-${applicationId}`} type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { setFile(e.target.files?.[0] || null); setShareNotice(''); }} disabled={disabled || busy} className="block min-h-12 w-full rounded-xl border border-dashed border-[#3A4866] bg-[#0B1220] p-2 text-sm file:mr-2 file:min-h-10 file:rounded-lg file:border-0 file:bg-[#243049] file:px-3 file:font-bold file:text-[#5EEAD4]" />
+        {file && <p className="flex items-center gap-2 break-all text-xs text-[#5EEAD4]"><CheckCircle2 className="h-4 w-4 shrink-0" />{file.name} · {Math.ceil(file.size / 1024)} KB (device only)</p>}
+        <button type="button" disabled={disabled || busy || !validFile} onClick={shareProof} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[14px] border border-[#25D366] bg-[#123B2B] px-4 py-3 text-sm font-extrabold text-[#86EFAC] disabled:opacity-40"><Share2 className="h-5 w-5" />Share Screenshot — Choose WhatsApp</button>
+        {shareNotice && <p role="status" className="rounded-xl bg-[#0B302D] p-3 text-xs leading-5 text-[#99F6E4]">{shareNotice}</p>}
         <label htmlFor={`payment-utr-${applicationId}`} className="block pt-2 text-sm font-bold">2. UTR / Transaction ID <span className="text-rose-400">*Required</span></label>
-        <input id={`payment-utr-${applicationId}`} value={utr} onChange={e => setUtr(e.target.value.replace(/\s/g, '').slice(0, 30))} disabled={disabled || busy || proofUploaded} maxLength={30} placeholder="GPay / PhonePe se actual UTR dalein" className="min-h-12 w-full rounded-xl border border-[#3A4866] bg-[#0B1220] p-3 text-base text-white" />
-        <button type="button" disabled={disabled || busy || !file || !validUtr} onClick={uploadProof} className="flex min-h-12 w-full items-center justify-center rounded-[14px] bg-[#2563EB] px-4 py-3 text-sm font-extrabold text-white disabled:opacity-40">{busy ? 'Uploading…' : 'Upload Payment Screenshot & Submit UTR'}</button>
+        <input id={`payment-utr-${applicationId}`} value={utr} onChange={e => setUtr(e.target.value.replace(/\s/g, '').slice(0, 30))} disabled={disabled || busy} maxLength={30} placeholder="GPay / PhonePe se actual UTR dalein" className="min-h-12 w-full rounded-xl border border-[#3A4866] bg-[#0B1220] p-3 text-base text-white" />
+        <button type="button" disabled={disabled || busy || !validFile || !validUtr} onClick={submitUtr} className="flex min-h-12 w-full items-center justify-center rounded-[14px] bg-[#2563EB] px-4 py-3 text-sm font-extrabold text-white disabled:opacity-40">{busy ? 'Submitting…' : 'Submit UTR for Admin Review'}</button>
       </div>
-        {proofUploaded && <button type="button" onClick={shareProof} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[14px] border border-[#25D366] bg-[#123B2B] px-4 py-3 text-sm font-extrabold text-[#86EFAC]"><Share2 className="h-5 w-5" />Share Payment Proof on WhatsApp</button>}
-      <p className="text-xs leading-5 text-[#9AA7BD]">Payment sirf admin ke bank statement mein credit confirm hone ke baad verified hoga. Screenshot ya UTR se automatic approval nahi milega.</p>
+      <p className="text-xs leading-5 text-[#9AA7BD]">Important: Android share menu WhatsApp ko khol sakta hai, lekin recipient select karke Send aapko dabana hoga. Website ko WhatsApp delivery ki confirmation nahi milti. UTR ya screenshot se automatic approval nahi milega—admin bank credit independently verify karega.</p>
       {message && <p role="status" aria-live="polite" className="break-words rounded-xl bg-[#30250F] p-3 text-sm text-[#FBBF24]">{message}</p>}
     </section>
   );

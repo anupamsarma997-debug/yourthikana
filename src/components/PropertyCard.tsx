@@ -35,10 +35,16 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
   const rooms = (Array.isArray(suppliedRooms) ? suppliedRooms : store.getRoomsByProperty(property.id)).filter(Boolean);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
 
-  // Only compare rooms with a real owner-entered price; unknown prices stay unknown.
+  // Compare the actual customer price (valid discount first), not only the base rate.
+  const effectiveRoomPrice = (room: RoomType) =>
+    room.discountPrice && room.discountPrice > 0 &&
+    room.pricePerNight > 0 && room.discountPrice < room.pricePerNight
+      ? room.discountPrice
+      : room.pricePerNight;
   const pricedRooms = rooms.filter((room) => Number.isFinite(room.pricePerNight) && room.pricePerNight > 0);
   const lowestPriceRoom = pricedRooms.length > 0
-    ? pricedRooms.reduce((min, room) => (room.pricePerNight < min.pricePerNight ? room : min), pricedRooms[0])
+    ? pricedRooms.reduce((min, room) =>
+        effectiveRoomPrice(room) < effectiveRoomPrice(min) ? room : min, pricedRooms[0])
     : null;
   const primaryRoom = lowestPriceRoom || rooms[0] || null;
   const currentPrice = lowestPriceRoom

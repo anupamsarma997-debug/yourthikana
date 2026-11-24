@@ -39,8 +39,9 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
 
   const trialProperties = useMemo(
     () => ownedProperties.filter(property => {
-      const end = property.subscriptionTrialEndsAtTimestamp?.toDate?.().getTime()
-        ?? Date.parse(property.subscriptionTrialEndsAt || '');
+      const end = property.subscriptionTrialEndsAtTimestamp
+        ? property.subscriptionTrialEndsAtTimestamp.toDate().getTime()
+        : Date.parse(property.subscriptionTrialEndsAt || '');
       return Number.isFinite(end) && end > Date.now();
     }),
     [ownedProperties]
@@ -144,7 +145,7 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
             <option value="">Choose property</option>
             {billableProperties.map(property => <option key={property.id} value={property.id}>{property.title} — {property.city}</option>)}
           </select>
-          {trialProperties.length > 0 && <div className="space-y-2 rounded-xl border border-emerald-800 bg-emerald-950/30 p-3"><p className="text-sm font-bold text-emerald-300">Your free 6-month trial is active</p>{trialProperties.map(property => <p key={property.id} className="text-xs text-emerald-100">{property.title}: free until {new Date(property.subscriptionTrialEndsAtTimestamp?.toDate?.() || property.subscriptionTrialEndsAt || '').toLocaleDateString('en-IN')}</p>)}</div>}
+          {trialProperties.length > 0 && <div className="space-y-2 rounded-xl border border-emerald-800 bg-emerald-950/30 p-3"><p className="text-sm font-bold text-emerald-300">Your free 6-month trial is active</p>{trialProperties.map(property => <p key={property.id} className="text-xs text-emerald-100">{property.title}: free until {new Date(property.subscriptionTrialEndsAt || '').toLocaleDateString('en-IN')}</p>)}</div>}
           {ownedProperties.length > 0 && billableProperties.length === 0 && <p className="rounded-xl border border-[#243049] p-3 text-xs text-[#9AA7BD]">All your active properties are currently in their free trial. No payment is due now.</p>}
           <p className="text-xs leading-5 text-[#9AA7BD]">₹1,000 per property for one calendar month. Admin verifies the actual bank credit before changing the property subscription.</p>
           <button type="submit" disabled={busy || !propertyId || !billableProperties.length} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#14B8A6] px-4 py-3 text-base font-extrabold text-[#04201C] disabled:opacity-40">{busy ? 'Creating request…' : 'Create ₹1,000 Subscription Request'} <ArrowRight className="h-5 w-5" /></button>

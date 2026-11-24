@@ -148,13 +148,8 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
         get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '') == request.auth.uid &&
         get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('status', '') == 'active' &&
-        (
-          !('subscriptionTrialEndsAt' in get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data) ||
-          (
-            'subscriptionTrialEndsAtTimestamp' in get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data &&
-            get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.subscriptionTrialEndsAtTimestamp <= request.time
-          )
-        );
+        'subscriptionTrialEndsAtTimestamp' in get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data &&
+        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.subscriptionTrialEndsAtTimestamp <= request.time;
 
       allow read: if isAdmin() || (signedIn() && resource.data.ownerUid == request.auth.uid);
       allow update: if isAdmin() || (

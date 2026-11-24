@@ -130,6 +130,7 @@ async function configureServer() {
         scanned += 1;
         const fields = document.fields;
         const expiryValues = [
+          fields.subscriptionExpiresAtTimestamp?.timestampValue,
           fields.subscriptionExpiresAt?.stringValue,
           fields.subscriptionExpiryDate?.stringValue,
           fields.subscriptionTrialEndsAtTimestamp?.timestampValue,

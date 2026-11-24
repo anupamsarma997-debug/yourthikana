@@ -545,9 +545,13 @@ Tell me where you want to travel, your budget, or who is travelling with you! *(
                                   <h4 className="font-extrabold text-sm text-slate-900 dark:text-white leading-tight line-clamp-1">
                                     {prop.title}
                                   </h4>
-                                  <div className="flex items-center gap-0.5 text-amber-500 text-xs font-bold shrink-0">
-                                    <Star className="w-3 h-3 fill-amber-500" />
-                                    <span>{prop.rating || 5.0}</span>
+                                  <div className="flex items-center gap-0.5 text-xs font-bold shrink-0">
+                                    {prop.rating > 0 && prop.reviewsCount > 0 ? (
+                                      <span className="flex items-center gap-0.5 text-amber-500">
+                                        <Star className="w-3 h-3 fill-amber-500" />
+                                        {prop.rating.toFixed(1)} ({prop.reviewsCount})
+                                      </span>
+                                    ) : <span className="text-slate-400">No ratings</span>}
                                   </div>
                                 </div>
 
@@ -568,7 +572,7 @@ Tell me where you want to travel, your budget, or who is travelling with you! *(
                               {/* Amenities / Features */}
                               <div className="flex flex-wrap gap-1 text-[10px]">
                                 <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded font-semibold flex items-center gap-0.5">
-                                  <Users className="w-2.5 h-2.5" /> Max {match.maxCapacity} Guests
+                                  <Users className="w-2.5 h-2.5" /> {match.maxCapacity !== null ? `Max ${match.maxCapacity} Guests` : "Capacity to confirm"}
                                 </span>
                                 {match.amenities.slice(0, 3).map((am, i) => (
                                   <span key={i} className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded font-medium">
@@ -582,7 +586,7 @@ Tell me where you want to travel, your budget, or who is travelling with you! *(
                                 <div>
                                   <span className="text-[10px] text-slate-400 block font-bold uppercase">Starts at</span>
                                   <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                                    ₹{match.startingPrice} <span className="text-[10px] text-slate-500 font-normal">/ night</span>
+                                    {match.startingPrice !== null ? <>₹{match.startingPrice} <span className="text-[10px] text-slate-500 font-normal">/ night</span></> : "Price to confirm"}
                                   </span>
                                 </div>
 

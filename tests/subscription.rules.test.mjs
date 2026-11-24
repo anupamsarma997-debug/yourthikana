@@ -109,3 +109,43 @@ test('owner cannot self-activate or extend subscription and badge expiry', async
   await assertFails(updateDoc(propertyRef, { verifiedUntil: '2099-01-01T00:00:00.000Z' }));
   await assertFails(updateDoc(propertyRef, { featuredUntil: '2099-01-01T00:00:00.000Z' }));
 });
+
+
+test('Search Boost proof is marked uploaded, not falsely marked as WhatsApp-shared', async () => {
+  const ownerDb = env.authenticatedContext('owner-1').firestore();
+  const applicationRef = doc(ownerDb, 'searchBoostApplications', 'boost-1');
+  await setDoc(applicationRef, {
+    ownerUid: 'owner-1',
+    propertyId: 'active-property',
+    propertyTitle: 'Test property',
+    status: 'awaiting_payment',
+    paymentStatus: 'pending',
+    paymentUtr: '',
+    proofSubmissionMethod: 'app_upload',
+    proofStatus: 'awaiting_payment',
+    submittedAt: Timestamp.now(),
+  });
+  await assertSucceeds(updateDoc(applicationRef, {
+    status: 'pending',
+    paymentStatus: 'pending',
+    paymentUtr: 'BOOST12345678',
+    paymentSubmittedAt: Timestamp.now(),
+    proofSubmissionMethod: 'app_upload',
+    proofStatus: 'uploaded',
+  }));
+});
+
+test('another owner cannot create a Search Boost application for someone else property', async () => {
+  const otherDb = env.authenticatedContext('owner-2').firestore();
+  await assertFails(setDoc(doc(otherDb, 'searchBoostApplications', 'boost-other'), {
+    ownerUid: 'owner-2',
+    propertyId: 'active-property',
+    propertyTitle: 'Test property',
+    status: 'awaiting_payment',
+    paymentStatus: 'pending',
+    paymentUtr: '',
+    proofSubmissionMethod: 'app_upload',
+    proofStatus: 'awaiting_payment',
+    submittedAt: Timestamp.now(),
+  }));
+});

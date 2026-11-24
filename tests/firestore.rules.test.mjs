@@ -2,7 +2,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, Timestamp, runTransaction } from 'firebase/firestore';
 
 let env;
 const projectId = 'demo-yourthikana';
@@ -154,4 +154,95 @@ test('an owner cannot extend subscription or paid badge validity', async () => {
   await assertFails(updateDoc(propertyRef, { subscriptionTrialEndsAt: '2099-01-01T00:00:00.000Z' }));
   await assertFails(updateDoc(propertyRef, { verifiedUntil: '2099-01-01T00:00:00.000Z' }));
   await assertFails(updateDoc(propertyRef, { featuredUntil: '2099-01-01T00:00:00.000Z' }));
+});
+
+
+test('an authenticated owner can atomically create a pending property and its duplicate-key lock', async () => {
+  const db = env.authenticatedContext('owner-create-1').firestore();
+  const propertyId = 'prop_owner_create_1';
+  const duplicateKey = 'a'.repeat(64);
+  const property = {
+    id: propertyId,
+    title: 'Hotel Parvati',
+    description: 'Hotel located in Guwahati, Assam. Kamakhya.',
+    propertyType: 'Hotel',
+    address: 'Kamakhya',
+    city: 'Guwahati',
+    state: 'Assam',
+    latitude: null,
+    longitude: null,
+    checkInTime: '',
+    checkOutTime: '',
+    photos: [],
+    ownerUid: 'owner-create-1',
+    ownerId: 'owner-create-1',
+    ownerName: 'Host',
+    ownerPhone: '',
+    ownerWhatsApp: '',
+    ownerEmail: '',
+    rating: 0,
+    reviewsCount: 0,
+    isVerified: false,
+    isFeatured: false,
+    status: 'pending',
+    subscriptionPlan: 'none',
+    subscriptionPrice: 0,
+    subscriptionExpiresAt: '',
+    subscriptionExpiryDate: '',
+    createdAt: new Date().toISOString(),
+    duplicateKeys: [duplicateKey],
+  };
+
+  await assertSucceeds(runTransaction(db, async transaction => {
+    transaction.set(doc(db, 'property_duplicate_keys', duplicateKey), {
+      ownerUid: 'owner-create-1',
+      propertyId,
+      createdAt: new Date().toISOString(),
+    });
+    transaction.set(doc(db, 'properties', propertyId), property);
+  }));
+});
+
+test('an owner cannot create a property for a different Firebase UID', async () => {
+  const db = env.authenticatedContext('owner-create-1').firestore();
+  const propertyId = 'prop_forged_owner';
+  const duplicateKey = 'b'.repeat(64);
+  const property = {
+    id: propertyId,
+    title: 'Forged listing',
+    description: 'Test',
+    propertyType: 'Hotel',
+    address: 'Kamakhya',
+    city: 'Guwahati',
+    state: 'Assam',
+    latitude: null,
+    longitude: null,
+    checkInTime: '',
+    checkOutTime: '',
+    photos: [],
+    ownerUid: 'owner-create-2',
+    ownerId: 'owner-create-2',
+    ownerName: 'Other host',
+    ownerPhone: '',
+    ownerWhatsApp: '',
+    rating: 0,
+    reviewsCount: 0,
+    isVerified: false,
+    isFeatured: false,
+    status: 'pending',
+    subscriptionPlan: 'none',
+    subscriptionPrice: 0,
+    subscriptionExpiresAt: '',
+    createdAt: new Date().toISOString(),
+    duplicateKeys: [duplicateKey],
+  };
+
+  await assertFails(runTransaction(db, async transaction => {
+    transaction.set(doc(db, 'property_duplicate_keys', duplicateKey), {
+      ownerUid: 'owner-create-2',
+      propertyId,
+      createdAt: new Date().toISOString(),
+    });
+    transaction.set(doc(db, 'properties', propertyId), property);
+  }));
 });

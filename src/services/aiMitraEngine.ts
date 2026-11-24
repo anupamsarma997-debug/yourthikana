@@ -17,9 +17,9 @@ export interface MitraSearchCriteria {
 
 export interface MitraPropertyMatch {
   property: Property;
-  startingPrice: number;
+  startingPrice: number | null;
   matchingRooms: RoomType[];
-  maxCapacity: number;
+  maxCapacity: number | null;
   amenities: string[];
   score: number;
   matchReason: string;
@@ -230,13 +230,14 @@ export function searchAndRankProperties(
     
     // Calculate starting price & valid capacity
     const roomPrices = rooms
-      .map((r) => r.discountPrice || r.pricePerNight)
-      .filter((p): p is number => typeof p === 'number' && p > 0);
-    const startingPrice = roomPrices.length > 0 ? Math.min(...roomPrices) : 1500;
+      .map((r) => r.discountPrice && r.discountPrice > 0 && r.discountPrice < r.pricePerNight ? r.discountPrice : r.pricePerNight)
+      .filter((p): p is number => typeof p === 'number' && Number.isFinite(p) && p > 0);
+    const startingPrice = roomPrices.length > 0 ? Math.min(...roomPrices) : null;
 
-    const maxCapacity = rooms.length > 0 
-      ? Math.max(...rooms.map((r) => r.maxGuests || 2))
-      : 2;
+    const knownCapacities = rooms
+      .map((room) => room.maxGuests)
+      .filter((capacity): capacity is number => typeof capacity === 'number' && Number.isFinite(capacity) && capacity > 0);
+    const maxCapacity = knownCapacities.length > 0 ? Math.max(...knownCapacities) : null;
 
     // Collect all amenities across rooms & property description
     const allAmenitiesSet = new Set<string>();
@@ -287,13 +288,15 @@ export function searchAndRankProperties(
 
     // 2. Budget Match (Max 30 points)
     if (criteria.maxBudget) {
-      if (startingPrice <= criteria.maxBudget) {
+      if (startingPrice === null) {
+        matchReasons.push('Price not provided; please confirm directly with the host.');
+      } else if (startingPrice <= criteria.maxBudget) {
         score += 30;
-        matchReasons.push(`Within budget from ₹${startingPrice}/night (Limit: ₹${criteria.maxBudget})`);
+        matchReasons.push(`Within budget from ₹${startingPrice} (Limit: ₹${criteria.maxBudget})`);
       } else if (startingPrice <= criteria.maxBudget + 400) {
         score += 10;
         isBudgetMatch = false;
-        matchReasons.push(`Slightly above ₹${criteria.maxBudget} budget (Starts at ₹${startingPrice}/night)`);
+        matchReasons.push(`Slightly above ₹${criteria.maxBudget} budget (Starts at ₹${startingPrice})`);
       } else {
         score -= 20;
         isBudgetMatch = false;
@@ -303,17 +306,22 @@ export function searchAndRankProperties(
     }
 
     // 3. Guest Capacity Match (Max 25 points)
-    const matchingRooms = criteria.guests 
-      ? rooms.filter((r) => (r.maxGuests || 2) >= (criteria.guests || 1))
+    const matchingRooms = criteria.guests
+      ? rooms.filter((room) => !(room.maxGuests > 0) || room.maxGuests >= (criteria.guests || 1))
+      : rooms;
+    const confirmedCapacityRooms = criteria.guests
+      ? rooms.filter((room) => room.maxGuests > 0 && room.maxGuests >= (criteria.guests || 1))
       : rooms;
 
     if (criteria.guests) {
-      if (matchingRooms.length > 0) {
+      if (confirmedCapacityRooms.length > 0) {
         score += 25;
-        matchReasons.push(`Accommodates ${criteria.guests} guest${criteria.guests > 1 ? 's' : ''} comfortably`);
-      } else if (maxCapacity >= criteria.guests) {
+        matchReasons.push(`Accommodates ${criteria.guests} guest${criteria.guests > 1 ? 's' : ''} according to host-entered capacity`);
+      } else if (maxCapacity !== null && maxCapacity >= criteria.guests) {
         score += 15;
-        matchReasons.push(`Max capacity up to ${maxCapacity} guests`);
+        matchReasons.push(`Host-entered capacity up to ${maxCapacity} guests`);
+      } else if (maxCapacity === null) {
+        matchReasons.push('Guest capacity not provided; please confirm directly with the host.');
       } else {
         score -= 10;
         isGuestMatch = false;
@@ -445,7 +453,7 @@ export function searchAndRankProperties(
     // If destination matches exist, return them (up to 4)
     finalMatches = exactLocationMatches.slice(0, 4);
     // Check if budget matched
-    if (criteria.maxBudget && !finalMatches.some((m) => m.startingPrice <= (criteria.maxBudget || 99999))) {
+    if (criteria.maxBudget && !finalMatches.some((m) => m.startingPrice !== null && m.startingPrice <= (criteria.maxBudget || 99999))) {
       isExactMatch = false;
     }
   } else {
@@ -504,9 +512,14 @@ export function createWhatsAppBookingMessage(
   criteria: MitraSearchCriteria = {},
   room?: RoomType
 ): string {
-  const guestCount = criteria.guests || 2;
+  const guestCountText = criteria.guests
+    ? `*${criteria.guests} guest${criteria.guests > 1 ? 's' : ''}*`
+    : '*guest count to be confirmed*';
   const roomName = room ? room.roomName : (property.propertyType === 'Homestay' ? 'Homestay Room' : 'Standard Room');
-  const price = room ? (room.discountPrice || room.pricePerNight) : 1500;
+  const roomPrice = room
+    ? (room.discountPrice && room.discountPrice > 0 && room.discountPrice < room.pricePerNight ? room.discountPrice : room.pricePerNight)
+    : 0;
+  const priceText = roomPrice > 0 ? `listed at approximately ₹${roomPrice}` : 'price not listed; please confirm directly with the host';
   
   let dateText = '';
   if (criteria.checkIn && criteria.checkOut) {
@@ -519,7 +532,7 @@ export function createWhatsAppBookingMessage(
 
   return `Hello ${property.ownerName || 'Host'}, I found your property *${property.title}* on THIKANA.
 
-I would like to enquire about a room (${roomName}) for *${guestCount} guest${guestCount > 1 ? 's' : ''}* ${dateText}.
+I would like to enquire about a room (${roomName}) for ${guestCountText} ${dateText}.
 
-Please confirm room availability and price (listed at ~₹${price}/night). We look forward to connecting directly with zero middleman fee. Thank you!`;
+Please confirm room availability and price (${priceText}). We look forward to connecting directly with zero middleman fee. Thank you!`;
 }

@@ -1238,14 +1238,14 @@ class DataStore {
 
     try {
       const update: Partial<Property> = { status };
-      if (status === 'active' && !prop.subscriptionTrialEndsAtTimestamp) {
+      if (status === 'active' && (!prop.subscriptionTrialEndsAtTimestamp || !prop.subscriptionExpiresAtTimestamp)) {
         const now = new Date();
         const parsedStart = prop.subscriptionTrialStartedAt
           ? new Date(prop.subscriptionTrialStartedAt)
           : null;
         const parsedEnd = prop.subscriptionTrialEndsAt
           ? new Date(prop.subscriptionTrialEndsAt)
-          : null;
+          : prop.subscriptionTrialEndsAtTimestamp?.toDate?.() || null;
         const validStart = parsedStart && Number.isFinite(parsedStart.getTime()) ? parsedStart : null;
         const validEnd = parsedEnd && Number.isFinite(parsedEnd.getTime()) ? parsedEnd : null;
 

@@ -18,7 +18,7 @@ type VerificationApplication = {
   freeTrialEndsAt?: string;
 };
 
-function EvidenceFiles({ application, onPropertyDocsCount }: { application: VerificationApplication; onEvidenceCounts: (applicationId: string, counts: { propertyDocs: number; paymentProofs: number }) => void }) {
+function EvidenceFiles({ application, onEvidenceCounts }: { application: VerificationApplication; onEvidenceCounts: (applicationId: string, counts: { propertyDocs: number; paymentProofs: number }) => void }) {
   const [files, setFiles] = useState<{ name: string; url: string }[]>([]);
   const [error, setError] = useState('');
   useEffect(() => {

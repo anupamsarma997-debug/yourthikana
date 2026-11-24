@@ -179,7 +179,92 @@ async function configureServer() {
         expired += 1;
       }
 
-      return res.json({ success: true, scanned, expired, skippedWithoutExpiry, concurrentChanges, checkedAt: now.toISOString() });
+      // Search Boost has its own expiry field and must never keep an expired
+      // listing artificially featured. Only active listings are cleaned up;
+      // moderation states are not modified by this job.
+      const boostQueryResponse = await fetch(queryUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tokenPayload.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          structuredQuery: {
+            from: [{ collectionId: 'properties' }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: 'isFeatured' },
+                op: 'EQUAL',
+                value: { booleanValue: true },
+              },
+            },
+          },
+        }),
+      });
+      if (!boostQueryResponse.ok) {
+        throw new Error(`Firestore Search Boost query failed with HTTP ${boostQueryResponse.status}.`);
+      }
+
+      const boostRows = await boostQueryResponse.json() as Array<{ document?: { name?: string; updateTime?: string; fields?: Record<string, any> } }>;
+      let boostsScanned = 0;
+      let searchBoostsExpired = 0;
+      let searchBoostsSkippedWithoutExpiry = 0;
+      let searchBoostConcurrentChanges = 0;
+
+      for (const row of boostRows) {
+        const document = row.document;
+        if (!document?.name || !document.updateTime || !document.fields) continue;
+        const fields = document.fields;
+        if (fields.status?.stringValue !== 'active') continue;
+        boostsScanned += 1;
+
+        const featuredUntil = fields.featuredUntil?.stringValue;
+        const expiryMillis = typeof featuredUntil === 'string' && featuredUntil.trim()
+          ? Date.parse(featuredUntil)
+          : Number.NaN;
+        if (!Number.isFinite(expiryMillis)) {
+          searchBoostsSkippedWithoutExpiry += 1;
+          continue;
+        }
+        if (expiryMillis > now.getTime()) continue;
+
+        const patchUrl = new URL(`https://firestore.googleapis.com/v1/${document.name}`);
+        patchUrl.searchParams.append('updateMask.fieldPaths', 'isFeatured');
+        patchUrl.searchParams.set('currentDocument.updateTime', document.updateTime);
+        const patchResponse = await fetch(patchUrl, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${tokenPayload.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: document.name,
+            fields: { isFeatured: { booleanValue: false } },
+          }),
+        });
+        if (!patchResponse.ok) {
+          const failure = await patchResponse.json().catch(() => ({})) as { error?: { status?: string } };
+          if (patchResponse.status === 409 || failure.error?.status === 'FAILED_PRECONDITION') {
+            searchBoostConcurrentChanges += 1;
+            continue;
+          }
+          throw new Error(`Could not expire Search Boost for property ${document.name.split('/').pop()} (HTTP ${patchResponse.status}).`);
+        }
+        searchBoostsExpired += 1;
+      }
+
+      return res.json({
+        success: true,
+        scanned,
+        expired,
+        skippedWithoutExpiry,
+        concurrentChanges,
+        boostsScanned,
+        searchBoostsExpired,
+        searchBoostsSkippedWithoutExpiry,
+        searchBoostConcurrentChanges,
+        checkedAt: now.toISOString(),
+      });
     } catch (error: any) {
       console.error('Subscription expiry maintenance failed:', error?.message || error);
       return res.status(500).json({ error: 'Subscription expiry maintenance failed. Check server logs.' });

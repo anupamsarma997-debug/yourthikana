@@ -81,7 +81,7 @@ export const BlueTickAdminPanel: React.FC = () => {
         setMessage('Property deleted or not published. Blue Tick cannot be approved.'); return;
       }
       if (action === 'approve' && application.paymentStatus !== 'verified') {
-        setMessage('Verify the ₹500 payment first. Blue Tick has no free trial.'); return;
+        setMessage('Verify the one-time ₹500 payment first. Blue Tick has no free trial.'); return;
       }
       const batch = writeBatch(db);
       const applicationRef = doc(db, 'verificationApplications', application.id);
@@ -161,7 +161,7 @@ export const BlueTickAdminPanel: React.FC = () => {
 
   return (
     <section className="bg-white dark:bg-slate-800 rounded-3xl border border-blue-200 dark:border-blue-900 p-5 sm:p-6 space-y-5">
-      <div className="flex items-center gap-3"><div className="rounded-xl bg-blue-100 dark:bg-blue-950 p-3"><BadgeCheck className="w-6 h-6 text-blue-600" /></div><div><h2 className="text-lg font-black text-slate-900 dark:text-white">Blue Tick Verification Review</h2><p className="text-xs text-slate-500">Pending applications: {pending.length} · Payment checks: {paymentPending.length}</p></div></div>
+      <div className="flex items-center gap-3"><div className="rounded-xl bg-blue-100 dark:bg-blue-950 p-3"><BadgeCheck className="w-6 h-6 text-blue-600" /></div><div><h2 className="text-lg font-black text-slate-900 dark:text-white">Blue Tick Verification Review</h2><p className="text-xs text-slate-500">₹500 one-time verification · Pending applications: {pending.length} · Payment checks: {paymentPending.length}</p></div></div>
       {message && <p role="status" className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 text-xs">{message}</p>}
       {applications.length === 0 && <p className="text-xs text-slate-500">No verification applications received yet.</p>}
       {applications.map(application => (

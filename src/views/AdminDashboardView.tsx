@@ -138,8 +138,9 @@ export const AdminDashboardView: React.FC = () => {
         const parsedStart = current.subscriptionTrialStartedAt
           ? new Date(current.subscriptionTrialStartedAt)
           : null;
-        const parsedEnd = current.subscriptionTrialEndsAt
-          ? new Date(current.subscriptionTrialEndsAt)
+        const legacyExpiry = current.subscriptionTrialEndsAt || current.subscriptionExpiresAt || current.subscriptionExpiryDate;
+        const parsedEnd = legacyExpiry
+          ? new Date(legacyExpiry)
           : current.subscriptionTrialEndsAtTimestamp?.toDate?.() || null;
         const validStart = parsedStart && Number.isFinite(parsedStart.getTime()) ? parsedStart : null;
         const validEnd = parsedEnd && Number.isFinite(parsedEnd.getTime()) ? parsedEnd : null;
@@ -163,7 +164,7 @@ export const AdminDashboardView: React.FC = () => {
           subscriptionTrialStartedAt: trialStart.toISOString(),
           subscriptionTrialEndsAt: trialEnd.toISOString(),
           subscriptionTrialEndsAtTimestamp: Timestamp.fromDate(trialEnd),
-          subscriptionStatus: trialStatus,
+          subscriptionStatus: current.subscriptionStatus || trialStatus,
           subscriptionPlan: current.subscriptionPlan || 'standard_1000',
           subscriptionPrice: typeof current.subscriptionPrice === 'number' ? current.subscriptionPrice : 1000,
           subscriptionExpiresAt: trialEnd.toISOString(),

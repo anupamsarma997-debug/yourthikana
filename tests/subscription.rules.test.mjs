@@ -178,6 +178,8 @@ test('monthly subscription application is private to its owner and platform admi
   await setDoc(applicationRef, applicationData());
   await assertSucceeds(getDoc(applicationRef));
   await assertFails(getDoc(doc(otherDb, 'subscriptionApplications', 'sub-private')));
+  const adminDb = env.authenticatedContext('admin-1', { email: 'anupamsarma997@gmail.com', email_verified: true, firebase: { sign_in_provider: 'google.com' } }).firestore();
+  await assertSucceeds(getDoc(doc(adminDb, 'subscriptionApplications', 'sub-private')));
 });
 
 test('owner cannot self-verify or self-approve a monthly subscription payment', async () => {

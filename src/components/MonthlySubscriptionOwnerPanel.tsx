@@ -98,14 +98,14 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
         status: 'awaiting_payment',
         paymentStatus: 'pending',
         paymentUtr: '',
-        proofSubmissionMethod: 'app_upload',
+        proofSubmissionMethod: 'whatsapp_share',
         proofStatus: 'awaiting_payment',
         submittedAt: serverTimestamp(),
       });
       setActiveApplicationId(applicationRef.id);
       setPropertyId('');
       setScreen('payment');
-      setMessage('Monthly subscription request create ho gayi. Ab ₹1,000 payment aur proof submit karein.');
+      setMessage('Monthly subscription request create ho gayi. Ab ₹1,000 payment karein, screenshot WhatsApp par bhejein aur UTR submit karein.');
     } catch (error: any) {
       console.error('Monthly subscription request failed:', error);
       setMessage(error?.message || 'Subscription request submit nahi hui. Please retry karein.');
@@ -120,7 +120,7 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
       status: 'pending',
       paymentStatus: 'pending',
       proofSubmissionMethod: 'app_upload',
-      proofStatus: 'uploaded',
+      proofStatus: 'awaiting_manual_review',
     });
     setScreen('status');
   };
@@ -158,8 +158,8 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
           <button type="button" onClick={() => setScreen('apply')} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#3A4866] px-3 text-sm font-bold text-white"><ArrowLeft className="h-4 w-4" /> Back</button>
           {activeApplication ? (
             activeApplication.status === 'awaiting_payment' || activeApplication.status === 'rejected' ? (
-              <PaymentProofShare amount={1000} title="Monthly Platform Subscription" applicationId={activeApplication.id} propertyTitle={activeApplication.propertyTitle} storageFolder="subscription-documents" onSubmitted={utr => markPaymentSubmitted(activeApplication, utr)} initialUtr={activeApplication.paymentUtr || ''} disabled={busy} />
-            ) : <p className="rounded-xl border border-[#243049] bg-[#131C2E] p-4 text-sm text-[#9AA7BD]">Payment proof submit ho chuka hai. Status page par admin review dekhein.</p>
+              <PaymentProofShare amount={1000} title="Monthly Platform Subscription" applicationId={activeApplication.id} propertyTitle={activeApplication.propertyTitle} onSubmitted={utr => markPaymentSubmitted(activeApplication, utr)} initialUtr={activeApplication.paymentUtr || ''} disabled={busy} />
+            ) : <p className="rounded-xl border border-[#243049] bg-[#131C2E] p-4 text-sm text-[#9AA7BD]">UTR submit ho chuka hai. Screenshot WhatsApp par manually bhejein; admin review status yahan dekhein.</p>
           ) : <p className="rounded-xl border border-dashed border-[#3A4866] p-4 text-sm text-[#9AA7BD]">Payment request load ho raha hai. Agar request nahi dikhe to My Status kholkar select karein.</p>}
         </div>
       )}

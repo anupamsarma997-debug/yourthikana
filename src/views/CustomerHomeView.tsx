@@ -127,7 +127,7 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
 
   // Cache minimum prices using the shared room index.
   const propertyPrices = useMemo(() => {
-    const priceMap: Record<string, number> = {};
+    const priceMap: Record<string, number | null> = {};
     (properties || []).forEach((p) => {
       if (!p || !p.id) return;
       const propertyRooms = roomsByProperty.get(p.id) || [];
@@ -136,9 +136,9 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
           .filter((room) => room && typeof room === 'object')
           .map((r) => r.discountPrice || r.pricePerNight)
           .filter((price): price is number => typeof price === 'number' && !isNaN(price) && price > 0);
-        priceMap[p.id] = validPrices.length > 0 ? Math.min(...validPrices) : 1500;
+        priceMap[p.id] = validPrices.length > 0 ? Math.min(...validPrices) : null;
       } else {
-        priceMap[p.id] = 1500;
+        priceMap[p.id] = null;
       }
     });
     return priceMap;
@@ -183,15 +183,19 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
           }
         }
 
-        // Price Range Filter Chip
-        const price = (propertyPrices && p.id && typeof propertyPrices[p.id] === 'number') ? propertyPrices[p.id] : 1500;
-        if (selectedPriceRange === 'under-1500' && price > 1500) return false;
-        if (selectedPriceRange === '1500-3000' && (price < 1500 || price > 3000)) return false;
-        if (selectedPriceRange === '3000-5000' && (price < 3000 || price > 5000)) return false;
-        if (selectedPriceRange === 'above-5000' && price < 5000) return false;
+        // Unknown prices are never replaced with an estimated amount.
+        const price = p.id ? propertyPrices[p.id] : null;
+        const hasKnownPrice = typeof price === 'number' && price > 0;
 
-        // Custom Slider Max Price Filter
-        if (price > maxPrice) return false;
+        // A selected price filter can only include listings with a real host-entered price.
+        if (selectedPriceRange !== 'all' && !hasKnownPrice) return false;
+        if (hasKnownPrice) {
+          if (selectedPriceRange === 'under-1500' && price > 1500) return false;
+          if (selectedPriceRange === '1500-3000' && (price < 1500 || price > 3000)) return false;
+          if (selectedPriceRange === '3000-5000' && (price < 3000 || price > 5000)) return false;
+          if (selectedPriceRange === 'above-5000' && price < 5000) return false;
+          if (price > maxPrice) return false;
+        }
 
         // Property Type Filter
         if (selectedType && selectedType !== 'All') {
@@ -206,7 +210,7 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
         }
 
         // Rating Filter
-        const rating = typeof p.rating === 'number' && !isNaN(p.rating) ? p.rating : 5.0;
+        const rating = typeof p.rating === 'number' && !isNaN(p.rating) && p.rating > 0 && p.reviewsCount > 0 ? p.rating : 0;
         if (rating < minRating) return false;
 
         // Verified Filter
@@ -219,8 +223,8 @@ export const CustomerHomeView: React.FC<CustomerHomeViewProps> = ({
       }).sort((a, b) => {
         if (isSearchBoostActive(a) && !isSearchBoostActive(b)) return -1;
         if (!isSearchBoostActive(a) && isSearchBoostActive(b)) return 1;
-        const rA = typeof a?.rating === 'number' ? a.rating : 5.0;
-        const rB = typeof b?.rating === 'number' ? b.rating : 5.0;
+        const rA = typeof a?.rating === 'number' && a.rating > 0 && a.reviewsCount > 0 ? a.rating : 0;
+        const rB = typeof b?.rating === 'number' && b.rating > 0 && b.reviewsCount > 0 ? b.rating : 0;
         return rB - rA;
       });
     } catch (err) {

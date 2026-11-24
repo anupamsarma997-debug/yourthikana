@@ -95,7 +95,7 @@ service cloud.firestore {
         request.resource.data.status == 'awaiting_payment' &&
         request.resource.data.paymentStatus == 'pending' &&
         request.resource.data.paymentUtr == '' &&
-        request.resource.data.proofSubmissionMethod == 'whatsapp' &&
+        request.resource.data.proofSubmissionMethod == 'app_upload' &&
         request.resource.data.proofStatus == 'awaiting_payment' &&
         request.resource.data.submittedAt is timestamp &&
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
@@ -118,8 +118,53 @@ service cloud.firestore {
         request.resource.data.paymentUtr is string &&
         request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}$') &&
         request.resource.data.paymentSubmittedAt is timestamp &&
-        request.resource.data.proofSubmissionMethod == 'whatsapp' &&
-        request.resource.data.proofStatus == 'share_sheet_opened'
+        request.resource.data.proofSubmissionMethod == 'app_upload' &&
+        request.resource.data.proofStatus == 'uploaded'
+      );
+      allow delete: if isAdmin();
+    }
+
+    // MONTHLY PLATFORM SUBSCRIPTION — ₹1,000 per active property per calendar month.
+    match /subscriptionApplications/{applicationId} {
+      allow create: if signedIn() &&
+        request.resource.data.keys().hasAll([
+          'ownerUid', 'propertyId', 'propertyTitle', 'amount', 'status',
+          'paymentStatus', 'paymentUtr', 'proofSubmissionMethod', 'proofStatus', 'submittedAt'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'ownerUid', 'propertyId', 'propertyTitle', 'amount', 'status',
+          'paymentStatus', 'paymentUtr', 'proofSubmissionMethod', 'proofStatus', 'submittedAt'
+        ]) &&
+        request.resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.propertyId is string &&
+        request.resource.data.propertyTitle is string &&
+        request.resource.data.amount == 1000 &&
+        request.resource.data.status == 'awaiting_payment' &&
+        request.resource.data.paymentStatus == 'pending' &&
+        request.resource.data.paymentUtr == '' &&
+        request.resource.data.proofSubmissionMethod == 'app_upload' &&
+        request.resource.data.proofStatus == 'awaiting_payment' &&
+        request.resource.data.submittedAt is timestamp &&
+        exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
+        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '') == request.auth.uid &&
+        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('status', '') == 'active';
+
+      allow read: if isAdmin() || (signedIn() && resource.data.ownerUid == request.auth.uid);
+      allow update: if isAdmin() || (
+        signedIn() &&
+        resource.data.ownerUid == request.auth.uid &&
+        resource.data.status in ['awaiting_payment', 'rejected'] &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'paymentStatus', 'paymentUtr', 'paymentSubmittedAt',
+          'proofSubmissionMethod', 'proofStatus'
+        ]) &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.paymentStatus == 'pending' &&
+        request.resource.data.paymentUtr is string &&
+        request.resource.data.paymentUtr.matches('^[A-Za-z0-9-]{8,30}$') &&
+        request.resource.data.paymentSubmittedAt is timestamp &&
+        request.resource.data.proofSubmissionMethod == 'app_upload' &&
+        request.resource.data.proofStatus == 'uploaded'
       );
       allow delete: if isAdmin();
     }
@@ -261,7 +306,7 @@ service cloud.firestore {
         resource.data.ownerUid == request.auth.uid &&
         resource.data.status in ['pending', 'approved'] &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'paymentUtr', 'paymentSubmittedAt', 'paymentStatus', 'proofSubmissionMethod', 'proofStatus', 'proofSharedAt'
+          'paymentUtr', 'paymentSubmittedAt', 'paymentStatus', 'proofSubmissionMethod', 'proofStatus', 'documentsUploadedAt'
         ]) &&
         (
           (
@@ -271,8 +316,8 @@ service cloud.firestore {
             request.resource.data.paymentStatus == 'pending'
           ) ||
           (
-            request.resource.data.proofStatus == 'share_sheet_completed' &&
-            request.resource.data.proofSharedAt is timestamp
+            request.resource.data.proofStatus == 'documents_uploaded' &&
+            request.resource.data.documentsUploadedAt is timestamp
           )
         )
       );

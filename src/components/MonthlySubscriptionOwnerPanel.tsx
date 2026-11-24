@@ -119,7 +119,7 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
       paymentSubmittedAt: serverTimestamp(),
       status: 'pending',
       paymentStatus: 'pending',
-      proofSubmissionMethod: 'app_upload',
+      proofSubmissionMethod: 'whatsapp_share',
       proofStatus: 'awaiting_manual_review',
     });
     setScreen('status');

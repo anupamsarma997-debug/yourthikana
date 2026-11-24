@@ -50,4 +50,4 @@ jobs:
           "
 
       - name: API request smoke tests
-        run: bun --test tests/api-smoke.test.mjs
+        run: bun test tests/api-smoke.test.mjs

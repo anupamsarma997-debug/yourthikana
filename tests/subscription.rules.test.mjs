@@ -153,7 +153,8 @@ test('another owner cannot create a Search Boost application for someone else pr
 test('only the verified platform admin can activate a paid subscription and write its transaction', async () => {
   const ownerDb = env.authenticatedContext('owner-1').firestore();
   const applicationRef = doc(ownerDb, 'subscriptionApplications', 'sub-admin-test');
-  await setDoc(applicationRef, applicationData({ status: 'pending', paymentUtr: 'ADMIN12345678', proofStatus: 'uploaded' }));
+  await setDoc(applicationRef, applicationData());
+  await assertSucceeds(updateDoc(applicationRef, { status: 'pending', paymentStatus: 'pending', paymentUtr: 'ADMIN12345678', paymentSubmittedAt: Timestamp.now(), proofSubmissionMethod: 'app_upload', proofStatus: 'uploaded' }));
   await assertFails(updateDoc(applicationRef, { status: 'approved', verifiedUntil: '2026-12-24T00:00:00.000Z' }));
   await assertFails(setDoc(doc(ownerDb, 'transactions', 'subscription-sub-admin-test'), { amount: 1000 }));
 

@@ -45,49 +45,49 @@ after(async () => {
 });
 
 test('property owner can upload a property photo to their own path', async () => {
-  const storage = env.authenticatedContext('owner-1').storage();
+  const storage = env.authenticatedContext('owner-1').storage('gs://demo-yourthikana.appspot.com');
   await assertSucceeds(uploadBytes(ref(storage, 'properties/owner-1/active-property/room.png'), image, { contentType: 'image/png' }));
 });
 
 test('another account cannot upload a property photo into the owner path', async () => {
-  const storage = env.authenticatedContext('owner-2').storage();
+  const storage = env.authenticatedContext('owner-2').storage('gs://demo-yourthikana.appspot.com');
   await assertFails(uploadBytes(ref(storage, 'properties/owner-1/active-property/room.png'), image, { contentType: 'image/png' }));
 });
 
 test('owner can upload Search Boost proof while application awaits payment', async () => {
-  const storage = env.authenticatedContext('owner-1').storage();
+  const storage = env.authenticatedContext('owner-1').storage('gs://demo-yourthikana.appspot.com');
   await assertSucceeds(uploadBytes(ref(storage, 'search-boost-documents/owner-1/boost-1/payment.png'), image, { contentType: 'image/png' }));
 });
 
 test('another account cannot upload Search Boost proof', async () => {
-  const storage = env.authenticatedContext('owner-2').storage();
+  const storage = env.authenticatedContext('owner-2').storage('gs://demo-yourthikana.appspot.com');
   await assertFails(uploadBytes(ref(storage, 'search-boost-documents/owner-1/boost-1/payment.png'), image, { contentType: 'image/png' }));
 });
 
 test('owner can upload Blue Tick property documents for a pending application', async () => {
-  const storage = env.authenticatedContext('owner-1').storage();
+  const storage = env.authenticatedContext('owner-1').storage('gs://demo-yourthikana.appspot.com');
   await assertSucceeds(uploadBytes(ref(storage, 'verification-documents/owner-1/verify-1/licence.png'), image, { contentType: 'image/png' }));
 });
 
 test('another account cannot upload Blue Tick evidence', async () => {
-  const storage = env.authenticatedContext('owner-2').storage();
+  const storage = env.authenticatedContext('owner-2').storage('gs://demo-yourthikana.appspot.com');
   await assertFails(uploadBytes(ref(storage, 'verification-documents/owner-1/verify-1/licence.png'), image, { contentType: 'image/png' }));
 });
 
 test('private evidence is readable by verified platform admin but not by owner', async () => {
-  const ownerStorage = env.authenticatedContext('owner-1').storage();
+  const ownerStorage = env.authenticatedContext('owner-1').storage('gs://demo-yourthikana.appspot.com');
   await uploadBytes(ref(ownerStorage, 'verification-documents/owner-1/verify-1/licence.png'), image, { contentType: 'image/png' });
 
   const adminStorage = env.authenticatedContext('admin-1', {
     email: 'anupamsarma997@gmail.com',
     email_verified: true,
     firebase: { sign_in_provider: 'google.com' },
-  }).storage();
+  }).storage('gs://demo-yourthikana.appspot.com');
   await assertFails(getBytes(ref(ownerStorage, 'verification-documents/owner-1/verify-1/licence.png')));
   await assertSucceeds(getBytes(ref(adminStorage, 'verification-documents/owner-1/verify-1/licence.png')));
 });
 
 test('unsupported file content types are rejected for private evidence', async () => {
-  const storage = env.authenticatedContext('owner-1').storage();
+  const storage = env.authenticatedContext('owner-1').storage('gs://demo-yourthikana.appspot.com');
   await assertFails(uploadBytes(ref(storage, 'verification-documents/owner-1/verify-1/script.txt'), image, { contentType: 'text/plain' }));
 });

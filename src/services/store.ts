@@ -957,20 +957,41 @@ class DataStore {
     return matchesUid || matchesEmail;
   }
 
-  public updateUserStatus(userId: string, status: User['status']) {
-    const user = this.users.find((u) => u.id === userId);
-    if (user) {
-      user.status = status;
-      this.notify();
+  private async canManageUserAccounts(): Promise<boolean> {
+    const fbUser = auth?.currentUser;
+    if (!fbUser || !fbUser.emailVerified || fbUser.email?.trim().toLowerCase() !== 'anupamsarma997@gmail.com') return false;
+    try {
+      const token = await fbUser.getIdTokenResult(true);
+      return token.claims.email === 'anupamsarma997@gmail.com' &&
+        token.claims.email_verified === true &&
+        token.signInProvider === 'google.com';
+    } catch (error) {
+      console.warn('Admin identity verification failed for user status change:', error);
+      return false;
     }
   }
 
-  public toggleUserStatus(userId: string) {
+  public async updateUserStatus(userId: string, status: User['status']): Promise<{ success: boolean; message: string }> {
     const user = this.users.find((u) => u.id === userId);
-    if (user) {
-      user.status = user.status === 'active' ? 'blocked' : 'active';
+    if (!user) return { success: false, message: 'User account not found.' };
+    if (!await this.canManageUserAccounts()) return { success: false, message: 'Permission denied: verified platform-owner Google account required.' };
+    if (!db) return { success: false, message: 'Secure database is unavailable. User status was not changed.' };
+
+    try {
+      await setDoc(doc(db, 'users', userId), { status }, { merge: true });
+      user.status = status;
       this.notify();
+      return { success: true, message: `User status changed to ${status}.` };
+    } catch (error: any) {
+      this.firestoreError = error?.message || String(error);
+      return { success: false, message: 'Database rejected the user status change. No local change was made.' };
     }
+  }
+
+  public async toggleUserStatus(userId: string): Promise<{ success: boolean; message: string }> {
+    const user = this.users.find((u) => u.id === userId);
+    if (!user) return { success: false, message: 'User account not found.' };
+    return this.updateUserStatus(userId, user.status === 'active' ? 'blocked' : 'active');
   }
 
   // Theme & Frame Mode

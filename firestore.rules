@@ -295,8 +295,8 @@ service cloud.firestore {
         request.resource.data.documentCount <= 5 &&
         request.resource.data.documentPaths is list &&
         request.resource.data.documentPaths.size() == 0 &&
-        request.resource.data.proofSubmissionMethod == 'device_share' &&
-        request.resource.data.proofStatus == 'awaiting_owner_share' &&
+        request.resource.data.proofSubmissionMethod == 'whatsapp_share' &&
+        request.resource.data.proofStatus == 'awaiting_payment' &&
         request.resource.data.submittedAt is timestamp &&
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
         get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '') == request.auth.uid &&

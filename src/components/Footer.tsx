@@ -87,7 +87,6 @@ export const Footer: React.FC<FooterProps> = ({ onRoleChange, onOpenAddProperty 
             </h5>
             <ul className="space-y-2 text-slate-400">
               <li>Platform Subscription: ₹1,000/property/month</li>
-              <li>Removed: no ₹1,500 plan is currently offered</li>
               <li className="text-blue-400 font-medium">Blue Tick Verification: ₹500/month</li>
               <li className="text-amber-400 font-medium">⭐ Search Boost Placement: ₹500/month</li>
               <li>Banner Advertisements</li>

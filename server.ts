@@ -117,15 +117,16 @@ async function configureServer() {
         throw new Error(`Firestore property query failed with HTTP ${queryResponse.status}.`);
       }
 
-      const rows = await queryResponse.json() as Array<{ document?: { name?: string; fields?: Record<string, any> } }>;
+      const rows = await queryResponse.json() as Array<{ document?: { name?: string; updateTime?: string; fields?: Record<string, any> } }>;
       const now = new Date();
       let scanned = 0;
       let expired = 0;
       let skippedWithoutExpiry = 0;
+      let concurrentChanges = 0;
 
       for (const row of rows) {
         const document = row.document;
-        if (!document?.name || !document.fields) continue;
+        if (!document?.name || !document.updateTime || !document.fields) continue;
         scanned += 1;
         const fields = document.fields;
         const expiryValues = [
@@ -150,6 +151,7 @@ async function configureServer() {
         patchUrl.searchParams.append('updateMask.fieldPaths', 'status');
         patchUrl.searchParams.append('updateMask.fieldPaths', 'subscriptionStatus');
         patchUrl.searchParams.append('updateMask.fieldPaths', 'subscriptionExpiredAt');
+        patchUrl.searchParams.set('currentDocument.updateTime', document.updateTime);
         const patchResponse = await fetch(patchUrl, {
           method: 'PATCH',
           headers: {
@@ -166,12 +168,17 @@ async function configureServer() {
           }),
         });
         if (!patchResponse.ok) {
+          const failure = await patchResponse.json().catch(() => ({})) as { error?: { status?: string } };
+          if (patchResponse.status === 409 || failure.error?.status === 'FAILED_PRECONDITION') {
+            concurrentChanges += 1;
+            continue;
+          }
           throw new Error(`Could not expire property ${document.name.split('/').pop()} (HTTP ${patchResponse.status}).`);
         }
         expired += 1;
       }
 
-      return res.json({ success: true, scanned, expired, skippedWithoutExpiry, checkedAt: now.toISOString() });
+      return res.json({ success: true, scanned, expired, skippedWithoutExpiry, concurrentChanges, checkedAt: now.toISOString() });
     } catch (error: any) {
       console.error('Subscription expiry maintenance failed:', error?.message || error);
       return res.status(500).json({ error: 'Subscription expiry maintenance failed. Check server logs.' });

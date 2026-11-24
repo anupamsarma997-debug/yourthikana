@@ -89,8 +89,9 @@ export const MonthlySubscriptionAdminPanel: React.FC = () => {
         status: 'approved', verifiedUntil: nextExpiry, reviewedAt: serverTimestamp(), reviewedBy: auth.currentUser.uid,
       });
       batch.update(propertyRef, {
+        status: 'active',
         subscriptionStatus: 'active', subscriptionPlan: 'standard_1000', subscriptionPrice: 1000,
-        subscriptionExpiresAt: nextExpiry, subscriptionExpiryDate: nextExpiry,
+        subscriptionExpiresAt: nextExpiry, subscriptionExpiresAtTimestamp: Timestamp.fromDate(new Date(nextExpiry)), subscriptionExpiryDate: nextExpiry,
       });
       batch.set(doc(db, 'transactions', `subscription-${application.id}`), {
         id: `subscription-${application.id}`, ownerId: application.ownerUid,

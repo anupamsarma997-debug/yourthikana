@@ -7,6 +7,7 @@ delete process.env.CRON_SECRET;
 process.env.VITE_FIREBASE_API_KEY = 'ci-test-key';
 
 const nativeFetch = globalThis.fetch.bind(globalThis);
+const { isSubscriptionAccessActive } = await import('../src/utils/subscriptionAccess.ts');
 const serverModule = await import('../dist/server.cjs');
 const app = serverModule.default?.default ?? serverModule.default ?? serverModule.app ?? serverModule;
 assert.equal(typeof app, 'function', 'Express app must be exported from the production bundle');
@@ -18,6 +19,13 @@ const endpoints = ['/api/ai/generate-description', '/api/ai/nearby-attractions',
 async function post(path, token, body = {}) {
   return nativeFetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify(body) });
 }
+
+test('subscription entitlement hides expired subscriptions and preserves future or unmigrated records', () => {
+  assert.equal(isSubscriptionAccessActive({ subscriptionExpiresAt: '2026-11-24T00:00:00.000Z' }, Date.parse('2026-11-25T00:00:00.000Z')), false);
+  assert.equal(isSubscriptionAccessActive({ subscriptionExpiresAt: '2026-12-24T00:00:00.000Z' }, Date.parse('2026-11-25T00:00:00.000Z')), true);
+  assert.equal(isSubscriptionAccessActive({ subscriptionExpiresAt: '' }, Date.parse('2026-11-25T00:00:00.000Z')), true);
+  assert.equal(isSubscriptionAccessActive({ subscriptionStatus: 'expired' }, Date.parse('2026-11-25T00:00:00.000Z')), false);
+});
 
 test('subscription expiry maintenance fails closed when CRON_SECRET is not configured', async () => {
   const response = await nativeFetch(base + '/api/cron/expire-subscriptions');

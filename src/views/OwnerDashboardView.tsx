@@ -266,15 +266,15 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
   const [city, setCity] = useState('');
   const [stateName, setStateName] = useState('');
   const [googleMapUrl, setGoogleMapUrl] = useState('');
-  const [latitude, setLatitude] = useState(26.1445);
-  const [longitude, setLongitude] = useState(91.7362);
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [nearbyAttractions, setNearbyAttractions] = useState<string>('');
   const [checkInTime, setCheckInTime] = useState('12:00 PM');
   const [checkOutTime, setCheckOutTime] = useState('11:00 AM');
   const [photoUrlsInput, setPhotoUrlsInput] = useState<string>('');
   const [videoUrl, setVideoUrl] = useState<string>('');
-  const [ownerWhatsAppInput, setOwnerWhatsAppInput] = useState<string>('919876543210');
-  const [ownerPhoneInput, setOwnerPhoneInput] = useState<string>('+91 9876543210');
+  const [ownerWhatsAppInput, setOwnerWhatsAppInput] = useState<string>('');
+  const [ownerPhoneInput, setOwnerPhoneInput] = useState<string>('');
   const [formError, setFormError] = useState<string>('');
   const [isSavingProperty, setIsSavingProperty] = useState(false);
 
@@ -384,11 +384,11 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
   const [roomName, setRoomName] = useState('Standard Deluxe Room');
   const [pricePerNight, setPricePerNight] = useState<number | ''>('');
   const [discountPrice, setDiscountPrice] = useState<number | ''>('');
-  const [maxGuests, setMaxGuests] = useState(2);
-  const [roomDescription, setRoomDescription] = useState('Spacious pine wood room with private balcony.');
-  const [roomSize, setRoomSize] = useState('280 sq.ft.');
-  const [bedType, setBedType] = useState('King Size Bed');
-  const [roomAmenities, setRoomAmenities] = useState('Balcony View, Free High-Speed WiFi, Hot Shower, Room Heater');
+  const [maxGuests, setMaxGuests] = useState<number | ''>('');
+  const [roomDescription, setRoomDescription] = useState('');
+  const [roomSize, setRoomSize] = useState('');
+  const [bedType, setBedType] = useState('');
+  const [roomAmenities, setRoomAmenities] = useState('');
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<'properties' | 'subscriptions' | 'leads' | 'qr-codes'>('properties');
@@ -461,8 +461,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     setCity('');
     setStateName('');
     setGoogleMapUrl('');
-    setLatitude(26.1445);
-    setLongitude(91.7362);
+    setLatitude(null);
+    setLongitude(null);
     setNearbyAttractions('');
     setCheckInTime('12:00 PM');
     setCheckOutTime('11:00 AM');
@@ -475,9 +475,9 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     setRoomName('Standard Deluxe Room');
     setPricePerNight('');
     setDiscountPrice('');
-    setMaxGuests(2);
-    setRoomSize('250 sq.ft.');
-    setBedType('Double Bed');
+    setMaxGuests('');
+    setRoomSize('');
+    setBedType('');
     setRoomDescription('');
     setRoomAmenities('');
 
@@ -508,15 +508,15 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     setCity(prop.city);
     setStateName(prop.state);
     setGoogleMapUrl(prop.googleMapUrl || '');
-    setLatitude(prop.latitude);
-    setLongitude(prop.longitude);
+    setLatitude(typeof prop.latitude === 'number' ? prop.latitude : null);
+    setLongitude(typeof prop.longitude === 'number' ? prop.longitude : null);
     setNearbyAttractions((prop.nearbyAttractions || []).join(', '));
     setCheckInTime(prop.checkInTime);
     setCheckOutTime(prop.checkOutTime);
     setPhotoUrlsInput((prop.photos || []).join('\n'));
     setVideoUrl(prop.videoUrl || '');
-    setOwnerPhoneInput(prop.ownerPhone || currentUser?.phone || '+91 9876543210');
-    setOwnerWhatsAppInput(prop.ownerWhatsApp || currentUser?.whatsapp || '919876543210');
+    setOwnerPhoneInput(prop.ownerPhone || currentUser?.phone || '');
+    setOwnerWhatsAppInput(prop.ownerWhatsApp || currentUser?.whatsapp || prop.ownerPhone || currentUser?.phone || '');
 
     // Load existing amenities from this property's rooms
     const existingRooms = store.getRoomsByProperty(prop.id);
@@ -564,9 +564,11 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
 
       const actualAmenities = Array.from(ownerAmenitiesSet);
 
+      const idToken = await auth?.currentUser?.getIdToken();
+      if (!idToken) throw new Error('Please sign in again to generate a description.');
       const res = await fetch('/api/ai/generate-description', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({
           propertyName: title.trim(),
           propertyType,
@@ -635,7 +637,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     }
 
     const numPrice = typeof pricePerNight === 'number' ? pricePerNight : (parseInt(String(pricePerNight)) || 0);
-    const numDiscount = discountPrice !== '' ? (typeof discountPrice === 'number' ? discountPrice : (parseInt(String(discountPrice)) || numPrice)) : numPrice;
+    const numDiscount = discountPrice !== '' ? (typeof discountPrice === 'number' ? discountPrice : (parseInt(String(discountPrice)) || 0)) : 0;
 
     if (!editingPropertyId) {
       if (!roomName.trim()) {
@@ -689,8 +691,12 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
 
     const ownerId = fbUser.uid;
     const ownerName = user.name;
-    const finalPhone = ownerPhoneInput.trim() || '+91 9876543210';
-    const finalWhatsApp = ownerWhatsAppInput.trim() || '919876543210';
+    const finalPhone = ownerPhoneInput.trim();
+    const finalWhatsApp = ownerWhatsAppInput.trim() || finalPhone;
+    if (!finalWhatsApp) {
+      setFormError('Please enter the host WhatsApp number so guests can contact the real property owner.');
+      return;
+    }
 
     setIsSavingProperty(true);
     setFormError('');
@@ -753,12 +759,12 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
             propertyId: newProp.id,
             roomName: roomName || 'Standard Room',
             pricePerNight: numPrice,
-            discountPrice: numDiscount,
-            maxGuests: maxGuests || 2,
+            discountPrice: numDiscount > 0 && numDiscount < numPrice ? numDiscount : undefined,
+            maxGuests: typeof maxGuests === 'number' && maxGuests > 0 ? maxGuests : 0,
             description: roomDescription || '',
             amenities: amList,
-            roomSize: roomSize || '250 sq.ft.',
-            bedType: bedType || 'Double Bed',
+            roomSize: roomSize || '',
+            bedType: bedType || '',
           });
         }
 
@@ -787,10 +793,10 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     setRoomName('Standard Deluxe Room');
     setPricePerNight('');
     setDiscountPrice('');
-    setMaxGuests(2);
+    setMaxGuests('');
     setRoomDescription('');
-    setRoomSize('280 sq ft');
-    setBedType('Double Bed');
+    setRoomSize('');
+    setBedType('');
     setRoomAmenities('');
   };
 
@@ -800,11 +806,11 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     setEditingRoomId(room.id);
     setRoomName(room.roomName);
     setPricePerNight(room.pricePerNight);
-    setDiscountPrice(room.discountPrice || room.pricePerNight);
-    setMaxGuests(room.maxGuests);
+    setDiscountPrice(room.discountPrice || '');
+    setMaxGuests(room.maxGuests > 0 ? room.maxGuests : '');
     setRoomDescription(room.description || '');
-    setRoomSize(room.roomSize || '250 sq ft');
-    setBedType(room.bedType || 'Double Bed');
+    setRoomSize(room.roomSize || '');
+    setBedType(room.bedType || '');
     setRoomAmenities((room.amenities || []).join(', '));
   };
 
@@ -814,13 +820,14 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
     if (!editingRoomsPropId) return;
 
     const numPrice = typeof pricePerNight === 'number' ? pricePerNight : (parseInt(String(pricePerNight)) || 0);
-    const numDiscount = discountPrice !== '' ? (typeof discountPrice === 'number' ? discountPrice : (parseInt(String(discountPrice)) || numPrice)) : numPrice;
+    const numDiscount = discountPrice !== '' ? (typeof discountPrice === 'number' ? discountPrice : (parseInt(String(discountPrice)) || 0)) : 0;
 
     if (!numPrice || numPrice <= 0) {
       alert('Please enter your room price.');
       return;
     }
 
+    const numGuests = typeof maxGuests === 'number' && maxGuests > 0 ? maxGuests : 0;
     const amList = roomAmenities.split(',').map((s) => s.trim()).filter(Boolean);
 
     if (editingRoomId) {
@@ -828,8 +835,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
       store.updateRoom(editingRoomId, {
         roomName,
         pricePerNight: numPrice,
-        discountPrice: numDiscount,
-        maxGuests,
+        discountPrice: numDiscount > 0 && numDiscount < numPrice ? numDiscount : undefined,
+        maxGuests: numGuests,
         description: roomDescription,
         amenities: amList,
         roomSize,
@@ -842,8 +849,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
         propertyId: editingRoomsPropId,
         roomName,
         pricePerNight: numPrice,
-        discountPrice: numDiscount,
-        maxGuests,
+        discountPrice: numDiscount > 0 && numDiscount < numPrice ? numDiscount : undefined,
+        maxGuests: numGuests,
         description: roomDescription,
         amenities: amList,
         roomSize,
@@ -1109,14 +1116,14 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                           >
                             <div>
                               <p className="font-extrabold text-slate-900 dark:text-white text-xs">{r.roomName}</p>
-                              <p className="text-[10px] text-slate-500">Max {r.maxGuests} Guests • {r.bedType} • {r.roomSize || '250 sq ft'}</p>
+                              <p className="text-[10px] text-slate-500">{r.maxGuests > 0 ? `Max ${r.maxGuests} Guests` : 'Capacity not provided'}{r.bedType ? ` • ${r.bedType}` : ''}{r.roomSize ? ` • ${r.roomSize}` : ''}</p>
                             </div>
                             <div className="text-right shrink-0">
                               <div className="flex items-baseline gap-1 justify-end">
                                 <span className="font-black text-xs text-emerald-600 dark:text-emerald-400">
-                                  ₹{r.discountPrice || r.pricePerNight}
+                                  {r.pricePerNight > 0 ? `₹${r.discountPrice && r.discountPrice < r.pricePerNight ? r.discountPrice : r.pricePerNight}` : 'Price not entered'}
                                 </span>
-                                {r.discountPrice && r.discountPrice < r.pricePerNight && (
+                                {r.discountPrice && r.discountPrice > 0 && r.discountPrice < r.pricePerNight && (
                                   <span className="text-[10px] text-slate-400 line-through">
                                     ₹{r.pricePerNight}
                                   </span>
@@ -1521,8 +1528,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                   <input
                     type="number"
                     step="0.0001"
-                    value={latitude}
-                    onChange={(e) => setLatitude(parseFloat(e.target.value) || 32.24)}
+                    value={latitude ?? ''}
+                    onChange={(e) => setLatitude(e.target.value === '' ? null : (Number.isFinite(parseFloat(e.target.value)) ? parseFloat(e.target.value) : null))}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -1532,8 +1539,8 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                   <input
                     type="number"
                     step="0.0001"
-                    value={longitude}
-                    onChange={(e) => setLongitude(parseFloat(e.target.value) || 77.18)}
+                    value={longitude ?? ''}
+                    onChange={(e) => setLongitude(e.target.value === '' ? null : (Number.isFinite(parseFloat(e.target.value)) ? parseFloat(e.target.value) : null))}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -1847,7 +1854,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                       <input
                         type="number"
                         value={maxGuests}
-                        onChange={(e) => setMaxGuests(parseInt(e.target.value) || 2)}
+                        onChange={(e) => setMaxGuests(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))}
                         className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
@@ -1972,7 +1979,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
                   <input
                     type="number"
                     value={maxGuests}
-                    onChange={(e) => setMaxGuests(parseInt(e.target.value) || 2)}
+                    onChange={(e) => setMaxGuests(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>

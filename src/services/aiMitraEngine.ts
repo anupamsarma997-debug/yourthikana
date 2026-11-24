@@ -1,5 +1,6 @@
 import { Property, RoomType } from '../types';
 import { store } from './store';
+import { isSearchBoostActive } from '../utils/propertyBadges';
 
 export interface MitraSearchCriteria {
   destination?: string;
@@ -406,7 +407,7 @@ export function searchAndRankProperties(
       score += 10;
       matchReasons.push('THIKANA Blue Verified Host');
     }
-    if (prop.isFeatured) {
+    if (isSearchBoostActive(prop)) {
       score += 5;
     }
     if (prop.rating && prop.rating >= 4.8) {

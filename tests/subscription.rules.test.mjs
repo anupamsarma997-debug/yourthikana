@@ -84,6 +84,21 @@ test('monthly subscription cannot be requested without an expired six-month tria
   await assertSucceeds(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-after-trial'), applicationData()));
 });
 
+test('an expired hidden property can request renewal but an active paid subscription cannot renew early', async () => {
+  const ownerDb = env.authenticatedContext('owner-1').firestore();
+  await env.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'properties', 'active-property'), { status: 'hidden_expired' });
+  });
+  await assertSucceeds(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-hidden-renewal'), applicationData()));
+  await env.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'properties', 'active-property'), {
+      status: 'active',
+      subscriptionExpiresAtTimestamp: Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000),
+    });
+  });
+  await assertFails(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-early-renewal'), applicationData()));
+});
+
 test('owner can submit a valid UTR after creating a monthly subscription request', async () => {
   const ownerDb = env.authenticatedContext('owner-1').firestore();
   const applicationRef = doc(ownerDb, 'subscriptionApplications', 'sub-1');

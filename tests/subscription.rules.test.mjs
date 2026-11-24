@@ -42,7 +42,7 @@ function applicationData(overrides = {}) {
     status: 'awaiting_payment',
     paymentStatus: 'pending',
     paymentUtr: '',
-    proofSubmissionMethod: 'app_upload',
+    proofSubmissionMethod: 'whatsapp_share',
     proofStatus: 'awaiting_payment',
     submittedAt: Timestamp.now(),
     ...overrides,
@@ -91,8 +91,8 @@ test('owner can submit a valid UTR after creating a monthly subscription request
     paymentStatus: 'pending',
     paymentUtr: 'SUB12345678',
     paymentSubmittedAt: Timestamp.now(),
-    proofSubmissionMethod: 'app_upload',
-    proofStatus: 'uploaded',
+    proofSubmissionMethod: 'whatsapp_share',
+    proofStatus: 'awaiting_manual_review',
   }));
 });
 
@@ -116,7 +116,7 @@ test('Search Boost proof is marked uploaded, not falsely marked as WhatsApp-shar
     status: 'awaiting_payment',
     paymentStatus: 'pending',
     paymentUtr: '',
-    proofSubmissionMethod: 'app_upload',
+    proofSubmissionMethod: 'whatsapp_share',
     proofStatus: 'awaiting_payment',
     submittedAt: Timestamp.now(),
   });
@@ -125,8 +125,8 @@ test('Search Boost proof is marked uploaded, not falsely marked as WhatsApp-shar
     paymentStatus: 'pending',
     paymentUtr: 'BOOST12345678',
     paymentSubmittedAt: Timestamp.now(),
-    proofSubmissionMethod: 'app_upload',
-    proofStatus: 'uploaded',
+    proofSubmissionMethod: 'whatsapp_share',
+    proofStatus: 'awaiting_manual_review',
   }));
 });
 
@@ -139,7 +139,7 @@ test('another owner cannot create a Search Boost application for someone else pr
     status: 'awaiting_payment',
     paymentStatus: 'pending',
     paymentUtr: '',
-    proofSubmissionMethod: 'app_upload',
+    proofSubmissionMethod: 'whatsapp_share',
     proofStatus: 'awaiting_payment',
     submittedAt: Timestamp.now(),
   }));
@@ -149,7 +149,7 @@ test('only the verified platform admin can activate a paid subscription and writ
   const ownerDb = env.authenticatedContext('owner-1').firestore();
   const applicationRef = doc(ownerDb, 'subscriptionApplications', 'sub-admin-test');
   await setDoc(applicationRef, applicationData());
-  await assertSucceeds(updateDoc(applicationRef, { status: 'pending', paymentStatus: 'pending', paymentUtr: 'ADMIN12345678', paymentSubmittedAt: Timestamp.now(), proofSubmissionMethod: 'app_upload', proofStatus: 'uploaded' }));
+  await assertSucceeds(updateDoc(applicationRef, { status: 'pending', paymentStatus: 'pending', paymentUtr: 'ADMIN12345678', paymentSubmittedAt: Timestamp.now(), proofSubmissionMethod: 'whatsapp_share', proofStatus: 'awaiting_manual_review' }));
   await assertFails(updateDoc(applicationRef, { status: 'approved', verifiedUntil: '2026-12-24T00:00:00.000Z' }));
   await assertFails(setDoc(doc(ownerDb, 'transactions', 'subscription-sub-admin-test'), { amount: 1000 }));
 
@@ -186,8 +186,8 @@ test('owner cannot self-verify or self-approve a monthly subscription payment', 
     paymentStatus: 'pending',
     paymentUtr: 'OWNER12345678',
     paymentSubmittedAt: Timestamp.now(),
-    proofSubmissionMethod: 'app_upload',
-    proofStatus: 'uploaded',
+    proofSubmissionMethod: 'whatsapp_share',
+    proofStatus: 'awaiting_manual_review',
   }));
   await assertFails(updateDoc(applicationRef, { paymentStatus: 'verified' }));
   await assertFails(updateDoc(applicationRef, { status: 'approved', verifiedUntil: '2026-12-24T00:00:00.000Z' }));

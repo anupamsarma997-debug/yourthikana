@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { store } from '../services/store';
 import { Property, User, BannerAd } from '../types';
-import { auth } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
+import { doc, Timestamp, updateDoc } from 'firebase/firestore';
 import { BlueTickAdminPanel } from '../components/BlueTickAdminPanel';
 import { SearchBoostAdminPanel } from '../components/SearchBoostAdminPanel';
 import { MonthlySubscriptionAdminPanel } from '../components/MonthlySubscriptionAdminPanel';
@@ -27,6 +28,16 @@ import {
   Layers,
   Check
 } from 'lucide-react';
+
+function addCalendarMonths(date: Date, months: number): Date {
+  const result = new Date(date);
+  const day = result.getDate();
+  result.setDate(1);
+  result.setMonth(result.getMonth() + months);
+  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+  result.setDate(Math.min(day, lastDay));
+  return result;
+}
 
 export const AdminDashboardView: React.FC = () => {
   const [properties, setProperties] = useState<Property[]>(store.getProperties());
@@ -100,6 +111,31 @@ export const AdminDashboardView: React.FC = () => {
       setTransactions(store.getTransactions());
     });
   }, []);
+
+  React.useEffect(() => {
+    if (!db || !isAuthorized) return;
+    const legacyTrials = properties.filter(property =>
+      property.status === 'active' &&
+      Boolean(property.subscriptionTrialEndsAt) &&
+      !property.subscriptionTrialEndsAtTimestamp
+    );
+    legacyTrials.forEach(property => {
+      const startedAt = property.subscriptionTrialStartedAt
+        ? new Date(property.subscriptionTrialStartedAt)
+        : new Date(property.subscriptionTrialEndsAt || '');
+      if (!Number.isFinite(startedAt.getTime())) return;
+      const trialEnd = property.subscriptionTrialStartedAt
+        ? addCalendarMonths(startedAt, 6)
+        : new Date(property.subscriptionTrialEndsAt || '');
+      if (!Number.isFinite(trialEnd.getTime())) return;
+      updateDoc(doc(db, 'properties', property.id), {
+        subscriptionTrialEndsAt: trialEnd.toISOString(),
+        subscriptionTrialEndsAtTimestamp: Timestamp.fromDate(trialEnd),
+      }).catch(error => console.error('Legacy subscription trial migration failed:', property.id, error));
+    });
+  }, [properties, isAuthorized]);
+
+
 
   // Compute Revenue Stats
   const totalRevenue = transactions.reduce((acc, t) => acc + t.amount, 0);

@@ -79,7 +79,7 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
         status: 'awaiting_payment',
         paymentStatus: 'pending',
         paymentUtr: '',
-        proofSubmissionMethod: 'whatsapp',
+        proofSubmissionMethod: 'app_upload',
         proofStatus: 'awaiting_payment',
         submittedAt: serverTimestamp(),
       });
@@ -100,8 +100,8 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
       paymentSubmittedAt: serverTimestamp(),
       status: 'pending',
       paymentStatus: 'pending',
-      proofSubmissionMethod: 'whatsapp',
-      proofStatus: 'share_sheet_opened',
+      proofSubmissionMethod: 'app_upload',
+      proofStatus: 'uploaded',
     });
     setScreen('status');
   };

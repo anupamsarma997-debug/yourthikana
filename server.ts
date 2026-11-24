@@ -6,13 +6,11 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const appDir = process.cwd();
-
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json({ limit: '20mb' }));
+  app.use(express.json({ limit: '1mb' }));
 
   // Initialize Gemini AI Client lazily/safely
   const getGenAI = () => {
@@ -33,6 +31,54 @@ async function startServer() {
   // Health API
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', app: 'THIKANA Marketplace', time: new Date().toISOString() });
+  });
+
+  // Protect paid Gemini-backed endpoints with Firebase ID-token verification.
+  // Firebase Identity Toolkit validates token signature, expiry, and project membership.
+  const aiRequestCounts = new Map<string, { count: number; resetAt: number }>();
+  app.use('/api/ai', async (req, res, next) => {
+    const authorization = req.headers.authorization || '';
+    const idToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+    const firebaseApiKey = process.env.FIREBASE_WEB_API_KEY || process.env.VITE_FIREBASE_API_KEY;
+
+    if (!idToken || !firebaseApiKey) {
+      return res.status(401).json({ error: 'Sign in is required to use this service.' });
+    }
+
+    try {
+      const verifyResponse = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(firebaseApiKey)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken }),
+        }
+      );
+      if (!verifyResponse.ok) {
+        return res.status(401).json({ error: 'Your session is invalid or expired. Please sign in again.' });
+      }
+
+      const verified = await verifyResponse.json() as { users?: Array<{ localId?: string; emailVerified?: boolean }> };
+      const uid = verified.users?.[0]?.localId;
+      if (!uid) {
+        return res.status(401).json({ error: 'Your session could not be verified. Please sign in again.' });
+      }
+
+      const now = Date.now();
+      const current = aiRequestCounts.get(uid);
+      if (!current || current.resetAt <= now) {
+        aiRequestCounts.set(uid, { count: 1, resetAt: now + 60_000 });
+      } else if (current.count >= 20) {
+        res.setHeader('Retry-After', String(Math.ceil((current.resetAt - now) / 1000)));
+        return res.status(429).json({ error: 'Too many AI requests. Please wait one minute and try again.' });
+      } else {
+        current.count += 1;
+      }
+
+      return next();
+    } catch {
+      return res.status(503).json({ error: 'Sign-in verification is temporarily unavailable. Please try again.' });
+    }
   });
 
   // Input Sanitizer Helper to prevent Prompt Injection & excessive payload sizes
@@ -96,7 +142,7 @@ STRICT RULES (ZERO HALLUCINATIONS):
       res.json({ description: response.text || '' });
     } catch (error: any) {
       console.error('Error generating AI description:', error);
-      res.status(500).json({ error: error.message || 'Failed to generate AI description' });
+      res.status(500).json({ error: 'Failed to generate AI description. Please try again.' });
     }
   });
 
@@ -105,6 +151,7 @@ STRICT RULES (ZERO HALLUCINATIONS):
     try {
       const city = sanitizeInput(req.body.city, 100);
       const address = sanitizeInput(req.body.address, 150);
+      if (!city && !address) return res.status(400).json({ error: 'A city or address is required.' });
       const ai = getGenAI();
 
       const prompt = `List 4 real tourist attractions, waterfalls, national parks, tea gardens, or monasteries near "${address}, ${city}" in Northeast India.
@@ -141,7 +188,7 @@ Return ONLY a raw JSON array of 4 strings with approximate distances, for exampl
       res.json({ attractions: json });
     } catch (error: any) {
       console.error('Error generating attractions:', error);
-      res.status(500).json({ error: error.message || 'Failed to fetch attractions' });
+      res.status(500).json({ error: 'Failed to fetch nearby attractions. Please try again.' });
     }
   });
 
@@ -235,7 +282,7 @@ Generate a helpful, friendly, and concise response addressing the user's query a
       });
     } catch (error: any) {
       console.error('Error in travel assistant:', error);
-      res.status(500).json({ error: error.message || 'Travel assistant error' });
+      res.status(500).json({ error: 'Travel assistant is temporarily unavailable. Please try again.' });
     }
   });
 

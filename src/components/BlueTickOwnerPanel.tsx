@@ -10,7 +10,7 @@ type Application = {
   id: string;
   propertyId: string;
   propertyTitle: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'awaiting_payment' | 'pending' | 'approved' | 'rejected';
   submittedAt?: any;
   verifiedUntil?: string;
   paymentStatus?: 'not_submitted' | 'pending' | 'verified' | 'rejected';
@@ -72,15 +72,15 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
       // The form is saved first. Evidence is uploaded separately on the next screen.
       await setDoc(applicationRef, {
         ownerUid: user.uid, propertyId: property.id, propertyTitle: property.title,
-        status: 'pending', paymentStatus: 'not_submitted',
+        status: 'awaiting_payment', paymentStatus: 'not_submitted',
         documentCount: 1, documentPaths: [],
-        proofSubmissionMethod: 'device_share', proofStatus: 'awaiting_owner_share',
+        proofSubmissionMethod: 'whatsapp_share', proofStatus: 'awaiting_payment',
         submittedAt: serverTimestamp(),
       });
       setPropertyId('');
       setDocumentFiles([]);
       setScreen('status');
-      setMessage('Application submit ho gayi. Ab alag-alag Property Documents aur Payment Screenshot upload karein.');
+      setMessage('Application draft ban gaya. Pehle screenshot WhatsApp par bhejein aur UTR submit karein; property documents alag se upload karein.');
     } catch (error: any) {
       console.error('Blue Tick submit failed:', error);
       setMessage(error?.message || 'Application submit nahi hui. Please retry karein.');
@@ -113,7 +113,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
   const markPaymentSubmitted = async (application: Application, utr: string) => {
     if (!db || !auth?.currentUser || auth.currentUser.uid !== uid) throw new Error('Please sign in again.');
     await updateDoc(doc(db, 'verificationApplications', application.id), {
-      paymentUtr: utr, paymentSubmittedAt: serverTimestamp(), paymentStatus: 'pending',
+      paymentUtr: utr, paymentSubmittedAt: serverTimestamp(), paymentStatus: 'pending', status: 'pending', proofSubmissionMethod: 'whatsapp_share', proofStatus: 'awaiting_manual_review',
     });
   };
 
@@ -174,7 +174,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
                     {application.proofStatus === 'documents_uploaded' && <p className="text-xs text-[#5EEAD4]">Property documents uploaded.</p>}
                   </div>
                   {application.paymentStatus !== 'verified' && (
-                    <PaymentProofShare amount={500} title="Blue Tick Verification" applicationId={application.id} propertyTitle={application.propertyTitle} storageFolder="verification-documents" onSubmitted={utr => markPaymentSubmitted(application, utr)} initialUtr={application.paymentUtr || ''} disabled={busy} />
+                    <PaymentProofShare amount={500} title="Blue Tick Verification" applicationId={application.id} propertyTitle={application.propertyTitle} onSubmitted={utr => markPaymentSubmitted(application, utr)} initialUtr={application.paymentUtr || ''} disabled={busy} />
                   )}
                   {application.paymentStatus === 'pending' && <p className="rounded-xl bg-[#30250F] p-3 text-xs leading-5 text-[#FBBF24]">Payment proof submitted. Admin bank verification pending hai.</p>}
                 </>

@@ -4,6 +4,7 @@ import { auth, db } from '../lib/firebase';
 import { Property } from '../types';
 import { CalendarClock, CheckCircle2, Clock3, ArrowLeft, ArrowRight } from 'lucide-react';
 import { PaymentProofShare } from './PaymentProofShare';
+import { isSubscriptionAccessActive } from '../utils/subscriptionAccess';
 
 type Application = {
   id: string;
@@ -33,7 +34,7 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
   const [message, setMessage] = useState('');
 
   const ownedProperties = useMemo(
-    () => properties.filter(property => property.ownerUid === uid && property.status === 'active'),
+    () => properties.filter(property => property.ownerUid === uid && ['active', 'hidden_expired'].includes(property.status)),
     [properties, uid]
   );
 
@@ -47,7 +48,7 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
     [ownedProperties]
   );
   const billableProperties = useMemo(
-    () => ownedProperties.filter(property => !trialProperties.some(trial => trial.id === property.id)),
+    () => ownedProperties.filter(property => !isSubscriptionAccessActive(property)),
     [ownedProperties, trialProperties]
   );
 
@@ -80,13 +81,12 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
     setBusy(true); setMessage('');
     try {
       const current = await getDoc(doc(db, 'properties', property.id));
-      if (!current.exists() || current.data().ownerUid !== user.uid || current.data().status !== 'active') {
+      if (!current.exists() || current.data().ownerUid !== user.uid || !['active', 'hidden_expired'].includes(current.data().status)) {
         setMessage('Property ownership ya active status verify nahi hua. My Listings refresh karein.');
         return;
       }
-      const trialEndsAt = current.data().subscriptionTrialEndsAtTimestamp;
-      if (trialEndsAt?.toMillis && trialEndsAt.toMillis() > Date.now()) {
-        setMessage('Is property ka 6-month free subscription abhi active hai. Trial khatam hone ke baad hi payment request banegi.');
+      if (isSubscriptionAccessActive(current.data() as Property)) {
+        setMessage('Is property ka free trial ya paid subscription abhi active hai. Expiry ke baad hi payment request banegi.');
         return;
       }
       const applicationRef = doc(collection(db, 'subscriptionApplications'));

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
+import { generateKeyPairSync } from 'node:crypto';
 
 process.env.VERCEL = '1';
 delete process.env.GEMINI_API_KEY;
@@ -50,6 +51,89 @@ test('subscription expiry maintenance rejects missing or invalid bearer authoriz
   });
   assert.equal(missingServiceAccount.status, 503);
   delete process.env.CRON_SECRET;
+});
+
+test('subscription cron expires only past-due listings and Search Boosts', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  process.env.CRON_SECRET = 'ci-cron-secret';
+  process.env.FIREBASE_SERVICE_ACCOUNT = JSON.stringify({
+    project_id: 'demo-yourthikana',
+    client_email: 'ci-service-account@demo-yourthikana.iam.gserviceaccount.com',
+    private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+    token_uri: 'https://oauth2.googleapis.com/token',
+  });
+
+  const originalFetch = globalThis.fetch;
+  const patches = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const url = String(input);
+    if (url === 'https://oauth2.googleapis.com/token') {
+      return new Response(JSON.stringify({ access_token: 'ci-access-token' }), { status: 200 });
+    }
+    if (url.includes(':runQuery')) {
+      const body = JSON.parse(String(init.body || '{}'));
+      const field = body.structuredQuery?.where?.fieldFilter?.field?.fieldPath;
+      if (field === 'isFeatured') {
+        return new Response(JSON.stringify([{
+          document: {
+            name: 'projects/demo-yourthikana/databases/(default)/documents/properties/expired-boost',
+            updateTime: '2026-11-25T00:00:00.000000Z',
+            fields: {
+              status: { stringValue: 'active' },
+              isFeatured: { booleanValue: true },
+              featuredUntil: { stringValue: '2026-11-24T00:00:00.000Z' },
+            },
+          },
+        }]), { status: 200 });
+      }
+      return new Response(JSON.stringify([
+        {
+          document: {
+            name: 'projects/demo-yourthikana/databases/(default)/documents/properties/expired-property',
+            updateTime: '2026-11-25T00:00:00.000000Z',
+            fields: {
+              status: { stringValue: 'active' },
+              subscriptionExpiresAtTimestamp: { timestampValue: '2026-11-24T00:00:00.000Z' },
+            },
+          },
+        },
+        {
+          document: {
+            name: 'projects/demo-yourthikana/databases/(default)/documents/properties/future-property',
+            updateTime: '2026-11-25T00:00:00.000000Z',
+            fields: {
+              status: { stringValue: 'active' },
+              subscriptionExpiresAtTimestamp: { timestampValue: '2099-12-24T00:00:00.000Z' },
+            },
+          },
+        },
+      ]), { status: 200 });
+    }
+    if (init.method === 'PATCH') {
+      patches.push({ url, body: JSON.parse(String(init.body || '{}')) });
+      return new Response(JSON.stringify({ name: url }), { status: 200 });
+    }
+    throw new Error('Unexpected upstream request: ' + url);
+  };
+
+  try {
+    const response = await nativeFetch(base + '/api/cron/expire-subscriptions', {
+      headers: { authorization: 'Bearer ci-cron-secret' },
+    });
+    const payload = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(payload.success, true);
+    assert.equal(payload.expired, 1);
+    assert.equal(payload.searchBoostsExpired, 1);
+    assert.equal(patches.length, 2);
+    assert.equal(patches.some(item => item.body.fields?.status?.stringValue === 'hidden_expired'), true);
+    assert.equal(patches.some(item => item.body.fields?.isFeatured?.booleanValue === false), true);
+    assert.equal(patches.some(item => item.url.includes('/future-property')), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.CRON_SECRET;
+    delete process.env.FIREBASE_SERVICE_ACCOUNT;
+  }
 });
 
 test('health endpoint returns HTTP 200 without an authenticated session', async () => {

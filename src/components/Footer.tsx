@@ -25,10 +25,10 @@ export const Footer: React.FC<FooterProps> = ({ onRoleChange, onOpenAddProperty 
                 Hotel & Homestay Owners
               </span>
               <h4 className="text-lg font-black text-white mt-1">
-                List Your Property on THIKANA for ₹1,000/property/month
+                List Your Property on THIKANA — First 6 Months Free
               </h4>
               <p className="text-xs text-slate-300">
-                Receive 100% direct guest enquiries on WhatsApp with ZERO commission or hidden fees!
+                After the free 6-month trial, platform subscription is ₹1,000/property/month. Guests contact you directly on WhatsApp with zero booking commission.
               </p>
             </div>
           </div>
@@ -86,10 +86,10 @@ export const Footer: React.FC<FooterProps> = ({ onRoleChange, onOpenAddProperty 
               Owner Pricing & Badges
             </h5>
             <ul className="space-y-2 text-slate-400">
-              <li>Platform Subscription: ₹1,000/property/month</li>
-              <li className="text-blue-400 font-medium">Blue Tick Verification: ₹500/month</li>
+              <li>Platform Subscription: First 6 months free, then ₹1,000/property/month</li>
+              <li className="text-blue-400 font-medium">Blue Tick Verification: ₹500 one-time</li>
               <li className="text-amber-400 font-medium">⭐ Search Boost Placement: ₹500/month</li>
-              <li>Banner Advertisements</li>
+              <li><a href="https://wa.me/919101280465?text=Hello%20YourThikana%2C%20I%20want%20to%20advertise%20my%20business.%20Please%20share%20available%20placements%20and%20pricing." target="_blank" rel="noreferrer" className="text-emerald-400 hover:underline">Banner Ads: Request a quote on WhatsApp</a></li>
             </ul>
           </div>
 

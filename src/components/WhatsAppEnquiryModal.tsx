@@ -99,7 +99,7 @@ export const WhatsAppEnquiryModal: React.FC<WhatsAppEnquiryModalProps> = ({
 🗓️ *Check-out Date:* ${checkOutDate} (${numberOfDays} Days / ${numberOfDays > 1 ? numberOfDays - 1 : 1} Nights)
 👥 *Guests:* ${adults} Adults${children > 0 ? `, ${children} Children` : ''} (Total ${totalGuests})
 🛏️ *Room Type:* ${selectedRoom ? selectedRoom.roomName : 'Standard Room'} (${priceText})
-💰 *Estimated Total:* ₹${calculatedTotal}
+💰 *Estimated Total:* ${totalText}
 
 ${specialRequests ? `📝 *Special Request:* ${specialRequests}\n` : ''}I want to book this room. Please confirm room availability and payment details. Thank you!`;
   };

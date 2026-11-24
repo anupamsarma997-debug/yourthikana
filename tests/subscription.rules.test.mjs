@@ -99,3 +99,13 @@ test('only the verified platform admin can read monthly subscription evidence', 
   await assertFails(getBytes(ref(ownerStorage, path)));
   await assertSucceeds(getBytes(ref(adminStorage, path)));
 });
+
+
+test('owner cannot self-activate or extend subscription and badge expiry', async () => {
+  const ownerDb = env.authenticatedContext('owner-1').firestore();
+  const propertyRef = doc(ownerDb, 'properties', 'active-property');
+  await assertFails(updateDoc(propertyRef, { subscriptionStatus: 'active' }));
+  await assertFails(updateDoc(propertyRef, { subscriptionExpiresAt: '2099-01-01T00:00:00.000Z' }));
+  await assertFails(updateDoc(propertyRef, { verifiedUntil: '2099-01-01T00:00:00.000Z' }));
+  await assertFails(updateDoc(propertyRef, { featuredUntil: '2099-01-01T00:00:00.000Z' }));
+});

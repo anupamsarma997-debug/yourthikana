@@ -8,7 +8,7 @@ type SearchBoostApplication = {
   ownerUid: string;
   propertyId: string;
   propertyTitle: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'awaiting_payment' | 'pending' | 'approved' | 'rejected';
   paymentStatus: 'pending' | 'verified' | 'rejected';
   paymentUtr: string;
   submittedAt?: any;

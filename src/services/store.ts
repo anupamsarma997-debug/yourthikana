@@ -194,6 +194,8 @@ const normalizeProperty = (p: any): Property => ({
   address: String(p?.address || ''),
   city: String(p?.city || ''),
   state: String(p?.state || ''),
+  latitude: typeof p?.latitude === 'number' && Number.isFinite(p.latitude) ? p.latitude : null,
+  longitude: typeof p?.longitude === 'number' && Number.isFinite(p.longitude) ? p.longitude : null,
   ownerName: String(p?.ownerName || 'Property Owner'),
   ownerPhone: String(p?.ownerPhone || ''),
   ownerWhatsApp: String(p?.ownerWhatsApp || p?.ownerPhone || ''),

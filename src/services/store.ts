@@ -1246,8 +1246,9 @@ class DataStore {
         const parsedStart = prop.subscriptionTrialStartedAt
           ? new Date(prop.subscriptionTrialStartedAt)
           : null;
-        const parsedEnd = prop.subscriptionTrialEndsAt
-          ? new Date(prop.subscriptionTrialEndsAt)
+        const legacyExpiry = prop.subscriptionTrialEndsAt || prop.subscriptionExpiresAt || prop.subscriptionExpiryDate;
+        const parsedEnd = legacyExpiry
+          ? new Date(legacyExpiry)
           : prop.subscriptionTrialEndsAtTimestamp?.toDate?.() || null;
         const validStart = parsedStart && Number.isFinite(parsedStart.getTime()) ? parsedStart : null;
         const validEnd = parsedEnd && Number.isFinite(parsedEnd.getTime()) ? parsedEnd : null;
@@ -1269,7 +1270,7 @@ class DataStore {
         update.subscriptionTrialStartedAt = trialStart.toISOString();
         update.subscriptionTrialEndsAt = trialEnd.toISOString();
         update.subscriptionTrialEndsAtTimestamp = Timestamp.fromDate(trialEnd);
-        update.subscriptionStatus = trialEnd.getTime() > now.getTime() ? 'trial' : 'expired';
+        update.subscriptionStatus = prop.subscriptionStatus || (trialEnd.getTime() > now.getTime() ? 'trial' : 'expired');
         update.subscriptionPlan = prop.subscriptionPlan || 'standard_1000';
         update.subscriptionPrice = typeof prop.subscriptionPrice === 'number' ? prop.subscriptionPrice : 1000;
         update.subscriptionExpiresAt = trialEnd.toISOString();

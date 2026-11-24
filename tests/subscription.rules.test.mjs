@@ -78,6 +78,7 @@ test('monthly subscription cannot be requested without an expired six-month tria
   await env.withSecurityRulesDisabled(async context => {
     await updateDoc(doc(context.firestore(), 'properties', 'active-property'), {
       subscriptionTrialEndsAtTimestamp: Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000),
+      subscriptionExpiresAtTimestamp: Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000),
     });
   });
   await assertSucceeds(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-after-trial'), applicationData()));

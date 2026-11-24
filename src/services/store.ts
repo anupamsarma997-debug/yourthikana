@@ -273,25 +273,25 @@ class DataStore {
 
       const storedProps = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.PROPERTIES) : null;
       const rawProps = storedProps ? JSON.parse(storedProps) : (useLocalDemoData ? INITIAL_PROPERTIES : []);
-      this.properties = (Array.isArray(rawProps) ? rawProps : INITIAL_PROPERTIES).map(normalizeProperty);
+      this.properties = (Array.isArray(rawProps) ? rawProps : (useLocalDemoData ? INITIAL_PROPERTIES : [])).map(normalizeProperty);
 
       const storedRooms = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.ROOMS) : null;
       const rawRooms = storedRooms ? JSON.parse(storedRooms) : (useLocalDemoData ? INITIAL_ROOMS : []);
-      this.rooms = (Array.isArray(rawRooms) ? rawRooms : INITIAL_ROOMS).map(normalizeRoom).filter((room): room is RoomType => Boolean(room));
+      this.rooms = (Array.isArray(rawRooms) ? rawRooms : (useLocalDemoData ? INITIAL_ROOMS : [])).map(normalizeRoom).filter((room): room is RoomType => Boolean(room));
 
       const storedBanners = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.BANNERS) : null;
       this.banners = storedBanners ? JSON.parse(storedBanners) : (useLocalDemoData ? INITIAL_BANNERS : []);
 
-      const storedEnquiries = localStorage.getItem(STORAGE_KEYS.ENQUIRIES);
+      const storedEnquiries = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.ENQUIRIES) : null;
       this.enquiries = storedEnquiries ? JSON.parse(storedEnquiries) : [];
 
       const storedTx = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.TRANSACTIONS) : null;
       this.transactions = storedTx ? JSON.parse(storedTx) : (useLocalDemoData ? INITIAL_TRANSACTIONS : []);
 
-      const storedVisits = localStorage.getItem(STORAGE_KEYS.VISITS);
+      const storedVisits = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.VISITS) : null;
       this.visits = storedVisits ? JSON.parse(storedVisits) : [];
 
-      const storedLeads = localStorage.getItem(STORAGE_KEYS.LEADS);
+      const storedLeads = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.LEADS) : null;
       this.leads = storedLeads ? JSON.parse(storedLeads) : [];
 
       const storedUserId = useLocalDemoData ? localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID) : null;
@@ -311,6 +311,9 @@ class DataStore {
       this.rooms = useLocalDemoData ? INITIAL_ROOMS : [];
       this.banners = useLocalDemoData ? INITIAL_BANNERS : [];
       this.transactions = useLocalDemoData ? INITIAL_TRANSACTIONS : [];
+      this.enquiries = [];
+      this.visits = [];
+      this.leads = [];
       this.currentUserId = useLocalDemoData ? 'customer_1' : '';
     }
   }

@@ -14,7 +14,7 @@ await new Promise((resolve, reject) => { server.once('listening', resolve); serv
 const base = 'http://127.0.0.1:' + server.address().port;
 const endpoints = ['/api/ai/generate-description', '/api/ai/nearby-attractions', '/api/ai/travel-assistant'];
 
-async function post(path, token) {
+async function post(path, token, body = {}) {
   return nativeFetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify({}) });
 }
 
@@ -35,7 +35,7 @@ test('all AI endpoints reject invalid Firebase ID tokens', async () => {
 
 test('AI endpoints apply a 20-request per-minute per-user limit', async () => {
   globalThis.fetch = async () => new Response(JSON.stringify({ users: [{ localId: 'ci-user-1' }] }), { status: 200, headers: { 'content-type': 'application/json' } });
-  for (let index = 0; index < 20; index += 1) assert.equal((await post('/api/ai/generate-description', 'valid-test-token')).status, 500);
+  for (let index = 0; index < 20; index += 1) assert.equal((await post('/api/ai/generate-description', 'valid-test-token', { propertyName: 'CI test property' })).status, 500);
   const limited = await post('/api/ai/generate-description', 'valid-test-token');
   assert.equal(limited.status, 429);
   assert.ok(limited.headers.get('retry-after'));

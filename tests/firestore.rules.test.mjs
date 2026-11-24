@@ -146,6 +146,23 @@ test('an invalid Search Boost UTR is rejected', async () => {
 });
 
 
+test('Blue Tick application stays out of admin review until owner submits UTR', async () => {
+  const ownerDb = env.authenticatedContext('owner-1').firestore();
+  const applicationRef = doc(ownerDb, 'verificationApplications', 'verify-payment-flow');
+  await assertSucceeds(setDoc(applicationRef, {
+    ownerUid: 'owner-1', propertyId: 'active-property', propertyTitle: 'Original listing',
+    status: 'awaiting_payment', paymentStatus: 'not_submitted',
+    documentCount: 1, documentPaths: [], proofSubmissionMethod: 'whatsapp_share',
+    proofStatus: 'awaiting_payment', submittedAt: Timestamp.now(),
+  }));
+  await assertSucceeds(updateDoc(applicationRef, {
+    status: 'pending', paymentStatus: 'pending', paymentUtr: 'VERIFY123456',
+    paymentSubmittedAt: Timestamp.now(), proofSubmissionMethod: 'whatsapp_share',
+    proofStatus: 'awaiting_manual_review',
+  }));
+  await assertFails(updateDoc(applicationRef, { paymentStatus: 'verified' }));
+});
+
 test('an owner cannot extend subscription or paid badge validity', async () => {
   const db = env.authenticatedContext('owner-1').firestore();
   const propertyRef = doc(db, 'properties', 'active-property');

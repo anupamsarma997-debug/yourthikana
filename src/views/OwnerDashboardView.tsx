@@ -5,6 +5,7 @@ import { auth } from '../lib/firebase';
 import { uploadPropertyPhoto } from '../services/uploadPropertyImage';
 import { BlueTickOwnerPanel } from '../components/BlueTickOwnerPanel';
 import { SearchBoostOwnerPanel } from '../components/SearchBoostOwnerPanel';
+import { MonthlySubscriptionOwnerPanel } from '../components/MonthlySubscriptionOwnerPanel';
 import { AuthModal } from '../components/AuthModal';
 import { QRPerformanceCard } from '../components/QRPerformanceCard';
 import { 
@@ -898,6 +899,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
           <h2 className="text-base font-black text-slate-900 dark:text-white">Payments & Verification</h2>
           <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Your payment and verification options are shown directly here. Pay Now buttons are visible without opening another tab or menu.</p>
         </div>
+        <div id="monthly-subscription"><MonthlySubscriptionOwnerPanel properties={properties} /></div>
         <BlueTickOwnerPanel properties={properties} selectedPropertyId={selectedAddonPropertyId} />
         <SearchBoostOwnerPanel properties={properties} selectedPropertyId={selectedAddonPropertyId} />
       </section>
@@ -1075,7 +1077,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
 
                         {isOwner && (
                           <button
-                            onClick={() => handleBuyAddon(property.id, 'renew')}
+                            onClick={() => document.getElementById('monthly-subscription')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                             className="bg-slate-900 text-white text-[10px] px-2.5 py-1 rounded-lg hover:bg-slate-800 cursor-pointer"
                           >
                             Pay ₹1000/month

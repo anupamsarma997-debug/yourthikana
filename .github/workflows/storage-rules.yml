@@ -1,0 +1,41 @@
+name: Storage Rules Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'storage.rules'
+      - 'firebase.json'
+      - '.github/workflows/storage-rules.yml'
+  push:
+    branches: ['**']
+    paths:
+      - 'storage.rules'
+      - 'firebase.json'
+      - '.github/workflows/storage-rules.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  storage-rules:
+    name: Compile Storage rules in emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Start emulator and compile rules
+        run: npx --yes firebase-tools@latest emulators:exec --only storage --project demo-yourthikana --non-interactive "echo Storage rules compiled successfully"

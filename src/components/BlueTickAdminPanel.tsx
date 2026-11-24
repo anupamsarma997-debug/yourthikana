@@ -138,11 +138,21 @@ export const BlueTickAdminPanel: React.FC = () => {
         const now = new Date();
         batch.update(applicationRef, { paymentStatus: 'verified', paymentVerifiedAt: now.toISOString(), paymentVerifiedBy: auth.currentUser.uid });
         if (application.status === 'approved') {
-          const existingExpiry = application.verifiedUntil ? new Date(application.verifiedUntil) : now;
-          const renewalBase = existingExpiry.getTime() > now.getTime() ? existingExpiry : now;
-          const nextExpiry = addCalendarMonths(renewalBase, 1).toISOString();
-          batch.update(applicationRef, { verifiedUntil: nextExpiry });
-          batch.update(doc(db, 'properties', application.propertyId), { isVerified: true, verifiedUntil: nextExpiry });
+          // Legacy approved applications may have a pending payment record.
+          // Verification is a one-time ₹500 fee, so it never expires monthly.
+          batch.update(doc(db, 'properties', application.propertyId), { isVerified: true, verifiedUntil: null });
+          batch.set(doc(db, 'transactions', `verification-${application.id}`), {
+            id: `verification-${application.id}`,
+            ownerId: application.ownerUid,
+            ownerName: 'Property owner',
+            propertyId: application.propertyId,
+            propertyName: application.propertyTitle,
+            type: 'verified_badge',
+            planName: 'One-time Property Verification',
+            amount: 500,
+            date: now.toLocaleDateString('en-IN'),
+            createdAt: now.toISOString(),
+          });
         }
       } else {
         batch.update(applicationRef, { paymentStatus: 'rejected', paymentReviewNote: 'Payment reference could not be confirmed. Please check UTR and resubmit.', paymentReviewedAt: new Date().toISOString(), paymentReviewedBy: auth.currentUser.uid });

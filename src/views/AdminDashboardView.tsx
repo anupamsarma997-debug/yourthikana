@@ -283,7 +283,7 @@ export const AdminDashboardView: React.FC = () => {
       </div>
 
       {activeTab === 'subscriptionApps' && <MonthlySubscriptionAdminPanel />}
-      {activeTab === 'verifications' && <BlueTickAdminPanel />
+      {activeTab === 'verifications' && <BlueTickAdminPanel />}
       {activeTab === 'searchBoosts' && <SearchBoostAdminPanel />}
 
       {/* Tab 1: Properties Table */}

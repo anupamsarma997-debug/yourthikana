@@ -63,8 +63,8 @@ export interface Property {
   address: string;
   city: string;
   state: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   googleMapUrl?: string;
   nearbyAttractions?: string[];
   checkInTime: string; // e.g. "12:00 PM"

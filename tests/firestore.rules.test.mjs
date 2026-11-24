@@ -2,7 +2,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, Timestamp, runTransaction } from 'firebase/firestore';
 
 let env;
 const projectId = 'demo-yourthikana';
@@ -154,4 +154,86 @@ test('an owner cannot extend subscription or paid badge validity', async () => {
   await assertFails(updateDoc(propertyRef, { subscriptionTrialEndsAt: '2099-01-01T00:00:00.000Z' }));
   await assertFails(updateDoc(propertyRef, { verifiedUntil: '2099-01-01T00:00:00.000Z' }));
   await assertFails(updateDoc(propertyRef, { featuredUntil: '2099-01-01T00:00:00.000Z' }));
+});
+
+
+test('an owner can atomically create a pending property and its duplicate fingerprint', async () => {
+  const db = env.authenticatedContext('owner-1').firestore();
+  const propertyId = 'prop-atomic-test';
+  const duplicateKey = 'fingerprint-atomic-test';
+  const property = {
+    id: propertyId,
+    title: 'Test homestay',
+    city: 'Guwahati',
+    ownerUid: 'owner-1',
+    ownerId: 'owner-1',
+    ownerName: 'Test Host',
+    ownerPhone: '',
+    ownerWhatsApp: '',
+    description: '',
+    propertyType: 'Homestay',
+    address: 'Test address',
+    state: 'Assam',
+    latitude: null,
+    longitude: null,
+    checkInTime: '',
+    checkOutTime: '',
+    photos: [],
+    rating: 0,
+    reviewsCount: 0,
+    isVerified: false,
+    isFeatured: false,
+    status: 'pending',
+    subscriptionPlan: 'none',
+    subscriptionPrice: 0,
+    subscriptionExpiresAt: '',
+    createdAt: new Date().toISOString(),
+    duplicateKeys: [duplicateKey],
+  };
+
+  await assertSucceeds(runTransaction(db, async (transaction) => {
+    const duplicateRef = doc(db, 'property_duplicate_keys', duplicateKey);
+    const existing = await transaction.get(duplicateRef);
+    assert.equal(existing.exists(), false);
+    transaction.set(duplicateRef, {
+      ownerUid: 'owner-1',
+      propertyId,
+      createdAt: new Date().toISOString(),
+    });
+    transaction.set(doc(db, 'properties', propertyId), property);
+  }));
+
+  await assertSucceeds(getDoc(doc(db, 'properties', propertyId)));
+});
+
+test('another account cannot claim a duplicate fingerprint for its own property', async () => {
+  const ownerDb = env.authenticatedContext('owner-1').firestore();
+  const otherDb = env.authenticatedContext('owner-2').firestore();
+  const propertyId = 'prop-owner-1';
+  const duplicateKey = 'fingerprint-owned-by-1';
+  const property = {
+    id: propertyId, title: 'Owned listing', city: 'Guwahati',
+    ownerUid: 'owner-1', ownerId: 'owner-1', ownerName: 'Owner',
+    ownerPhone: '', ownerWhatsApp: '', description: '', propertyType: 'Hotel',
+    address: 'Address', state: 'Assam', latitude: null, longitude: null,
+    checkInTime: '', checkOutTime: '', photos: [], rating: 0, reviewsCount: 0,
+    isVerified: false, isFeatured: false, status: 'pending',
+    subscriptionPlan: 'none', subscriptionPrice: 0,
+    subscriptionExpiresAt: '', createdAt: new Date().toISOString(),
+    duplicateKeys: [duplicateKey],
+  };
+  await assertSucceeds(runTransaction(ownerDb, async (transaction) => {
+    transaction.set(doc(ownerDb, 'property_duplicate_keys', duplicateKey), {
+      ownerUid: 'owner-1', propertyId, createdAt: new Date().toISOString(),
+    });
+    transaction.set(doc(ownerDb, 'properties', propertyId), property);
+  }));
+
+  const otherProperty = { ...property, id: 'prop-owner-2', ownerUid: 'owner-2', ownerId: 'owner-2' };
+  await assertFails(runTransaction(otherDb, async (transaction) => {
+    transaction.set(doc(otherDb, 'property_duplicate_keys', duplicateKey), {
+      ownerUid: 'owner-2', propertyId: 'prop-owner-2', createdAt: new Date().toISOString(),
+    });
+    transaction.set(doc(otherDb, 'properties', 'prop-owner-2'), otherProperty);
+  }));
 });

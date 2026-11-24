@@ -36,3 +36,15 @@ jobs:
 
       - name: Production build
         run: bun run build
+
+      - name: API function bundle smoke test
+        run: |
+          VERCEL=1 NODE_ENV=production bun -e "
+            import travel from './api/ai/travel-assistant.ts';
+            import description from './api/ai/generate-description.ts';
+            import nearby from './api/ai/nearby-attractions.ts';
+            for (const [name, handler] of [['travel-assistant', travel], ['generate-description', description], ['nearby-attractions', nearby]]) {
+              if (typeof handler !== 'function') throw new Error(name + ' did not export an Express handler');
+            }
+            console.log('All Vercel AI API entry points load the Express app.');
+          "

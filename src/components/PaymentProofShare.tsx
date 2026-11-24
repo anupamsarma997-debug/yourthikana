@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Smartphone, Copy, ImagePlus, CheckCircle2, Share2 } from 'lucide-react';
+import { Smartphone, Copy, CheckCircle2, Share2 } from 'lucide-react';
 
 const UPI_ID = 'anupamsarma997-1@okhdfcbank';
 const SUPPORT_NUMBER = '+91 9101280465';

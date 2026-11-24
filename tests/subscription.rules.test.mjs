@@ -24,6 +24,7 @@ beforeEach(async () => {
       title: 'Test property',
       status: 'active',
       subscriptionTrialEndsAtTimestamp: Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000),
+      subscriptionExpiresAtTimestamp: Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000),
     });
   });
 });

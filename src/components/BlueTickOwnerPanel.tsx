@@ -174,7 +174,7 @@ export const BlueTickOwnerPanel: React.FC<{ properties: Property[]; selectedProp
                     {application.proofStatus === 'share_sheet_completed' && <p className="text-xs text-[#5EEAD4]">Property documents uploaded.</p>}
                   </div>
                   {application.paymentStatus !== 'verified' && (
-                    <PaymentProofShare amount={500} title="Blue Tick Verification" applicationId={application.id} propertyTitle={application.propertyTitle} storageFolder="verification-documents" onShared={utr => markPaymentSubmitted(application, utr)} initialUtr={application.paymentUtr || ''} disabled={busy} />
+                    <PaymentProofShare amount={500} title="Blue Tick Verification" applicationId={application.id} propertyTitle={application.propertyTitle} storageFolder="verification-documents" onSubmitted={utr => markPaymentSubmitted(application, utr)} initialUtr={application.paymentUtr || ''} disabled={busy} />
                   )}
                   {application.paymentStatus === 'pending' && <p className="rounded-xl bg-[#30250F] p-3 text-xs leading-5 text-[#FBBF24]">Payment proof submitted. Admin bank verification pending hai.</p>}
                 </>

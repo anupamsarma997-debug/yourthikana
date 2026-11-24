@@ -291,7 +291,7 @@ service cloud.firestore {
         request.resource.data.status == 'awaiting_payment' &&
         request.resource.data.paymentStatus == 'not_submitted' &&
         request.resource.data.documentCount is int &&
-        request.resource.data.documentCount >= 1 &&
+        request.resource.data.documentCount >= 0 &&
         request.resource.data.documentCount <= 5 &&
         request.resource.data.documentPaths is list &&
         request.resource.data.documentPaths.size() == 0 &&

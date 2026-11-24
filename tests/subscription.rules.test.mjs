@@ -105,7 +105,7 @@ test('owner cannot self-activate or extend subscription and badge expiry', async
 });
 
 
-test('Search Boost proof is marked uploaded, not falsely marked as WhatsApp-shared', async () => {
+test('Search Boost UTR submission records WhatsApp manual review state', async () => {
   const ownerDb = env.authenticatedContext('owner-1').firestore();
   const applicationRef = doc(ownerDb, 'searchBoostApplications', 'boost-1');
   await setDoc(applicationRef, {

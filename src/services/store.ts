@@ -1234,6 +1234,9 @@ class DataStore {
 
     const prop = this.getPropertyById(id);
     if (!prop) return { success: false, message: 'Property not found.' };
+    if (prop.status === 'hidden_expired' && status === 'active') {
+      return { success: false, message: 'This listing can be reactivated only after the monthly subscription payment is verified and approved.' };
+    }
     if (!db) return { success: false, message: 'Secure database is unavailable. No change was made.' };
 
     try {

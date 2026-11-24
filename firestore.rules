@@ -306,7 +306,7 @@ service cloud.firestore {
       allow update: if isAdmin() || (
         signedIn() &&
         resource.data.ownerUid == request.auth.uid &&
-        resource.data.status in ['awaiting_payment', 'pending', 'approved'] &&
+        resource.data.status in ['awaiting_payment', 'pending', 'approved', 'rejected'] &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status', 'paymentUtr', 'paymentSubmittedAt', 'paymentStatus',
           'proofSubmissionMethod', 'proofStatus', 'documentsUploadedAt'

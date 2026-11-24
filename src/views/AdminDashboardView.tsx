@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { store } from '../services/store';
 import { Property, User, BannerAd } from '../types';
-import { auth } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
+import { collection, doc, Timestamp, updateDoc, writeBatch } from 'firebase/firestore';
 import { BlueTickAdminPanel } from '../components/BlueTickAdminPanel';
 import { SearchBoostAdminPanel } from '../components/SearchBoostAdminPanel';
 import { MonthlySubscriptionAdminPanel } from '../components/MonthlySubscriptionAdminPanel';
@@ -27,6 +28,16 @@ import {
   Layers,
   Check
 } from 'lucide-react';
+
+function addCalendarMonths(date: Date, months: number): Date {
+  const result = new Date(date);
+  const day = result.getDate();
+  result.setDate(1);
+  result.setMonth(result.getMonth() + months);
+  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+  result.setDate(Math.min(day, lastDay));
+  return result;
+}
 
 export const AdminDashboardView: React.FC = () => {
   const [properties, setProperties] = useState<Property[]>(store.getProperties());
@@ -86,11 +97,14 @@ export const AdminDashboardView: React.FC = () => {
   // Banner Form State
   const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
   const [bannerTitle, setBannerTitle] = useState('Promote Your Homestay with THIKANA Ads');
-  const [bannerSubtitle, setBannerSubtitle] = useState('Reach over 50,000 monthly travelers searching for authentic local stays.');
-  const [bannerImageUrl, setBannerImageUrl] = useState('https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=80');
-  const [bannerTargetUrl, setBannerTargetUrl] = useState('#owner');
+  const [bannerSubtitle, setBannerSubtitle] = useState('Promote your travel-related business to people exploring stays on YourThikana.');
+  const [bannerImageUrl, setBannerImageUrl] = useState('');
+  const [bannerTargetUrl, setBannerTargetUrl] = useState('https://mythikana.vercel.app/');
   const [bannerCtaText, setBannerCtaText] = useState('Advertise Now');
   const [bannerPosition, setBannerPosition] = useState<'home' | 'search' | 'property'>('home');
+  const [bannerAdvertiserName, setBannerAdvertiserName] = useState('');
+  const [bannerPaymentAmount, setBannerPaymentAmount] = useState('');
+  const [bannerPaymentConfirmed, setBannerPaymentConfirmed] = useState(false);
 
   React.useEffect(() => {
     return store.subscribe(() => {
@@ -100,6 +114,33 @@ export const AdminDashboardView: React.FC = () => {
       setTransactions(store.getTransactions());
     });
   }, []);
+
+  React.useEffect(() => {
+    if (!db || !isAuthorized) return;
+    const legacyTrials = properties.filter(property =>
+      property.status === 'active' && !property.subscriptionTrialEndsAtTimestamp
+    );
+    legacyTrials.forEach(property => {
+      const now = new Date();
+      const startedAt = property.subscriptionTrialStartedAt
+        ? new Date(property.subscriptionTrialStartedAt)
+        : property.subscriptionTrialEndsAt
+          ? null
+          : now;
+      const trialEnd = startedAt
+        ? addCalendarMonths(startedAt, 6)
+        : new Date(property.subscriptionTrialEndsAt || '');
+      if ((startedAt && !Number.isFinite(startedAt.getTime())) || !Number.isFinite(trialEnd.getTime())) return;
+      updateDoc(doc(db, 'properties', property.id), {
+        subscriptionTrialStartedAt: (startedAt || addCalendarMonths(trialEnd, -6)).toISOString(),
+        subscriptionTrialEndsAt: trialEnd.toISOString(),
+        subscriptionTrialEndsAtTimestamp: Timestamp.fromDate(trialEnd),
+        subscriptionStatus: trialEnd.getTime() > now.getTime() ? 'trial' : 'expired',
+      }).catch(error => console.error('Legacy subscription trial migration failed:', property.id, error));
+    });
+  }, [properties, isAuthorized]);
+
+
 
   // Compute Revenue Stats
   const totalRevenue = transactions.reduce((acc, t) => acc + t.amount, 0);
@@ -117,19 +158,56 @@ export const AdminDashboardView: React.FC = () => {
     alert(result.message || (result.success ? 'Listing deleted.' : 'Could not delete listing.'));
   };
 
-  const handleAddBanner = (e: React.FormEvent) => {
+  const handleAddBanner = async (e: React.FormEvent) => {
     e.preventDefault();
-    store.addBanner({
-      title: bannerTitle,
-      subtitle: bannerSubtitle,
-      imageUrl: bannerImageUrl,
-      targetUrl: bannerTargetUrl,
-      ctaText: bannerCtaText,
+    const amount = Number(bannerPaymentAmount);
+    const imageIsHttps = /^https:\/\//i.test(bannerImageUrl.trim());
+    const targetIsSafe = /^https:\/\//i.test(bannerTargetUrl.trim());
+    if (!db || !auth.currentUser || !bannerAdvertiserName.trim() || !Number.isSafeInteger(amount) || amount <= 0 || !imageIsHttps || !targetIsSafe || !bannerPaymentConfirmed) {
+      alert('Advertiser name, positive whole-rupee amount, HTTPS image and destination URLs, and confirmed bank credit are required.');
+      return;
+    }
+    const bannerRef = doc(collection(db, 'banners'));
+    const transactionRef = doc(collection(db, 'transactions'));
+    const now = new Date();
+    const batch = writeBatch(db);
+    batch.set(bannerRef, {
+      id: bannerRef.id,
+      title: bannerTitle.trim(),
+      subtitle: bannerSubtitle.trim(),
+      imageUrl: bannerImageUrl.trim(),
+      targetUrl: bannerTargetUrl.trim(),
+      ctaText: bannerCtaText.trim() || 'Learn More',
       position: bannerPosition,
       isActive: true,
+      advertiserName: bannerAdvertiserName.trim(),
+      campaignAmount: amount,
+      paymentVerifiedAt: now.toISOString(),
+      createdAt: now.toISOString(),
     });
-    alert('New banner advertisement added successfully!');
-    setIsBannerModalOpen(false);
+    batch.set(transactionRef, {
+      id: transactionRef.id,
+      ownerId: 'advertiser',
+      ownerName: bannerAdvertiserName.trim(),
+      propertyId: '',
+      propertyName: bannerTitle.trim(),
+      type: 'advertisement',
+      planName: 'Banner Advertisement — ' + bannerPosition,
+      amount,
+      date: now.toLocaleDateString('en-IN'),
+      createdAt: now.toISOString(),
+    });
+    try {
+      await batch.commit();
+      setBannerAdvertiserName('');
+      setBannerPaymentAmount('');
+      setBannerPaymentConfirmed(false);
+      setIsBannerModalOpen(false);
+      alert('Banner published and confirmed advertising revenue recorded.');
+    } catch (error: any) {
+      console.error('Banner advertisement activation failed:', error);
+      alert(error?.message || 'Banner could not be published. No success was recorded.');
+    }
   };
 
   if (isVerifying) {
@@ -196,7 +274,7 @@ export const AdminDashboardView: React.FC = () => {
             ₹{totalRevenue}
           </p>
           <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-            Subscriptions & Badges
+            Verified subscriptions, badges & advertisements
           </p>
         </div>
 
@@ -222,7 +300,7 @@ export const AdminDashboardView: React.FC = () => {
             {totalVerifiedCount}
           </p>
           <p className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold mt-1">
-            ₹500/mo Active Blue Ticks
+            ₹500 one-time verification fee
           </p>
         </div>
 
@@ -558,6 +636,22 @@ export const AdminDashboardView: React.FC = () => {
                 />
               </div>
 
+              <div>
+                <label className="block font-bold mb-1">Advertiser / Business Name</label>
+                <input type="text" required maxLength={100} value={bannerAdvertiserName} onChange={e => setBannerAdvertiserName(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border p-2 rounded-xl" />
+              </div>
+              <div>
+                <label className="block font-bold mb-1">Advertiser Destination URL (HTTPS)</label>
+                <input type="url" required value={bannerTargetUrl} onChange={e => setBannerTargetUrl(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border p-2 rounded-xl" />
+              </div>
+              <div>
+                <label className="block font-bold mb-1">Actual Amount Received (₹)</label>
+                <input type="number" required min="1" step="1" value={bannerPaymentAmount} onChange={e => setBannerPaymentAmount(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border p-2 rounded-xl" />
+              </div>
+              <label className="flex items-start gap-2 rounded-xl border p-3 font-semibold">
+                <input type="checkbox" checked={bannerPaymentConfirmed} onChange={e => setBannerPaymentConfirmed(e.target.checked)} required className="mt-0.5" />
+                I independently confirmed the advertiser's actual bank/UPI credit. The amount above is the amount received.
+              </label>
               <div>
                 <label className="block font-bold mb-1">Position</label>
                 <select

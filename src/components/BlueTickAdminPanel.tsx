@@ -44,15 +44,6 @@ function EvidenceFiles({ application, onEvidenceCounts }: { application: Verific
   );
 }
 
-function addCalendarMonths(date: Date, months: number): Date {
-  const result = new Date(date);
-  const day = result.getDate();
-  result.setDate(1);
-  result.setMonth(result.getMonth() + months);
-  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
-  result.setDate(Math.min(day, lastDay));
-  return result;
-}
 
 const dateLabel = (value?: string) => value ? new Date(value).toLocaleString('en-IN') : '—';
 
@@ -90,20 +81,31 @@ export const BlueTickAdminPanel: React.FC = () => {
         setMessage('Property deleted or not published. Blue Tick cannot be approved.'); return;
       }
       if (action === 'approve' && application.paymentStatus !== 'verified') {
-        setMessage('Verify the ₹500 payment first. Blue Tick has no free trial.'); return;
+        setMessage('Verify the one-time ₹500 payment first. Blue Tick has no free trial.'); return;
       }
       const batch = writeBatch(db);
       const applicationRef = doc(db, 'verificationApplications', application.id);
       if (action === 'approve') {
         const approvedAt = new Date();
-        const paidUntil = addCalendarMonths(approvedAt, 1).toISOString();
-        batch.update(applicationRef, { status: 'approved', approvedAt: approvedAt.toISOString(), verifiedUntil: paidUntil, reviewedBy: auth.currentUser.uid });
-        batch.update(propertyRef, { isVerified: true, verifiedUntil: paidUntil });
+        batch.update(applicationRef, { status: 'approved', approvedAt: approvedAt.toISOString(), reviewedBy: auth.currentUser.uid });
+        batch.update(propertyRef, { isVerified: true, verifiedUntil: null });
+        batch.set(doc(db, 'transactions', `verification-${application.id}`), {
+          id: `verification-${application.id}`,
+          ownerId: application.ownerUid,
+          ownerName: propertySnapshot.data().ownerName || 'Property owner',
+          propertyId: application.propertyId,
+          propertyName: application.propertyTitle,
+          type: 'verified_badge',
+          planName: 'One-time Property Verification',
+          amount: 500,
+          date: approvedAt.toLocaleDateString('en-IN'),
+          createdAt: approvedAt.toISOString(),
+        });
       } else {
         batch.update(applicationRef, { status: 'rejected', reviewNote: 'Application not approved. Please contact YourThikana support for clarification.', reviewedBy: auth.currentUser.uid, reviewedAt: new Date().toISOString() });
       }
       await batch.commit();
-      setMessage(action === 'approve' ? 'Payment and property proof approved. Blue Tick activated for one paid month.' : 'Application rejected.');
+      setMessage(action === 'approve' ? 'Payment and property proof approved. One-time ₹500 Blue Tick verification activated.' : 'Application rejected.');
     } catch (error: any) {
       console.error('Verification review failed:', error);
       setMessage(error?.message || 'Review action failed. Check admin claim and property record.');
@@ -127,17 +129,27 @@ export const BlueTickAdminPanel: React.FC = () => {
         const now = new Date();
         batch.update(applicationRef, { paymentStatus: 'verified', paymentVerifiedAt: now.toISOString(), paymentVerifiedBy: auth.currentUser.uid });
         if (application.status === 'approved') {
-          const existingExpiry = application.verifiedUntil ? new Date(application.verifiedUntil) : now;
-          const renewalBase = existingExpiry.getTime() > now.getTime() ? existingExpiry : now;
-          const nextExpiry = addCalendarMonths(renewalBase, 1).toISOString();
-          batch.update(applicationRef, { verifiedUntil: nextExpiry });
-          batch.update(doc(db, 'properties', application.propertyId), { isVerified: true, verifiedUntil: nextExpiry });
+          // Legacy approved applications may have a pending payment record.
+          // Verification is a one-time ₹500 fee, so it never expires monthly.
+          batch.update(doc(db, 'properties', application.propertyId), { isVerified: true, verifiedUntil: null });
+          batch.set(doc(db, 'transactions', `verification-${application.id}`), {
+            id: `verification-${application.id}`,
+            ownerId: application.ownerUid,
+            ownerName: 'Property owner',
+            propertyId: application.propertyId,
+            propertyName: application.propertyTitle,
+            type: 'verified_badge',
+            planName: 'One-time Property Verification',
+            amount: 500,
+            date: now.toLocaleDateString('en-IN'),
+            createdAt: now.toISOString(),
+          });
         }
       } else {
         batch.update(applicationRef, { paymentStatus: 'rejected', paymentReviewNote: 'Payment reference could not be confirmed. Please check UTR and resubmit.', paymentReviewedAt: new Date().toISOString(), paymentReviewedBy: auth.currentUser.uid });
       }
       await batch.commit();
-      setMessage(approve ? 'Payment verified. Blue Tick renewed for one calendar month.' : 'Payment reference rejected; owner can submit a corrected UTR.');
+      setMessage(approve ? 'Payment verified. Blue Tick payment verified.' : 'Payment reference rejected; owner can submit a corrected UTR.');
     } catch (error: any) {
       console.error('Payment verification failed:', error);
       setMessage(error?.message || 'Payment review failed.');
@@ -149,7 +161,7 @@ export const BlueTickAdminPanel: React.FC = () => {
 
   return (
     <section className="bg-white dark:bg-slate-800 rounded-3xl border border-blue-200 dark:border-blue-900 p-5 sm:p-6 space-y-5">
-      <div className="flex items-center gap-3"><div className="rounded-xl bg-blue-100 dark:bg-blue-950 p-3"><BadgeCheck className="w-6 h-6 text-blue-600" /></div><div><h2 className="text-lg font-black text-slate-900 dark:text-white">Blue Tick Verification Review</h2><p className="text-xs text-slate-500">Pending applications: {pending.length} · Payment checks: {paymentPending.length}</p></div></div>
+      <div className="flex items-center gap-3"><div className="rounded-xl bg-blue-100 dark:bg-blue-950 p-3"><BadgeCheck className="w-6 h-6 text-blue-600" /></div><div><h2 className="text-lg font-black text-slate-900 dark:text-white">Blue Tick Verification Review</h2><p className="text-xs text-slate-500">₹500 one-time verification · Pending applications: {pending.length} · Payment checks: {paymentPending.length}</p></div></div>
       {message && <p role="status" className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 text-xs">{message}</p>}
       {applications.length === 0 && <p className="text-xs text-slate-500">No verification applications received yet.</p>}
       {applications.map(application => (

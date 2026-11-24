@@ -1,7 +1,7 @@
 import { Property, RoomType, BannerAd, User, UserRole, BookingEnquiry, SubscriptionTransaction, PropertyType, PropertyVisit, PropertyLead } from '../types';
 import { INITIAL_USERS, INITIAL_PROPERTIES, INITIAL_ROOMS, INITIAL_BANNERS, INITIAL_TRANSACTIONS } from '../data/initialData';
 import { db, auth, isFirebaseConfigured, firebaseConfigError } from '../lib/firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot, query, where, getDoc, getDocs, runTransaction } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, query, where, getDoc, getDocs, runTransaction, Timestamp } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 const STORAGE_KEYS = {
@@ -1218,9 +1218,10 @@ class DataStore {
       const update: Partial<Property> = { status };
       if (status === 'active' && !prop.subscriptionTrialStartedAt && !prop.subscriptionTrialEndsAt) {
         const trialStart = new Date();
-        const trialEnd = addCalendarMonths(trialStart, 3);
+        const trialEnd = addCalendarMonths(trialStart, 6);
         update.subscriptionTrialStartedAt = trialStart.toISOString();
         update.subscriptionTrialEndsAt = trialEnd.toISOString();
+        update.subscriptionTrialEndsAtTimestamp = Timestamp.fromDate(trialEnd);
         update.subscriptionStatus = 'trial';
         update.subscriptionPlan = 'standard_1000';
         update.subscriptionPrice = 1000;
@@ -1490,18 +1491,34 @@ class DataStore {
   public addBanner(banner: Omit<BannerAd, 'id'>): BannerAd {
     const newBanner: BannerAd = {
       ...banner,
-      id: 'banner_' + Date.now(),
+      id: 'banner_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
     };
     this.banners.push(newBanner);
     this.notify();
+    if (db) {
+      setDoc(doc(db, 'banners', newBanner.id), sanitizeForFirestore(newBanner))
+        .catch(error => {
+          this.banners = this.banners.filter(item => item.id !== newBanner.id);
+          this.firestoreError = error?.message || String(error);
+          this.notify();
+          console.error('Firestore addBanner failed:', error);
+        });
+    }
     return newBanner;
   }
 
   public toggleBannerStatus(id: string) {
     const idx = this.banners.findIndex((b) => b.id === id);
     if (idx !== -1) {
-      this.banners[idx].isActive = !this.banners[idx].isActive;
+      const nextStatus = !this.banners[idx].isActive;
+      this.banners[idx].isActive = nextStatus;
       this.notify();
+      if (db) setDoc(doc(db, 'banners', id), { isActive: nextStatus }, { merge: true })
+        .catch(error => {
+          this.firestoreError = error?.message || String(error);
+          this.notify();
+          console.error('Firestore toggleBannerStatus failed:', error);
+        });
     }
   }
 
@@ -1510,12 +1527,23 @@ class DataStore {
     if (idx !== -1) {
       this.banners[idx] = { ...this.banners[idx], ...updates };
       this.notify();
+      if (db) setDoc(doc(db, 'banners', id), sanitizeForFirestore(updates), { merge: true })
+        .catch(error => {
+          this.firestoreError = error?.message || String(error);
+          this.notify();
+          console.error('Firestore updateBanner failed:', error);
+        });
     }
   }
 
   public deleteBanner(id: string) {
     this.banners = this.banners.filter((b) => b.id !== id);
     this.notify();
+    if (db) deleteDoc(doc(db, 'banners', id)).catch(error => {
+      this.firestoreError = error?.message || String(error);
+      this.notify();
+      console.error('Firestore deleteBanner failed:', error);
+    });
   }
 
   // Transactions & Revenue

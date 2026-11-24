@@ -2,7 +2,7 @@ import type { Property } from '../types';
 
 type SubscriptionAccessRecord = Pick<
   Property,
-  'subscriptionExpiresAt' | 'subscriptionExpiryDate' | 'subscriptionTrialEndsAt' | 'subscriptionTrialEndsAtTimestamp' | 'subscriptionStatus'
+  'subscriptionExpiresAt' | 'subscriptionExpiresAtTimestamp' | 'subscriptionExpiryDate' | 'subscriptionTrialEndsAt' | 'subscriptionTrialEndsAtTimestamp' | 'subscriptionStatus'
 >;
 
 function toExpiryMillis(value: unknown): number | null {
@@ -33,6 +33,7 @@ export function isSubscriptionAccessActive(
   if (property.subscriptionStatus === 'expired') return false;
 
   const expiryValues = [
+    property.subscriptionExpiresAtTimestamp,
     property.subscriptionExpiresAt,
     property.subscriptionExpiryDate,
     property.subscriptionTrialEndsAtTimestamp,

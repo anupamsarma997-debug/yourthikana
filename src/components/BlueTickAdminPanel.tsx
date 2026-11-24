@@ -96,14 +96,25 @@ export const BlueTickAdminPanel: React.FC = () => {
       const applicationRef = doc(db, 'verificationApplications', application.id);
       if (action === 'approve') {
         const approvedAt = new Date();
-        const paidUntil = addCalendarMonths(approvedAt, 1).toISOString();
-        batch.update(applicationRef, { status: 'approved', approvedAt: approvedAt.toISOString(), verifiedUntil: paidUntil, reviewedBy: auth.currentUser.uid });
-        batch.update(propertyRef, { isVerified: true, verifiedUntil: paidUntil });
+        batch.update(applicationRef, { status: 'approved', approvedAt: approvedAt.toISOString(), reviewedBy: auth.currentUser.uid });
+        batch.update(propertyRef, { isVerified: true, verifiedUntil: null });
+        batch.set(doc(db, 'transactions', `verification-${application.id}`), {
+          id: `verification-${application.id}`,
+          ownerId: application.ownerUid,
+          ownerName: propertySnapshot.data().ownerName || 'Property owner',
+          propertyId: application.propertyId,
+          propertyName: application.propertyTitle,
+          type: 'verified_badge',
+          planName: 'One-time Property Verification',
+          amount: 500,
+          date: approvedAt.toLocaleDateString('en-IN'),
+          createdAt: approvedAt.toISOString(),
+        });
       } else {
         batch.update(applicationRef, { status: 'rejected', reviewNote: 'Application not approved. Please contact YourThikana support for clarification.', reviewedBy: auth.currentUser.uid, reviewedAt: new Date().toISOString() });
       }
       await batch.commit();
-      setMessage(action === 'approve' ? 'Payment and property proof approved. Blue Tick activated for one paid month.' : 'Application rejected.');
+      setMessage(action === 'approve' ? 'Payment and property proof approved. One-time ₹500 Blue Tick verification activated.' : 'Application rejected.');
     } catch (error: any) {
       console.error('Verification review failed:', error);
       setMessage(error?.message || 'Review action failed. Check admin claim and property record.');
@@ -137,7 +148,7 @@ export const BlueTickAdminPanel: React.FC = () => {
         batch.update(applicationRef, { paymentStatus: 'rejected', paymentReviewNote: 'Payment reference could not be confirmed. Please check UTR and resubmit.', paymentReviewedAt: new Date().toISOString(), paymentReviewedBy: auth.currentUser.uid });
       }
       await batch.commit();
-      setMessage(approve ? 'Payment verified. Blue Tick renewed for one calendar month.' : 'Payment reference rejected; owner can submit a corrected UTR.');
+      setMessage(approve ? 'Payment verified. Blue Tick payment verified.' : 'Payment reference rejected; owner can submit a corrected UTR.');
     } catch (error: any) {
       console.error('Payment verification failed:', error);
       setMessage(error?.message || 'Payment review failed.');

@@ -769,7 +769,7 @@ export const OwnerDashboardView: React.FC<OwnerDashboardViewProps> = ({
         }
 
         setFilterMode('all');
-        alert(`🎉 Property "${newProp?.title || title}" listed & published successfully!\n\nIt is now saved in Firestore and live on the Home Page and All Listings.`);
+        alert(`✅ Property "${newProp?.title || title}" submitted successfully!\n\nYour listing is saved and is waiting for admin approval. It will appear publicly only after it is approved.`);
       }
 
       setIsFormOpen(false);

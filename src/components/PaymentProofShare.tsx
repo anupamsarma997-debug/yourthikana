@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Smartphone, Copy, CheckCircle2, Share2 } from 'lucide-react';
+import { Smartphone, Copy, CheckCircle2, MessageCircle } from 'lucide-react';
 
 const UPI_ID = 'anupamsarma997-1@okhdfcbank';
 const SUPPORT_NUMBER = '+91 9101280465';
@@ -32,32 +32,30 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
     window.location.href = upiIntent;
   };
 
-  const shareProof = async () => {
+  const shareProof = () => {
     if (!validFile || !file) {
       setMessage('JPG, PNG ya WEBP payment screenshot select karein (maximum 8 MB).');
       return;
     }
-    const messageText = `YourThikana payment proof\nService: ${title}\nAmount: ₹${amount}\nProperty: ${propertyTitle}\nApplication ID: ${applicationId}\nUTR: ${cleanUtr || 'Please add after sharing'}\nPlease send this screenshot to YourThikana Support ${SUPPORT_NUMBER} on WhatsApp.`;
-    try {
-      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ title: 'YourThikana payment proof', text: messageText, files: [file] });
-        setShareNotice('Android share menu band ho gaya. Agar WhatsApp mein recipient select karke Send nahi dabaya, to WhatsApp dobara kholkar screenshot bhejein. Share menu se send hone ki automatic confirmation website ko nahi milti.');
-        return;
-      }
-    } catch (error: any) {
-      if (error?.name === 'AbortError') {
-        setShareNotice('Sharing cancel ho gayi. Screenshot WhatsApp par manually bhejein.');
-        return;
-      }
-      console.error('Native payment proof sharing failed:', error);
-    }
-    const whatsappText = messageText + '\nPlease attach the selected screenshot from your phone gallery before sending.';
-    window.location.href = `https://wa.me/919101280465?text=${encodeURIComponent(whatsappText)}`;
-    setShareNotice('WhatsApp chat khul rahi hai. Browser screenshot attach nahi kar sakta—WhatsApp mein gallery se screenshot manually attach karke Send dabayein.');
+
+    const messageText = [
+      'YourThikana payment proof',
+      `Service: ${title}`,
+      `Amount: ₹${amount}`,
+      `Property: ${propertyTitle}`,
+      `Application ID: ${applicationId}`,
+      `UTR: ${cleanUtr || 'Please add after payment'}`,
+      'Please find my payment screenshot attached.'
+    ].join('\n');
+
+    // Open the configured support number directly; do not show Android's generic share chooser.
+    // A wa.me URL cannot attach a locally selected file, so the user attaches it in WhatsApp.
+    window.location.href = `https://wa.me/919101280465?text=${encodeURIComponent(messageText)}`;
+    setShareNotice('WhatsApp mein YourThikana support chat (+91 9101280465) khul rahi hai. Selected screenshot phone mein hi rahega; chat mein attachment icon se Gallery kholkar screenshot attach karein aur Send dabayein.');
   };
 
   const submitUtr = async () => {
-    if (!validFile) { setMessage('Pehle payment screenshot select karein. Screenshot Storage mein upload nahi hoga; ise WhatsApp share menu se bhejein.'); return; }
+    if (!validFile) { setMessage('Pehle payment screenshot select karein. Screenshot Storage mein upload nahi hoga; WhatsApp chat mein manually attach karein.'); return; }
     if (!validUtr) { setMessage('Payment app se asli 8–30 character UTR / Transaction ID dalein.'); return; }
     setBusy(true); setMessage('');
     try {
@@ -87,13 +85,13 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
         <label htmlFor={`payment-proof-${applicationId}`} className="block text-sm font-bold">1. Select payment screenshot <span className="text-rose-400">*Required</span></label>
         <input id={`payment-proof-${applicationId}`} type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { setFile(e.target.files?.[0] || null); setShareNotice(''); }} disabled={disabled || busy} className="block min-h-12 w-full rounded-xl border border-dashed border-[#3A4866] bg-[#0B1220] p-2 text-sm file:mr-2 file:min-h-10 file:rounded-lg file:border-0 file:bg-[#243049] file:px-3 file:font-bold file:text-[#5EEAD4]" />
         {file && <p className="flex items-center gap-2 break-all text-xs text-[#5EEAD4]"><CheckCircle2 className="h-4 w-4 shrink-0" />{file.name} · {Math.ceil(file.size / 1024)} KB (device only)</p>}
-        <button type="button" disabled={disabled || busy || !validFile} onClick={shareProof} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[14px] border border-[#25D366] bg-[#123B2B] px-4 py-3 text-sm font-extrabold text-[#86EFAC] disabled:opacity-40"><Share2 className="h-5 w-5" />Share Screenshot — Choose WhatsApp</button>
+        <button type="button" disabled={disabled || busy || !validFile} onClick={shareProof} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[14px] border border-[#25D366] bg-[#123B2B] px-4 py-3 text-sm font-extrabold text-[#86EFAC] disabled:opacity-40"><MessageCircle className="h-5 w-5" />Send Screenshot to WhatsApp Support</button>
         {shareNotice && <p role="status" className="rounded-xl bg-[#0B302D] p-3 text-xs leading-5 text-[#99F6E4]">{shareNotice}</p>}
         <label htmlFor={`payment-utr-${applicationId}`} className="block pt-2 text-sm font-bold">2. UTR / Transaction ID <span className="text-rose-400">*Required</span></label>
         <input id={`payment-utr-${applicationId}`} value={utr} onChange={e => setUtr(e.target.value.replace(/\s/g, '').slice(0, 30))} disabled={disabled || busy} maxLength={30} placeholder="GPay / PhonePe se actual UTR dalein" className="min-h-12 w-full rounded-xl border border-[#3A4866] bg-[#0B1220] p-3 text-base text-white" />
         <button type="button" disabled={disabled || busy || !validFile || !validUtr} onClick={submitUtr} className="flex min-h-12 w-full items-center justify-center rounded-[14px] bg-[#2563EB] px-4 py-3 text-sm font-extrabold text-white disabled:opacity-40">{busy ? 'Submitting…' : 'Submit UTR for Admin Review'}</button>
       </div>
-      <p className="text-xs leading-5 text-[#9AA7BD]">Important: Android share menu WhatsApp ko khol sakta hai, lekin recipient select karke Send aapko dabana hoga. Website ko WhatsApp delivery ki confirmation nahi milti. UTR ya screenshot se automatic approval nahi milega—admin bank credit independently verify karega.</p>
+      <p className="text-xs leading-5 text-[#9AA7BD]">WhatsApp support chat seedha +91 9101280465 par khulegi. Privacy ke liye screenshot Firebase Storage par upload nahi hota; WhatsApp mein Gallery se ise manually attach karke Send dabayein. Website WhatsApp delivery confirm nahi kar sakti. Admin actual bank credit independently verify karega.</p>
       {message && <p role="status" aria-live="polite" className="break-words rounded-xl bg-[#30250F] p-3 text-sm text-[#FBBF24]">{message}</p>}
     </section>
   );

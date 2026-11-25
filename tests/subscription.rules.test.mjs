@@ -15,7 +15,6 @@ before(async () => {
 
 beforeEach(async () => {
   await env.clearFirestore();
-  await env.clearStorage();
   await env.withSecurityRulesDisabled(async context => {
     await setDoc(doc(context.firestore(), 'properties', 'active-property'), {
       id: 'active-property',
@@ -24,6 +23,7 @@ beforeEach(async () => {
       title: 'Test property',
       status: 'active',
       subscriptionTrialEndsAtTimestamp: Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000),
+      subscriptionExpiresAtTimestamp: Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000),
     });
   });
 });
@@ -69,6 +69,7 @@ test('monthly subscription cannot be requested without an expired six-month tria
     });
     await updateDoc(doc(context.firestore(), 'properties', 'active-property'), {
       subscriptionTrialEndsAtTimestamp: Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000),
+      subscriptionExpiresAtTimestamp: Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000),
     });
   });
   await assertFails(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-without-trial-record'), applicationData({ propertyId: 'property-without-trial' })));
@@ -76,9 +77,25 @@ test('monthly subscription cannot be requested without an expired six-month tria
   await env.withSecurityRulesDisabled(async context => {
     await updateDoc(doc(context.firestore(), 'properties', 'active-property'), {
       subscriptionTrialEndsAtTimestamp: Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000),
+      subscriptionExpiresAtTimestamp: Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000),
     });
   });
   await assertSucceeds(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-after-trial'), applicationData()));
+});
+
+test('an expired hidden property can request renewal but an active paid subscription cannot renew early', async () => {
+  const ownerDb = env.authenticatedContext('owner-1').firestore();
+  await env.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'properties', 'active-property'), { status: 'hidden_expired' });
+  });
+  await assertSucceeds(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-hidden-renewal'), applicationData()));
+  await env.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'properties', 'active-property'), {
+      status: 'active',
+      subscriptionExpiresAtTimestamp: Timestamp.fromMillis(Date.now() + 24 * 60 * 60 * 1000),
+    });
+  });
+  await assertFails(setDoc(doc(ownerDb, 'subscriptionApplications', 'sub-early-renewal'), applicationData()));
 });
 
 test('owner can submit a valid UTR after creating a monthly subscription request', async () => {
@@ -100,6 +117,7 @@ test('owner cannot self-activate or extend subscription and badge expiry', async
   const propertyRef = doc(ownerDb, 'properties', 'active-property');
   await assertFails(updateDoc(propertyRef, { subscriptionStatus: 'active' }));
   await assertFails(updateDoc(propertyRef, { subscriptionExpiresAt: '2099-01-01T00:00:00.000Z' }));
+  await assertFails(updateDoc(propertyRef, { subscriptionExpiresAtTimestamp: Timestamp.fromDate(new Date('2099-01-01T00:00:00.000Z')) }));
   await assertFails(updateDoc(propertyRef, { verifiedUntil: '2099-01-01T00:00:00.000Z' }));
   await assertFails(updateDoc(propertyRef, { featuredUntil: '2099-01-01T00:00:00.000Z' }));
 });
@@ -160,7 +178,7 @@ test('only the verified platform admin can activate a paid subscription and writ
   const expiry = '2026-12-24T00:00:00.000Z';
   const batch = writeBatch(adminDb);
   batch.update(doc(adminDb, 'subscriptionApplications', 'sub-admin-test'), { status: 'approved', verifiedUntil: expiry, reviewedAt: Timestamp.now(), reviewedBy: 'admin-1' });
-  batch.update(doc(adminDb, 'properties', 'active-property'), { subscriptionStatus: 'active', subscriptionPlan: 'standard_1000', subscriptionPrice: 1000, subscriptionExpiresAt: expiry, subscriptionExpiryDate: expiry });
+  batch.update(doc(adminDb, 'properties', 'active-property'), { subscriptionStatus: 'active', subscriptionPlan: 'standard_1000', subscriptionPrice: 1000, subscriptionExpiresAt: expiry, subscriptionExpiresAtTimestamp: Timestamp.fromDate(new Date(expiry)), subscriptionExpiryDate: expiry });
   batch.set(doc(adminDb, 'transactions', 'subscription-sub-admin-test'), { id: 'subscription-sub-admin-test', ownerId: 'owner-1', propertyId: 'active-property', amount: 1000, type: 'standard_1000' });
   await assertSucceeds(batch.commit());
 });

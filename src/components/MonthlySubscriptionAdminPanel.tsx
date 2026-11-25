@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, doc, getDoc, onSnapshot, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
+import { Timestamp } from 'firebase/firestore';
 import { CalendarClock, CheckCircle2, Clock3, MessageCircle, XCircle } from 'lucide-react';
 
 type Application = {
@@ -73,14 +74,14 @@ export const MonthlySubscriptionAdminPanel: React.FC = () => {
     try {
       const propertyRef = doc(db, 'properties', application.propertyId);
       const propertySnapshot = await getDoc(propertyRef);
-      if (!propertySnapshot.exists() || propertySnapshot.data().ownerUid !== application.ownerUid || propertySnapshot.data().status !== 'active') {
+      if (!propertySnapshot.exists() || propertySnapshot.data().ownerUid !== application.ownerUid || !['active', 'hidden_expired'].includes(propertySnapshot.data().status)) {
         setMessage('Property missing, not active, or owner mismatch. Subscription cannot be approved.');
         return;
       }
       const property = propertySnapshot.data();
       const now = new Date();
       const existingExpiry = property.subscriptionExpiresAt || property.subscriptionExpiryDate;
-      const parsedExpiry = existingExpiry ? new Date(existingExpiry) : now;
+      const parsedExpiry = property.subscriptionExpiresAtTimestamp?.toDate?.() || (existingExpiry ? new Date(existingExpiry) : now);
       const renewalBase = Number.isFinite(parsedExpiry.getTime()) && parsedExpiry.getTime() > now.getTime() ? parsedExpiry : now;
       const nextExpiry = addCalendarMonths(renewalBase, 1).toISOString();
       const batch = writeBatch(db);
@@ -88,8 +89,9 @@ export const MonthlySubscriptionAdminPanel: React.FC = () => {
         status: 'approved', verifiedUntil: nextExpiry, reviewedAt: serverTimestamp(), reviewedBy: auth.currentUser.uid,
       });
       batch.update(propertyRef, {
+        status: 'active',
         subscriptionStatus: 'active', subscriptionPlan: 'standard_1000', subscriptionPrice: 1000,
-        subscriptionExpiresAt: nextExpiry, subscriptionExpiryDate: nextExpiry,
+        subscriptionExpiresAt: nextExpiry, subscriptionExpiresAtTimestamp: Timestamp.fromDate(new Date(nextExpiry)), subscriptionExpiryDate: nextExpiry,
       });
       batch.set(doc(db, 'transactions', `subscription-${application.id}`), {
         id: `subscription-${application.id}`, ownerId: application.ownerUid,

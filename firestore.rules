@@ -147,9 +147,11 @@ service cloud.firestore {
         request.resource.data.submittedAt is timestamp &&
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
         get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '') == request.auth.uid &&
-        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('status', '') == 'active' &&
+        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('status', '') in ['active', 'hidden_expired'] &&
         'subscriptionTrialEndsAtTimestamp' in get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data &&
-        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.subscriptionTrialEndsAtTimestamp <= request.time;
+        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.subscriptionTrialEndsAtTimestamp <= request.time &&
+        'subscriptionExpiresAtTimestamp' in get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data &&
+        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.subscriptionExpiresAtTimestamp <= request.time;
 
       allow read: if isAdmin() || (signedIn() && resource.data.ownerUid == request.auth.uid);
       allow update: if isAdmin() || (
@@ -216,7 +218,7 @@ service cloud.firestore {
             'isVerified', 'isFeatured', 'verifiedUntil', 'featuredUntil',
             'rating', 'reviewsCount', 'subscriptionPlan', 'subscriptionPrice',
             'subscriptionStatus', 'subscriptionExpiresAt', 'subscriptionExpiryDate',
-            'subscriptionTrialStartedAt', 'subscriptionTrialEndsAt',
+            'subscriptionTrialStartedAt', 'subscriptionTrialEndsAt', 'subscriptionExpiresAtTimestamp',
             'ownerUid', 'ownerId', 'ownerEmail', 'status'
           ])
         );

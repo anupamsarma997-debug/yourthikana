@@ -4,6 +4,7 @@ import { BadgePercent, Clock3, Wallet, ArrowLeft, ArrowRight, MessageCircle, Che
 import { auth, db } from '../lib/firebase';
 import { Property } from '../types';
 import { PaymentProofShare } from './PaymentProofShare';
+import { isSearchBoostActive } from '../utils/propertyBadges';
 
 type SearchBoostApplication = {
   id: string;
@@ -32,7 +33,7 @@ export const SearchBoostOwnerPanel: React.FC<{ properties: Property[]; selectedP
   const [activeApplicationId, setActiveApplicationId] = useState('');
 
   const eligibleProperties = useMemo(
-    () => properties.filter(property => property.ownerUid === uid && property.status === 'active' && !(property.isFeatured && property.featuredUntil && Date.parse(property.featuredUntil) > Date.now())),
+    () => properties.filter(property => property.ownerUid === uid && property.status === 'active' && !isSearchBoostActive(property)),
     [properties, uid]
   );
 

@@ -4,6 +4,7 @@ import { auth, db } from '../lib/firebase';
 import { Property } from '../types';
 import { CalendarClock, CheckCircle2, Clock3, ArrowLeft, ArrowRight } from 'lucide-react';
 import { PaymentProofShare } from './PaymentProofShare';
+import { isSubscriptionAccessActive } from '../utils/subscriptionAccess';
 
 type Application = {
   id: string;
@@ -33,12 +34,13 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
   const [message, setMessage] = useState('');
 
   const ownedProperties = useMemo(
-    () => properties.filter(property => property.ownerUid === uid && property.status === 'active'),
+    () => properties.filter(property => property.ownerUid === uid && ['active', 'hidden_expired'].includes(property.status)),
     [properties, uid]
   );
 
   const trialProperties = useMemo(
     () => ownedProperties.filter(property => {
+      if (property.subscriptionStatus !== 'trial') return false;
       const end = property.subscriptionTrialEndsAtTimestamp
         ? property.subscriptionTrialEndsAtTimestamp.toDate().getTime()
         : Date.parse(property.subscriptionTrialEndsAt || '');
@@ -47,8 +49,8 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
     [ownedProperties]
   );
   const billableProperties = useMemo(
-    () => ownedProperties.filter(property => !trialProperties.some(trial => trial.id === property.id)),
-    [ownedProperties, trialProperties]
+    () => ownedProperties.filter(property => !isSubscriptionAccessActive(property)),
+    [ownedProperties]
   );
 
   useEffect(() => {
@@ -80,13 +82,12 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
     setBusy(true); setMessage('');
     try {
       const current = await getDoc(doc(db, 'properties', property.id));
-      if (!current.exists() || current.data().ownerUid !== user.uid || current.data().status !== 'active') {
+      if (!current.exists() || current.data().ownerUid !== user.uid || !['active', 'hidden_expired'].includes(current.data().status)) {
         setMessage('Property ownership ya active status verify nahi hua. My Listings refresh karein.');
         return;
       }
-      const trialEndsAt = current.data().subscriptionTrialEndsAtTimestamp;
-      if (trialEndsAt?.toMillis && trialEndsAt.toMillis() > Date.now()) {
-        setMessage('Is property ka 6-month free subscription abhi active hai. Trial khatam hone ke baad hi payment request banegi.');
+      if (isSubscriptionAccessActive(current.data() as Property)) {
+        setMessage('Is property ka free trial ya paid subscription abhi active hai. Expiry ke baad hi payment request banegi.');
         return;
       }
       const applicationRef = doc(collection(db, 'subscriptionApplications'));
@@ -146,7 +147,7 @@ export const MonthlySubscriptionOwnerPanel: React.FC<{ properties: Property[] }>
             {billableProperties.map(property => <option key={property.id} value={property.id}>{property.title} — {property.city}</option>)}
           </select>
           {trialProperties.length > 0 && <div className="space-y-2 rounded-xl border border-emerald-800 bg-emerald-950/30 p-3"><p className="text-sm font-bold text-emerald-300">Your free 6-month trial is active</p>{trialProperties.map(property => <p key={property.id} className="text-xs text-emerald-100">{property.title}: free until {new Date(property.subscriptionTrialEndsAt || '').toLocaleDateString('en-IN')}</p>)}</div>}
-          {ownedProperties.length > 0 && billableProperties.length === 0 && <p className="rounded-xl border border-[#243049] p-3 text-xs text-[#9AA7BD]">All your active properties are currently in their free trial. No payment is due now.</p>}
+          {ownedProperties.length > 0 && billableProperties.length === 0 && <p className="rounded-xl border border-[#243049] p-3 text-xs text-[#9AA7BD]">All your active properties have an active free trial or paid subscription. No payment is due now.</p>}
           <p className="text-xs leading-5 text-[#9AA7BD]">₹1,000 per property for one calendar month. Admin verifies the actual bank credit before changing the property subscription.</p>
           <button type="submit" disabled={busy || !propertyId || !billableProperties.length} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#14B8A6] px-4 py-3 text-base font-extrabold text-[#04201C] disabled:opacity-40">{busy ? 'Creating request…' : 'Create ₹1,000 Subscription Request'} <ArrowRight className="h-5 w-5" /></button>
           <button type="button" onClick={() => setScreen('status')} className="min-h-11 w-full rounded-xl border border-[#3A4866] text-sm font-bold text-white">View existing requests</button>

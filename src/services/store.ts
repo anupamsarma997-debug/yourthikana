@@ -3,6 +3,7 @@ import { INITIAL_USERS, INITIAL_PROPERTIES, INITIAL_ROOMS, INITIAL_BANNERS, INIT
 import { db, auth, isFirebaseConfigured, firebaseConfigError } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, where, getDoc, getDocs, runTransaction, Timestamp } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { isSubscriptionAccessActive } from '../utils/subscriptionAccess';
 
 const STORAGE_KEYS = {
   USERS: 'thikana_users_v1',
@@ -1024,14 +1025,14 @@ class DataStore {
     // Apply the same visibility boundary in the UI as Firestore enforces remotely.
     if (!isFirebaseConfigured) return this.properties;
     const fbUser = auth?.currentUser;
-    if (!fbUser) return this.properties.filter((property) => property.status === 'active');
+    if (!fbUser) return this.properties.filter((property) => property.status === 'active' && isSubscriptionAccessActive(property));
     const verifiedPlatformOwner =
       fbUser.emailVerified &&
       (fbUser.email || '').toLowerCase() === 'anupamsarma997@gmail.com';
     const currentUser = this.getCurrentUser();
     if (verifiedPlatformOwner || currentUser?.role === 'admin') return this.properties;
     return this.properties.filter((property) =>
-      property.status === 'active' || property.ownerUid === fbUser.uid
+      (property.status === 'active' && isSubscriptionAccessActive(property)) || property.ownerUid === fbUser.uid
     );
   }
 
@@ -1233,18 +1234,22 @@ class DataStore {
 
     const prop = this.getPropertyById(id);
     if (!prop) return { success: false, message: 'Property not found.' };
+    if (prop.status === 'hidden_expired' && status === 'active') {
+      return { success: false, message: 'This listing can be reactivated only after the monthly subscription payment is verified and approved.' };
+    }
     if (!db) return { success: false, message: 'Secure database is unavailable. No change was made.' };
 
     try {
       const update: Partial<Property> = { status };
-      if (status === 'active' && !prop.subscriptionTrialEndsAtTimestamp) {
+      if (status === 'active' && (!prop.subscriptionTrialEndsAtTimestamp || !prop.subscriptionExpiresAtTimestamp)) {
         const now = new Date();
         const parsedStart = prop.subscriptionTrialStartedAt
           ? new Date(prop.subscriptionTrialStartedAt)
           : null;
-        const parsedEnd = prop.subscriptionTrialEndsAt
-          ? new Date(prop.subscriptionTrialEndsAt)
-          : null;
+        const legacyExpiry = prop.subscriptionTrialEndsAt || prop.subscriptionExpiresAt || prop.subscriptionExpiryDate;
+        const parsedEnd = legacyExpiry
+          ? new Date(legacyExpiry)
+          : prop.subscriptionTrialEndsAtTimestamp?.toDate?.() || null;
         const validStart = parsedStart && Number.isFinite(parsedStart.getTime()) ? parsedStart : null;
         const validEnd = parsedEnd && Number.isFinite(parsedEnd.getTime()) ? parsedEnd : null;
 
@@ -1265,10 +1270,11 @@ class DataStore {
         update.subscriptionTrialStartedAt = trialStart.toISOString();
         update.subscriptionTrialEndsAt = trialEnd.toISOString();
         update.subscriptionTrialEndsAtTimestamp = Timestamp.fromDate(trialEnd);
-        update.subscriptionStatus = trialEnd.getTime() > now.getTime() ? 'trial' : 'expired';
+        update.subscriptionStatus = prop.subscriptionStatus || (trialEnd.getTime() > now.getTime() ? 'trial' : 'expired');
         update.subscriptionPlan = prop.subscriptionPlan || 'standard_1000';
         update.subscriptionPrice = typeof prop.subscriptionPrice === 'number' ? prop.subscriptionPrice : 1000;
         update.subscriptionExpiresAt = trialEnd.toISOString();
+        update.subscriptionExpiresAtTimestamp = Timestamp.fromDate(trialEnd);
         update.subscriptionExpiryDate = trialEnd.toISOString();
       }
       await setDoc(doc(db, 'properties', id), update, { merge: true });

@@ -84,6 +84,7 @@ export interface Property {
   subscriptionPlan: 'standard_1000' | 'standard_1500' | 'none';
   subscriptionPrice: number;
   subscriptionExpiresAt: string;
+  subscriptionExpiresAtTimestamp?: Timestamp;
   subscriptionExpiryDate?: string;
   subscriptionTrialStartedAt?: string;
   subscriptionTrialEndsAt?: string;

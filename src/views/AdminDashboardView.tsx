@@ -122,7 +122,7 @@ export const AdminDashboardView: React.FC = () => {
     // invoke this effect more than once; the transaction re-check prevents a
     // second run from resetting an already-created six-month trial.
     const legacyTrials = properties.filter(property =>
-      property.status === 'active' && !property.subscriptionTrialEndsAtTimestamp
+      property.status === 'active' && (!property.subscriptionTrialEndsAtTimestamp || !property.subscriptionExpiresAtTimestamp)
     );
 
     legacyTrials.forEach(property => {
@@ -132,15 +132,16 @@ export const AdminDashboardView: React.FC = () => {
         if (!snapshot.exists()) return;
 
         const current = snapshot.data();
-        if (current.status !== 'active' || current.subscriptionTrialEndsAtTimestamp) return;
+        if (current.status !== 'active' || current.subscriptionExpiresAtTimestamp) return;
 
         const now = new Date();
         const parsedStart = current.subscriptionTrialStartedAt
           ? new Date(current.subscriptionTrialStartedAt)
           : null;
-        const parsedEnd = current.subscriptionTrialEndsAt
-          ? new Date(current.subscriptionTrialEndsAt)
-          : null;
+        const legacyExpiry = current.subscriptionTrialEndsAt || current.subscriptionExpiresAt || current.subscriptionExpiryDate;
+        const parsedEnd = legacyExpiry
+          ? new Date(legacyExpiry)
+          : current.subscriptionTrialEndsAtTimestamp?.toDate?.() || null;
         const validStart = parsedStart && Number.isFinite(parsedStart.getTime()) ? parsedStart : null;
         const validEnd = parsedEnd && Number.isFinite(parsedEnd.getTime()) ? parsedEnd : null;
 
@@ -163,10 +164,11 @@ export const AdminDashboardView: React.FC = () => {
           subscriptionTrialStartedAt: trialStart.toISOString(),
           subscriptionTrialEndsAt: trialEnd.toISOString(),
           subscriptionTrialEndsAtTimestamp: Timestamp.fromDate(trialEnd),
-          subscriptionStatus: trialStatus,
+          subscriptionStatus: current.subscriptionStatus || trialStatus,
           subscriptionPlan: current.subscriptionPlan || 'standard_1000',
           subscriptionPrice: typeof current.subscriptionPrice === 'number' ? current.subscriptionPrice : 1000,
           subscriptionExpiresAt: trialEnd.toISOString(),
+          subscriptionExpiresAtTimestamp: Timestamp.fromDate(trialEnd),
           subscriptionExpiryDate: trialEnd.toISOString(),
         });
       }).catch(error => console.error('Legacy subscription trial migration failed:', property.id, error));

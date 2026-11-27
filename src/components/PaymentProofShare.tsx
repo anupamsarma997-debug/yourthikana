@@ -96,7 +96,7 @@ export const PaymentProofShare: React.FC<Props> = ({ amount, title, applicationI
         {shareNotice && <p role="status" className="rounded-xl bg-[#0B302D] p-3 text-xs leading-5 text-[#99F6E4]">{shareNotice}</p>}
         <button type="button" disabled={disabled || busy || !validFile || !validUtr} onClick={submitUtr} className="flex min-h-12 w-full items-center justify-center rounded-[14px] bg-[#2563EB] px-4 py-3 text-sm font-extrabold text-white disabled:opacity-40">{busy ? 'Submitting…' : 'Submit UTR for Admin Review'}</button>
       </div>
-      <p className="text-xs leading-5 text-[#9AA7BD]">Button dabane par Admin WhatsApp (+91 9101280465) chat seedhi khulegi aur payment details message mein bhari hongi. Screenshot Firebase Storage par upload nahi hota: WhatsApp mein + > Gallery se screenshot attach karke Send dabayein. Website delivery confirm nahi kar sakti; Admin bank credit verify karega.</p>
+      <p className="text-xs leading-5 text-[#9AA7BD]">Button dabane par Admin WhatsApp (+91 9101280465) chat seedhi khulegi aur payment details message mein bhari hongi. Screenshot Firebase Storage par upload nahi hota: WhatsApp mein attachment menu se Gallery kholkar screenshot attach karein aur Send dabayein. Website delivery confirm nahi kar sakti; Admin bank credit verify karega.</p>
       {message && <p role="status" aria-live="polite" className="break-words rounded-xl bg-[#30250F] p-3 text-sm text-[#FBBF24]">{message}</p>}
     </section>
   );

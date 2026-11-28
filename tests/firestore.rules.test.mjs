@@ -254,3 +254,38 @@ test('another account cannot claim a duplicate fingerprint for its own property'
     transaction.set(doc(otherDb, 'properties', 'prop-owner-2'), otherProperty);
   }));
 });
+
+
+test('public analytics accepts only bounded visit and lead records for active listings', async () => {
+  const db = env.unauthenticatedContext().firestore();
+  await assertSucceeds(setDoc(doc(db, 'visits', 'visit_test_1'), {
+    id: 'visit_test_1', propertyId: 'active-property', ownerUid: 'owner-1',
+    refId: 'qr-ref-1', timestamp: new Date().toISOString(), source: 'qr_referral',
+  }));
+  await assertSucceeds(setDoc(doc(db, 'leads', 'lead_test_1'), {
+    id: 'lead_test_1', propertyId: 'active-property', ownerUid: 'owner-1',
+    refId: 'direct', customerName: 'Guest Customer',
+    timestamp: new Date().toISOString(), source: 'whatsapp',
+  }));
+});
+
+test('public analytics rejects forged ownership, unsupported source, extra fields, and inactive listings', async () => {
+  const db = env.unauthenticatedContext().firestore();
+  await assertFails(setDoc(doc(db, 'visits', 'visit_bad_owner'), {
+    id: 'visit_bad_owner', propertyId: 'active-property', ownerUid: 'attacker',
+    refId: 'direct', timestamp: new Date().toISOString(), source: 'direct',
+  }));
+  await assertFails(setDoc(doc(db, 'visits', 'visit_bad_source'), {
+    id: 'visit_bad_source', propertyId: 'active-property', ownerUid: 'owner-1',
+    refId: 'direct', timestamp: new Date().toISOString(), source: 'admin',
+  }));
+  await assertFails(setDoc(doc(db, 'leads', 'lead_extra'), {
+    id: 'lead_extra', propertyId: 'active-property', ownerUid: 'owner-1',
+    refId: 'direct', customerName: 'Guest Customer',
+    timestamp: new Date().toISOString(), source: 'direct', injected: true,
+  }));
+  await assertFails(setDoc(doc(db, 'visits', 'visit_pending'), {
+    id: 'visit_pending', propertyId: 'private-property', ownerUid: 'owner-1',
+    refId: 'direct', timestamp: new Date().toISOString(), source: 'direct',
+  }));
+});

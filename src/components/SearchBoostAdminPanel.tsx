@@ -44,6 +44,16 @@ export const SearchBoostAdminPanel: React.FC = () => {
 
   const review = async (application: SearchBoostApplication, approve: boolean) => {
     if (!db || !auth?.currentUser) return;
+    // Never let the approval action itself mark an unverified UTR as paid.
+    // Payment must first be independently confirmed and recorded by the admin.
+    if (approve && (application.paymentStatus !== 'verified' || !application.paymentUtr || !paymentChecked[application.id])) {
+      setMessage('Payment approval is blocked. First verify the UTR against the actual bank/UPI credit, then confirm the payment checkbox.');
+      return;
+    }
+    if (approve && application.status !== 'pending') {
+      setMessage('Only a pending Search Boost application can be activated.');
+      return;
+    }
     setBusyId(application.id);
     setMessage('');
     try {
@@ -62,7 +72,7 @@ export const SearchBoostAdminPanel: React.FC = () => {
         const featuredUntil = addCalendarMonth(renewalBase).toISOString();
         batch.update(applicationRef, {
           status: 'approved',
-          paymentStatus: 'verified',
+          // paymentStatus is already verified by the separate payment-review action.
           reviewedAt: now.toISOString(),
           reviewedBy: auth.currentUser.uid,
           featuredUntil,
@@ -116,7 +126,7 @@ export const SearchBoostAdminPanel: React.FC = () => {
           <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="text-sm font-extrabold text-slate-900 dark:text-white">{application.propertyTitle}</h3><p className="text-[11px] text-slate-500">Property: {application.propertyId} · Owner UID: {application.ownerUid}</p><p className="text-xs font-bold text-amber-700 dark:text-amber-300">Payment UTR: {application.paymentUtr}</p></div><span className="rounded-lg bg-slate-100 dark:bg-slate-700 px-2 py-1 text-[10px] font-black uppercase">{application.status} / {application.paymentStatus}</span></div>
           <p className="text-xs text-slate-600 dark:text-slate-300">Payment screenshot Storage mein save nahi hota. Owner ko WhatsApp par screenshot bhejna hai; application ID aur UTR match karke verify karein.</p>
           <div className="rounded-xl bg-slate-50 dark:bg-slate-900 p-3 text-xs space-y-2"><p className="font-bold text-slate-700 dark:text-slate-200">Manual property-proof review — WhatsApp</p><p>Application ID: <strong>{application.id}</strong>. Owner se proof documents WhatsApp par receive karke property details se match karein.</p><a href={`https://wa.me/919101280465?text=${encodeURIComponent('Please check Search Boost proof for application '+application.id)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-bold text-green-700"><MessageCircle className="w-4 h-4" />Open WhatsApp</a>{application.status === 'pending' && <><label className="flex items-center gap-2"><input type="checkbox" checked={!!proofChecked[application.id]} onChange={(event) => setProofChecked((old) => ({...old,[application.id]:event.target.checked}))} />I received and checked the property proof documents.</label><label className="flex items-center gap-2"><input type="checkbox" checked={!!paymentChecked[application.id]} onChange={(event) => setPaymentChecked((old) => ({...old,[application.id]:event.target.checked}))} />I independently confirmed ₹500 bank/UPI credit.</label></>}</div>
-          {application.status === 'pending' && <div className="flex flex-wrap gap-2"><button type="button" disabled={busyId === application.id || !proofChecked[application.id] || !paymentChecked[application.id]} onClick={() => review(application, true)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><CheckCircle2 className="w-4 h-4" />Confirm ₹500 credit & activate</button><button type="button" disabled={busyId === application.id} onClick={() => review(application, false)} className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><XCircle className="w-4 h-4" />Reject</button></div>}
+          {application.status === 'pending' && <div className="flex flex-wrap gap-2"><button type="button" disabled={busyId === application.id || !proofChecked[application.id] || !paymentChecked[application.id] || application.paymentStatus !== 'verified' || !application.paymentUtr} onClick={() => review(application, true)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><CheckCircle2 className="w-4 h-4" />Confirm ₹500 credit & activate</button><button type="button" disabled={busyId === application.id} onClick={() => review(application, false)} className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white disabled:opacity-50"><XCircle className="w-4 h-4" />Reject</button></div>}
           {application.featuredUntil && <p className="text-xs text-slate-500">Boost valid until: {new Date(application.featuredUntil).toLocaleDateString('en-IN')}</p>}
         </article>
       ))}

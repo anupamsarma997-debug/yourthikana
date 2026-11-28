@@ -256,10 +256,27 @@ service cloud.firestore {
          request.resource.data.ownerUid == resource.data.ownerUid);
     }
 
+    // Public analytics writes are intentionally narrow: only active listings,
+    // exact client-generated fields, bounded strings, and a known source enum.
+    // This reduces forged owner attribution and oversized payload abuse.
     match /visits/{visitId} {
-      allow create: if request.resource.data.keys().hasAll(['propertyId', 'ownerUid', 'refId', 'timestamp', 'source']) &&
+      allow create: if request.resource.data.keys().hasAll([
+          'id', 'propertyId', 'ownerUid', 'refId', 'timestamp', 'source'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'id', 'propertyId', 'ownerUid', 'refId', 'timestamp', 'source'
+        ]) &&
+        request.resource.data.id == visitId &&
         request.resource.data.propertyId is string &&
+        request.resource.data.propertyId.size() > 0 &&
+        request.resource.data.ownerUid is string &&
+        request.resource.data.refId is string &&
+        request.resource.data.refId.size() <= 120 &&
+        request.resource.data.timestamp is string &&
+        request.resource.data.timestamp.size() <= 40 &&
+        request.resource.data.source in ['qr_referral', 'direct', 'search'] &&
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
+        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('status', '') == 'active' &&
         request.resource.data.ownerUid ==
           get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '');
       allow read: if isAdmin() || (signedIn() && resource.data.get('ownerUid', '') == request.auth.uid);
@@ -267,9 +284,25 @@ service cloud.firestore {
     }
 
     match /leads/{leadId} {
-      allow create: if request.resource.data.keys().hasAll(['propertyId', 'ownerUid', 'refId', 'timestamp', 'source']) &&
+      allow create: if request.resource.data.keys().hasAll([
+          'id', 'propertyId', 'ownerUid', 'refId', 'customerName', 'timestamp', 'source'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'id', 'propertyId', 'ownerUid', 'refId', 'customerName', 'timestamp', 'source'
+        ]) &&
+        request.resource.data.id == leadId &&
         request.resource.data.propertyId is string &&
+        request.resource.data.propertyId.size() > 0 &&
+        request.resource.data.ownerUid is string &&
+        request.resource.data.refId is string &&
+        request.resource.data.refId.size() <= 120 &&
+        request.resource.data.customerName is string &&
+        request.resource.data.customerName.size() <= 100 &&
+        request.resource.data.timestamp is string &&
+        request.resource.data.timestamp.size() <= 40 &&
+        request.resource.data.source in ['qr_referral', 'direct', 'whatsapp'] &&
         exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
+        get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('status', '') == 'active' &&
         request.resource.data.ownerUid ==
           get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.get('ownerUid', '');
       allow read: if isAdmin() || (signedIn() && resource.data.get('ownerUid', '') == request.auth.uid);
